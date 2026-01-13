@@ -358,6 +358,10 @@ class PmdlPartsApp(ctk.CTk):
         self.geometry("880x550")
         self.minsize(540, 540)
 
+        # Interceptar cierre de la ventana
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
+
+
         # Estado del PMDL Principal
         self._blob: Optional[bytearray] = None
         self._hdr: Optional[PmdlHeader] = None
@@ -446,6 +450,14 @@ class PmdlPartsApp(ctk.CTk):
         self.status_var = tk.StringVar(value="Creado por Los ijue30s")
         status_lbl = ctk.CTkLabel(bottom, textvariable=self.status_var, anchor="w")
         status_lbl.pack(side="left", padx=8, pady=6)
+
+    # ------------ confirmacion para cierre de la app ------------
+    def on_close(self):
+        if messagebox.askyesno(
+                "Salir",
+                "¿Estas seguro de que deseas cerrar la aplicacion?"
+        ):
+            self.destroy()  # Cierra la app
 
     # ------------ Carga / Render ------------
 
@@ -611,6 +623,14 @@ class PmdlPartsApp(ctk.CTk):
     def on_save(self):
         if self._blob is None or self._hdr is None or not self._parts or not self._path:
             messagebox.showinfo("Info", "Abre primero un archivo .pmdl.")
+            return
+
+        confirm = messagebox.askyesno(
+            "Confirmar guardado",
+            "¿Estas seguro de que deseas guardar el archivo?"
+        )
+
+        if not confirm:
             return
 
         self._sync_parts_from_ui()
