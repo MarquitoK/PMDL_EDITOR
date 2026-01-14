@@ -402,7 +402,7 @@ class PmdlPartsApp(ctk.CTk):
         self.path_entry = ctk.CTkEntry(top_left, placeholder_text="Ruta .pmdl", width=160, font=("Segoe UI", 12), state="disabled")
         self.path_entry.pack(side="left", padx=(6, 4), pady=4)
         # tooltip de ruta completa del archivo
-        self.tooltip_path_entry = ToolTip(self.path_entry, "Ruta del archivo PMDL cargado")
+        self.tooltip_path_entry = ToolTip(self.path_entry, "Ruta del archivo .pmdl cargado")
 
         open_btn = ctk.CTkButton(top_left, text="Importar PMDL", width=110, height=btn_h, font=("Segoe UI", 12),
                                  command=self.on_open_file)
@@ -443,7 +443,7 @@ class PmdlPartsApp(ctk.CTk):
                                         font=("Segoe UI", 12), state="disabled")
         self.path2_entry.pack(side="left", padx=(6, 4), pady=4)
         # tooltip de ruta completa del archivo
-        self.tooltip_path2_entry = ToolTip(self.path2_entry, "Ruta del segundo archivo PMDL cargado")
+        self.tooltip_path2_entry = ToolTip(self.path2_entry, "Ruta del segundo archivo .pmdl cargado")
 
         open2_btn = ctk.CTkButton(top_right, text="Importar PMDL secundario", width=180, height=btn_h, font=("Segoe UI", 12),
                                   command=self.on_open_file_secondary)
