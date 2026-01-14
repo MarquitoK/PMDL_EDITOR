@@ -358,6 +358,12 @@ class PmdlPartsApp(ctk.CTk):
         self.geometry("880x550")
         self.minsize(540, 540)
 
+        # Forzar cálculo real del tamaño
+        self.update_idletasks()
+
+        # Centrar ventana
+        self.center_window(880, 550)
+
         # Interceptar cierre de la ventana
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -458,6 +464,15 @@ class PmdlPartsApp(ctk.CTk):
                 "¿Estas seguro de que deseas cerrar la aplicacion?"
         ):
             self.destroy()  # Cierra la app
+
+    def center_window(self, width, height):
+        screen_w = self.winfo_screenwidth()
+        screen_h = self.winfo_screenheight()
+
+        x = (screen_w // 2) - (width // 2)
+        y = (screen_h // 2) - (height // 2)
+
+        self.geometry(f"{width}x{height}+{x}+{y}")
 
     # ------------ Carga / Render ------------
 
@@ -625,11 +640,11 @@ class PmdlPartsApp(ctk.CTk):
             messagebox.showinfo("Info", "Abre primero un archivo .pmdl.")
             return
 
+        # confirmacion antes de escribir em el archivo original
         confirm = messagebox.askyesno(
             "Confirmar guardado",
             "¿Estas seguro de que deseas guardar el archivo?"
         )
-
         if not confirm:
             return
 
