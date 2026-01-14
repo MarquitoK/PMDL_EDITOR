@@ -5,6 +5,8 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 from dataclasses import dataclass
 from typing import List, Optional
+from app.ui.tooltip import ToolTip
+
 
 APP_TITLE = "Pmdl Editor (TTT) · By Los ijue30s · v1.4.1"
 UI_FONT = ("Segoe UI", 12)
@@ -399,6 +401,8 @@ class PmdlPartsApp(ctk.CTk):
         btn_h = 26
         self.path_entry = ctk.CTkEntry(top_left, placeholder_text="Ruta .pmdl", width=160, font=("Segoe UI", 12), state="disabled")
         self.path_entry.pack(side="left", padx=(6, 4), pady=4)
+        # tooltip de ruta completa del archivo
+        self.tooltip_path_entry = ToolTip(self.path_entry, "Ruta del archivo .pmdl cargado")
 
         open_btn = ctk.CTkButton(top_left, text="Importar PMDL", width=110, height=btn_h, font=("Segoe UI", 12),
                                  command=self.on_open_file)
@@ -438,6 +442,8 @@ class PmdlPartsApp(ctk.CTk):
         self.path2_entry = ctk.CTkEntry(top_right, placeholder_text="Ruta .pmdl secundario", width=160,
                                         font=("Segoe UI", 12), state="disabled")
         self.path2_entry.pack(side="left", padx=(6, 4), pady=4)
+        # tooltip de ruta completa del archivo
+        self.tooltip_path2_entry = ToolTip(self.path2_entry, "Ruta del segundo archivo .pmdl cargado")
 
         open2_btn = ctk.CTkButton(top_right, text="Importar PMDL secundario", width=180, height=btn_h, font=("Segoe UI", 12),
                                   command=self.on_open_file_secondary)
@@ -505,6 +511,7 @@ class PmdlPartsApp(ctk.CTk):
         self.path_entry.delete(0, tk.END)
         self.path_entry.insert(0, os.path.basename(path))
         self.path_entry.configure(state="disabled")
+        self.tooltip_path_entry.change_text(path)
 
         self.parts_table.show_top_controls(self._hdr.part_count, self.on_import_part)
         self.parts_table.populate(self._parts)
@@ -988,6 +995,7 @@ class PmdlPartsApp(ctk.CTk):
         self.path2_entry.delete(0, tk.END)
         self.path2_entry.insert(0, os.path.basename(path))
         self.path2_entry.configure(state="disabled")
+        self.tooltip_path2_entry.change_text(path)
 
         # Poblar tabla sólo lectura
         self.parts2_table.populate(self._parts2)
