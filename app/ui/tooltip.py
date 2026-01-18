@@ -1,5 +1,3 @@
-from ast import Str
-
 import customtkinter as ctk
 
 class ToolTip:
