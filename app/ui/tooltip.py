@@ -1,4 +1,5 @@
 import customtkinter as ctk
+from pathlib import Path
 
 class ToolTip:
     def __init__(self, widget, text:str):
@@ -10,7 +11,7 @@ class ToolTip:
         widget.bind("<Leave>", self.hide)
 
     def change_text(self, text:str):
-        self.text = text
+        self.text = self.__user_hide(text)
 
     def show(self, event=None):
         if self.tip:
@@ -41,3 +42,13 @@ class ToolTip:
         if self.tip:
             self.tip.destroy()
             self.tip = None
+
+    def __user_hide(self, path_str:str):
+        p = Path(path_str)
+        home = Path.home()
+
+        try:
+            rel = p.relative_to(home)
+            return f"{p.drive}\\~\\{rel}".replace("\\", "/")
+        except ValueError:
+            return path_str.replace("\\", "/")
