@@ -1,4 +1,5 @@
 # PMDL Editor
+[![Python](https://img.shields.io/badge/Python-3.10-blue)](https://www.python.org/downloads/release/python-310/)
 
 PMDL Editor es una herramienta de escritorio desarrollada en Python para visualizar, editar y gestionar archivos **PMDL**, usados en el modding de modelos para juegos de PSP.
 
