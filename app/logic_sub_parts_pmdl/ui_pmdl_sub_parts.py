@@ -1,14 +1,16 @@
 import os
+import struct
 import tkinter as tk
+from pathlib import Path
 from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
-from app.core.operations import export_part
+from app.core.operations import export_part, replace_part
 from app.logic_sub_parts_pmdl.scrollable_option_menu import ScrollableOptionMenu
 from app.logic_sub_parts_pmdl.sub_parts_index import parse_subparts_index
-from app.logic_sub_parts_pmdl.operations import calc_subpart_size, export_sub_part
+from app.logic_sub_parts_pmdl.operations import calc_subpart_size, export_sub_part, import_sub_part, align_16
 
-APP_TITLE = "Pmdl Editor - Multi-Select Table"
+APP_TITLE = "Pmdl Editor - SubParts"
 UI_FONT = ("Segoe UI", 12)
 GRID_FONT = ("Consolas", 15)
 SEL_COLOR = "#1F538D"
@@ -19,7 +21,7 @@ class MultiSelectTable(ctk.CTkFrame):
                  parent_app=None, path=0, **kwargs):
         super().__init__(master, fg_color="transparent", **kwargs)
 
-        self.parent_app = parent_app
+        self.parent_app = parent_app # clase controllers/app_controller
         self.path = path          # 0 = izquierda, 1 = derecha
         self.path_name = None
 
@@ -63,7 +65,8 @@ class MultiSelectTable(ctk.CTkFrame):
     # HELPERS
     # =========================
     def _get_blob(self):
-        return self.parent_app._blob if self.path == 0 else self.parent_app._blob2
+        # return self.parent_app._blob if self.path == 0 else self.parent_app._blob2
+        return self.master.master._blobs if self.path == 0 else self.master.master._blobs2
 
     def _get_parts(self):
         return self.parent_app._parts if self.path == 0 else self.parent_app._parts2
@@ -74,6 +77,12 @@ class MultiSelectTable(ctk.CTkFrame):
             if self.path == 0
             else self.master.master._sub_parts2
         )
+
+    def get_selected_row_indices(self) -> list[int]:
+        """
+        Devuelve una lista ordenada de filas seleccionadas.
+        """
+        return sorted(self.selected_rows)
 
     def _get_selected_row_index(self):
         if len(self.selected_rows) != 1:
@@ -210,6 +219,8 @@ class MultiSelectTable(ctk.CTkFrame):
         if self.path == 0:
             menu.add_command(label="Importar Subpart", command=self._import_subparts)
             menu.add_command(label="Insertar Subpart", command=self._insert_subparts)
+        else:
+            menu.add_command(label="Agregar selecciones", command=self._add_subparts)
 
         menu.tk_popup(event.x_root, event.y_root)
 
@@ -217,7 +228,7 @@ class MultiSelectTable(ctk.CTkFrame):
     # OPERATIONS
     # =========================
     def _export_subparts(self):
-        row_idx = self._get_selected_row_index()
+        row_idx = self.get_selected_row_indices()
         if row_idx is None:
             return
 
@@ -226,44 +237,158 @@ class MultiSelectTable(ctk.CTkFrame):
                 os.path.basename(self.parent_app._path if self.path == 0 else self.parent_app._path2)
             )[0]
 
+            messagebox.showinfo("Informacion", f"Se exportaran las siguientes subpartes\n{row_idx}\ndel pmdl: {base}")
+
             part_idx = (
                 self.master.master._index_opt_left
                 if self.path == 0
                 else self.master.master._index_opt_right
             )
 
-            filename = f"{base}_parte_{part_idx:02}_subparte_{row_idx:02}.tttsubpart"
+            # ==============================
+            # exportar un solo archivo
+            # ==============================
+            if len(row_idx) == 1:
+                filename = f"{base}_parte_{part_idx:02}_subparte_{row_idx[0]:02}.tttsubpart"
+                out_path = filedialog.asksaveasfilename(
+                    title="Exportar Subparte",
+                    defaultextension=".tttsubpart",
+                    initialfile=filename,
+                    filetypes=[("TTT SubPart", "*.tttsubpart")]
+                )
 
-            out_path = filedialog.asksaveasfilename(
-                title="Exportar Subparte",
-                defaultextension=".tttsubpart",
-                initialfile=filename,
-                filetypes=[("TTT SubPart", "*.tttsubpart")]
+                subpart_dat = self._get_subparts()[part_idx][row_idx[0]]
+                # datos en bytes de la subparte
+                chunk = export_sub_part(
+                    self._get_blob(),
+                    part_idx,
+                    subpart_dat
+                )
+                dat = bytearray(b'\x00' * 0x10)
+                struct.pack_into("<H", dat, 0, subpart_dat.num_vertices)
+                struct.pack_into("<H", dat, 2, subpart_dat.num_bones)
+                struct.pack_into("<4B", dat, 4, *subpart_dat.id_bones)
+                struct.pack_into("<I", dat, 8, subpart_dat.unk)
+                chunk = dat + chunk
+
+                with open(out_path, "wb") as f:
+                    f.write(chunk)
+
+                messagebox.showinfo("Exportado", f"SubParte {row_idx[0]:02} exportada")
+                return
+
+            # ==============================
+            # guardar varios archivos
+            # ==============================
+
+            out_path = filedialog.askdirectory(
+                title="Exportar Subpartes en directorio",
             )
 
             if not out_path:
                 return
 
-            chunk = export_sub_part(
-                self._get_blob(),
-                self._get_parts()[part_idx],
-                self._get_subparts()[part_idx][row_idx]
-            )
+            for i in row_idx:
+                filename = f"{base}_parte_{part_idx:02}_subparte_{i:02}.tttsubpart"
 
-            with open(out_path, "wb") as f:
-                f.write(chunk)
+                subpart_dat = self._get_subparts()[part_idx][i]
+                chunk = export_sub_part(
+                    self._get_blob(),
+                    part_idx,
+                    subpart_dat
+                )
 
-            messagebox.showinfo("Exportado", f"SubParte {row_idx:02} exportada")
+                dat = bytearray(b'\x00' * 0x10)
+                struct.pack_into("<H", dat, 0, subpart_dat.num_vertices)
+                struct.pack_into("<H", dat, 2, subpart_dat.num_bones)
+                struct.pack_into("<4B", dat, 4, *subpart_dat.id_bones)
+                struct.pack_into("<I", dat, 8, subpart_dat.unk)
+                chunk = dat + chunk
+
+                with open(Path(out_path, filename), "wb") as f:
+                    f.write(chunk)
+
+            messagebox.showinfo("Exportado", f"SubPartes\n{row_idx}\nexportadas")
             # self.parent_app.status_var.set(f"SubParte {row_idx:02} exportada.")
 
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
     def _import_subparts(self):
-        pass
+        part_idx = self.master.master._index_opt_left
+
+        row_idx = self.get_selected_row_indices()
+        if row_idx is None:
+            return
+
+        path_subpart = filedialog.askopenfilename(
+            title="Importar Subparte",
+            initialdir=".",
+            filetypes=[("Archivos SubPart", "*.tttsubpart"),
+                       ("Todos los archivos", "*.*")]
+        )
+
+        if path_subpart is None:
+            return
+
+        with open(path_subpart, "rb") as f:
+            chunk = f.read()
+            chunk =  bytearray(chunk)
+
+            # datos de la subparte
+            dat_chunk = chunk[:0x10]
+            chunk = chunk[0x10:]
+
+        if len(chunk) == 0:
+            raise ValueError("La subpart importada esta vacia")
+
+        # blob de las partes en bytes
+        blob = self._get_blob()
+        part_dat = self._get_subparts()[part_idx][row_idx[0]]
+        data_part, cant = import_sub_part(
+            blob,
+            part_idx,
+            part_dat,
+            chunk
+        )
+        # actualizar offset de las subparts
+        parts = self._get_subparts()[part_idx]
+        for i in range(part_idx + 1, len(parts)):
+            parts[i].sub_part_offset+=cant
+
+        # actualizar valores de la subparte
+        num_vertices, = struct.unpack_from("<H", dat_chunk,0)
+        num_bones, = struct.unpack_from("<H", dat_chunk,2)
+        id_bones = list(struct.unpack_from("<4B", dat_chunk, 4))
+        unk, = struct.unpack_from("<I", dat_chunk, 8)
+
+        part_dat.num_vertices = num_vertices
+        part_dat.num_bones = num_bones
+        part_dat.id_bones = id_bones
+        part_dat.unk = unk
+
+        # obtener el tamaño de la subparte final
+        size_part_end = calc_subpart_size(parts[-1].num_vertices, parts[-1].num_bones)
+
+        # quitar los residuos al final de la parte y alinear a 16
+        data_part = data_part[:parts[-1].sub_part_offset + size_part_end]
+        align_16(data_part)
+
+        # actualizar el blob dict
+        blob[part_idx] = data_part
+
+        # añadir los cambios al modelo
+        replace_part(self.parent_app._blob, self.parent_app._hdr, self.parent_app._parts, data_part, part_idx)
+
+        messagebox.showinfo("Importado", f"SubParte importada")
+
 
     def _insert_subparts(self):
         pass
+
+    def _add_subparts(self):
+        pass
+
 
     # =========================
     # PANEL UPDATE
@@ -276,7 +401,7 @@ class MultiSelectTable(ctk.CTkFrame):
         path = self.parent_app._path if self.path == 0 else self.parent_app._path2
         self.path_name = os.path.basename(path) if path else "--"
 
-        ui = self.master.master
+        ui = self.master.master # clase UiSubparts
         ui.label_name_part.configure(text=f"Pmdl: {self.path_name}")
         ui.label_name_subpart.configure(text=f"SubPart: {row_idx:02}")
 
@@ -285,6 +410,7 @@ class MultiSelectTable(ctk.CTkFrame):
         ][row_idx]
 
         ui.opt_huesos.set(f"{entry.num_bones:02}")
+        ui.on_huesos_changed(f"{entry.num_bones:02}")
 
         for i, e in enumerate(ui.entry_huesos):
             e.delete(0, "end")
@@ -301,7 +427,7 @@ class UiSubparts(ctk.CTkToplevel):
         super().__init__(master, **kwargs)
 
         self.title(APP_TITLE)
-        self.geometry("1100x600")
+        self.geometry("1200x600")
 
         self.grid_columnconfigure((0, 2), weight=1)
         self.grid_columnconfigure(1, weight=0, minsize=220)
@@ -309,6 +435,9 @@ class UiSubparts(ctk.CTkToplevel):
 
         self._sub_parts = []
         self._sub_parts2 = []
+
+        self._blobs = {}
+        self._blobs2 = {}
 
         self._index_opt_left = 0
         self._index_opt_right = 0
@@ -342,83 +471,138 @@ class UiSubparts(ctk.CTkToplevel):
         self.tab_left.grid(row=1, column=0, sticky="nsew")
 
         # =========================
-        # PANEL CENTRAL
+        # PANEL CENTRAL (MEJORADO)
         # =========================
-        self.panel_mid = ctk.CTkFrame(self, fg_color="transparent")
-        self.panel_mid.grid(row=0, column=1, pady=20)
+        self.panel_mid = ctk.CTkFrame(
+            self,
+            fg_color="#242424",
+            corner_radius=12
+        )
+        self.panel_mid.grid(row=0, column=1, padx=10, pady=20, sticky="n")
+        self.panel_mid.grid_columnconfigure(0, weight=1)
+
+        # ========= HEADER =========
+        header = ctk.CTkFrame(self.panel_mid, fg_color="transparent")
+        header.grid(row=0, column=0, pady=(10, 15))
 
         self.label_name_part = ctk.CTkLabel(
-            self.panel_mid,
-            text="Part: --",
+            header,
+            text="Pmdl: --",
             font=("Segoe UI", 16, "bold")
         )
-        self.label_name_part.pack(pady=10)
+        self.label_name_part.pack()
 
         self.label_name_subpart = ctk.CTkLabel(
-            self.panel_mid,
+            header,
             text="SubPart: --",
-            font=("Segoe UI", 16, "bold")
+            font=("Segoe UI", 14)
         )
-        self.label_name_subpart.pack(pady=10)
+        self.label_name_subpart.pack()
 
-        self.frame_num_huesos = ctk.CTkFrame(self.panel_mid, fg_color="transparent")
-        self.frame_num_huesos.pack(pady=10)
+        # ========= CARD CONFIG =========
+        card_cfg = ctk.CTkFrame(
+            self.panel_mid,
+            fg_color="#2B2B2B",
+            corner_radius=10
+        )
+        card_cfg.grid(row=1, column=0, padx=15, pady=10, sticky="ew")
+        card_cfg.grid_columnconfigure(1, weight=1)
 
         ctk.CTkLabel(
-            self.frame_num_huesos,
+            card_cfg,
+            text="Configuración",
+            font=("Segoe UI", 14, "bold")
+        ).grid(row=0, column=0, columnspan=2, pady=(8, 12))
+
+        # N° huesos
+        ctk.CTkLabel(
+            card_cfg,
             text="N° huesos:",
-            font=("Segoe UI", 16, "bold")
-        ).pack(side="left", padx=(0, 6))
+            font=("Segoe UI", 13)
+        ).grid(row=1, column=0, sticky="w", padx=10)
 
         self.opt_huesos = ctk.CTkOptionMenu(
-            self.frame_num_huesos,
+            card_cfg,
             values=["01", "02", "03", "04"],
-            width=60
+            width=70,
+            command=self.on_huesos_changed
         )
-        self.opt_huesos.pack(side="left")
+        self.opt_huesos.grid(row=1, column=1, sticky="e", padx=10)
         self.opt_huesos.set("01")
 
+        # IDS
         ctk.CTkLabel(
-            self.panel_mid,
-            text="IDS",
-            font=("Segoe UI", 16, "bold")
-        ).pack(pady=10, anchor="w")
+            card_cfg,
+            text="IDs:",
+            font=("Segoe UI", 13)
+        ).grid(row=2, column=0, sticky="nw", padx=10, pady=(10, 0))
 
-        self.frame_huesos = ctk.CTkFrame(self.panel_mid, fg_color="transparent")
-        self.frame_huesos.pack(pady=10)
+        ids_frame = ctk.CTkFrame(card_cfg, fg_color="transparent")
+        ids_frame.grid(row=2, column=1, sticky="e", padx=10, pady=(10, 0))
 
         self.entry_huesos = []
         for i in range(4):
             entry = ctk.CTkEntry(
-                self.frame_huesos,
-                placeholder_text=f"ID {i + 1}",
-                width=35
+                ids_frame,
+                placeholder_text=f"{i + 1}",
+                width=38,
+                justify="center"
             )
-            entry.pack(side="left", padx=5)
+            entry.pack(side="left", padx=3)
             self.entry_huesos.append(entry)
 
+        # UNK
+        ctk.CTkLabel(
+            card_cfg,
+            text="UNK:",
+            font=("Segoe UI", 13)
+        ).grid(row=3, column=0, sticky="w", padx=10, pady=10)
+
         self.entry_unk = ctk.CTkEntry(
-            self.panel_mid,
+            card_cfg,
             placeholder_text="01 C3 00 12",
-            width=80
+            width=110
         )
-        self.entry_unk.pack(pady=10)
+        self.entry_unk.grid(row=3, column=1, sticky="e", padx=10, pady=10)
+
+        # ========= CARD ACTIONS =========
+        card_actions = ctk.CTkFrame(
+            self.panel_mid,
+            fg_color="#2B2B2B",
+            corner_radius=10
+        )
+        card_actions.grid(row=2, column=0, padx=15, pady=10, sticky="ew")
+        card_actions.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            card_actions,
+            text="Acciones",
+            font=("Segoe UI", 14, "bold")
+        ).pack(pady=(8, 12))
 
         self.btn_left_load = ctk.CTkButton(
-            self.panel_mid,
+            card_actions,
             text="Cargar",
-            width=100,
+            width=120,
             command=self.get_data_subpart
         )
-        self.btn_left_load.pack(pady=10)
+        self.btn_left_load.pack(pady=5)
 
         self.btn_right_load = ctk.CTkButton(
-            self.panel_mid,
+            card_actions,
             text="Cargar 2",
-            width=100,
-            command=lambda : self.get_data_subpart(1)
+            width=120,
+            command=lambda: self.get_data_subpart(1)
         )
-        self.btn_right_load.pack(pady=10)
+        self.btn_right_load.pack(pady=(0, 10))
+
+        self.btn_save_part = ctk.CTkButton(
+            card_actions,
+            text="Guardar cambios",
+            width=120,
+            command=self.on_save_part
+        )
+        self.btn_save_part.pack(pady=(0, 10))
 
         # =========================
         # CONTENEDOR DERECHO
@@ -467,8 +651,12 @@ class UiSubparts(ctk.CTkToplevel):
             data_part = export_part(self.master._blob if pmdl == 0 else self.master._blob2,
                                     self.master._parts[id_part] if pmdl == 0 else self.master._parts2[id_part])
 
-            self._sub_parts.append(parse_subparts_index(data_part)) if pmdl == 0 \
-                else self._sub_parts2.append(parse_subparts_index(data_part))
+            if pmdl == 0:
+                self._sub_parts.append(parse_subparts_index(data_part))
+                self._blobs[f"{id_part}"] = data_part
+            else:
+                self._sub_parts2.append(parse_subparts_index(data_part))
+                self._blobs2[f"{id_part}"] = data_part
 
             capa_v = self.master._parts[id_part].part_id if pmdl == 0 else self.master._parts2[id_part].part_id
             name_parts.append(f"Part: {id_part:02} - Capa: {capa_v:02X}")
@@ -503,3 +691,22 @@ class UiSubparts(ctk.CTkToplevel):
             self._index_opt_right
         )
 
+    def on_huesos_changed(self, value: str):
+        for i in range(4):
+            if i < int(value):
+                self.entry_huesos[i].pack(side="left", padx=3)
+            else:
+                self.entry_huesos[i].pack_forget()
+
+    def on_save_part(self):
+        try:
+            # guardar la id de la parte actual
+            id_part = self._index_opt_left
+
+            # datos de la parte en bytes
+            part_data = self._sub_parts[0][id_part].blob_subpart
+            replace_part(self.master._blob, self.master._hdr, self.master._parts, part_data, id_part)
+
+            messagebox.showinfo("Guardado", f"cambios guardados en ememorio")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))

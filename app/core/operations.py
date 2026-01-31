@@ -172,6 +172,52 @@ def import_part(blob: bytearray, hdr: PmdlHeader, parts: List[PartIndexEntry], n
     
     return new_offset, new_length
 
+def replace_part(blob: bytearray, hdr: PmdlHeader, parts: List[PartIndexEntry], part_data: bytearray, id_part: int):
+    """
+    Reemplaza una parte del pmdl
+
+    Args:
+        id_part: parte del pmdl modificado.
+        part_data: datos de la parte modificada.
+
+    """
+    indexs_offsets = hdr.parts_index_offset
+    offset_part = parts[id_part].part_offset
+    long_part = parts[id_part].part_length
+
+    # reemplazar la parte modificada
+    offset_part_end = offset_part + long_part
+    blob = blob[:offset_part] + part_data + blob[offset_part_end:]
+
+    # nueva longitud
+    long_part = len(parts)
+    parts[id_part].part_length = long_part
+
+    # offset end nuevo
+    offset_end_new = offset_part + long_part
+    # cantidad a sumar o restar
+    cant = offset_end_new - offset_part_end
+
+    # arreglar offsets
+    for id_p in range(id_part + 1, len(parts)):
+        # if id_p > id_part:
+        #     parts[id_p].part_offset += cant
+        parts[id_p].part_offset += cant
+
+    for i in range(len(parts)):
+        indexs_offsets += i * 0x20
+
+        offset_new = bytearray()
+        long = bytearray()
+
+        # escribir offset y longitudes
+        offset_new += struct.pack("<I", parts[i].part_offset)
+        long += struct.pack("<I", parts[i].part_length)
+
+        blob = blob[:indexs_offsets + 4] + offset_new + long + blob[indexs_offsets + 0xc:]
+
+    return parts
+
 
 def add_part_from_secondary(blob_dest: bytearray, hdr_dest: PmdlHeader, parts_dest: List[PartIndexEntry],
                             blob_src: bytearray, part_src: PartIndexEntry):
