@@ -39,7 +39,7 @@ def import_sub_part(blob: bytearray, part: int, subpart: SubPartIndexEntry, data
     size = calc_subpart_size(subpart.num_vertices, subpart.num_bones)
 
     # reemplazar la subpart
-    data_part = data_part[:offset] + data_subpart + data_subpart[offset + size:]
+    data_part = data_part[:offset] + data_subpart + data_part[offset + size:]
     data_part = bytearray(data_part)
 
     # tamaño de la subpart importada

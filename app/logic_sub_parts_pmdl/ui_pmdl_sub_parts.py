@@ -328,7 +328,7 @@ class MultiSelectTable(ctk.CTkFrame):
                        ("Todos los archivos", "*.*")]
         )
 
-        if path_subpart is None:
+        if not path_subpart:
             return
 
         with open(path_subpart, "rb") as f:
@@ -338,6 +338,7 @@ class MultiSelectTable(ctk.CTkFrame):
             # datos de la subparte
             dat_chunk = chunk[:0x10]
             chunk = chunk[0x10:]
+            chunk = bytearray(chunk)
 
         if len(chunk) == 0:
             raise ValueError("La subpart importada esta vacia")

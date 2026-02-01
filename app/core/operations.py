@@ -190,7 +190,7 @@ def replace_part(blob: bytearray, hdr: PmdlHeader, parts: List[PartIndexEntry], 
     blob = blob[:offset_part] + part_data + blob[offset_part_end:]
 
     # nueva longitud
-    long_part = len(parts)
+    long_part = len(part_data)
     parts[id_part].part_length = long_part
 
     # offset end nuevo
