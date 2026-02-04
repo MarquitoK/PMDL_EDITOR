@@ -174,49 +174,44 @@ def import_part(blob: bytearray, hdr: PmdlHeader, parts: List[PartIndexEntry], n
 
 def replace_part(blob: bytearray, hdr: PmdlHeader, parts: List[PartIndexEntry], part_data: bytearray, id_part: int):
     """
-    Reemplaza una parte del pmdl
-
-    Args:
-        id_part: parte del pmdl modificado.
-        part_data: datos de la parte modificada.
-
+    remplaza una parte existen
+    :param blob: Datos del archivo PMDL.
+    :param hdr: Header del PMDL.
+    :param parts: Lista de partes.
+    :param part_data: Bytes de la nueva parte.
+    :param id_part: Identificador de la parte del PMDL.
     """
-    indexs_offsets = hdr.parts_index_offset
+
     offset_part = parts[id_part].part_offset
-    long_part = parts[id_part].part_length
+    old_length = parts[id_part].part_length
+    offset_part_end = offset_part + old_length
 
-    # reemplazar la parte modificada
-    offset_part_end = offset_part + long_part
-    blob = blob[:offset_part] + part_data + blob[offset_part_end:]
+    # 1️⃣ Reemplazar datos de la parte EN SITIO
+    blob[offset_part:offset_part_end] = part_data
 
-    # nueva longitud
-    long_part = len(part_data)
-    parts[id_part].part_length = long_part
+    # 2️⃣ Actualizar longitud
+    new_length = len(part_data)
+    parts[id_part].part_length = new_length
 
-    # offset end nuevo
-    offset_end_new = offset_part + long_part
-    # cantidad a sumar o restar
-    cant = offset_end_new - offset_part_end
+    # 3️⃣ Calcular diferencia de tamaño
+    delta = new_length - old_length
 
-    # arreglar offsets
-    for id_p in range(id_part + 1, len(parts)):
-        # if id_p > id_part:
-        #     parts[id_p].part_offset += cant
-        parts[id_p].part_offset += cant
+    # 4️⃣ Ajustar offsets de las partes siguientes
+    if delta != 0:
+        for i in range(id_part + 1, len(parts)):
+            parts[i].part_offset += delta
 
-    for i in range(len(parts)):
-        indexs_offsets += i * 0x20
+    # 5️⃣ Reescribir tabla de índices
+    base_index = hdr.parts_index_offset
 
-        offset_new = bytearray()
-        long = bytearray()
+    for i, p in enumerate(parts):
+        entry_off = base_index + i * 0x20
 
-        # escribir offset y longitudes
-        offset_new += struct.pack("<I", parts[i].part_offset)
-        long += struct.pack("<I", parts[i].part_length)
-
-        blob = blob[:indexs_offsets + 4] + offset_new + long + blob[indexs_offsets + 0xc:]
+        struct.pack_into("<I", blob, entry_off + 4,  p.part_offset)
+        struct.pack_into("<I", blob, entry_off + 8,  p.part_length)
 
     return parts
+
 
 
 def add_part_from_secondary(blob_dest: bytearray, hdr_dest: PmdlHeader, parts_dest: List[PartIndexEntry],
