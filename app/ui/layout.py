@@ -6,39 +6,27 @@ from .tooltip import ToolTip
 
 
 def build_main_layout(parent, callbacks: dict) -> dict:
-    # Contenedor principal a dos columnas
+    # Contenedor principal a dos columnas con proporción 60-40
     main = ctk.CTkFrame(parent, corner_radius=0)
     main.pack(side="top", fill="both", expand=True, padx=6, pady=(6, 4))
-    main.grid_columnconfigure(0, weight=1)
-    main.grid_columnconfigure(1, weight=1)
+    main.grid_columnconfigure(0, weight=6)  # 60% - Panel principal
+    main.grid_columnconfigure(1, weight=4)  # 40% - Panel secundario
     main.grid_rowconfigure(0, weight=1)
     
     # Panel IZQUIERDO (PMDL PRINCIPAL / EDITOR)
     left_panel = ctk.CTkFrame(main, corner_radius=8)
     left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 6), pady=0)
     left_panel.grid_rowconfigure(1, weight=1)
+    left_panel.grid_columnconfigure(0, weight=1)  # Para que ocupe todo el ancho
     
     # Barra superior izquierda
     top_left = ctk.CTkFrame(left_panel, corner_radius=6)
     top_left.grid(row=0, column=0, sticky="ew", padx=6, pady=(6, 4))
     
-    btn_h = 26
     path_entry = ctk.CTkEntry(top_left, placeholder_text="Ruta .pmdl", width=160,
                               font=("Segoe UI", 12), state="disabled")
     path_entry.pack(side="left", padx=(6, 4), pady=4)
     tooltip_path_entry = ToolTip(path_entry, "Ruta del archivo .pmdl cargado")
-    
-    open_btn = ctk.CTkButton(top_left, text="Importar PMDL", width=110, height=btn_h,
-                             font=("Segoe UI", 12), command=callbacks['on_open_file'])
-    open_btn.pack(side="left", padx=(0, 4), pady=4)
-    
-    save_btn = ctk.CTkButton(top_left, text="Guardar", width=80, height=btn_h,
-                             font=("Segoe UI", 12), command=callbacks['on_save'])
-    save_btn.pack(side="left", padx=(0, 4), pady=4)
-    
-    save_as_btn = ctk.CTkButton(top_left, text="Guardar Como", width=120, height=btn_h,
-                                font=("Segoe UI", 12), command=callbacks['on_save_as'])
-    save_as_btn.pack(side="left", padx=(0, 4), pady=4)
     
     # Área de tabla de partes (izquierda)
     mid_left = ctk.CTkFrame(left_panel, corner_radius=8)
@@ -58,6 +46,7 @@ def build_main_layout(parent, callbacks: dict) -> dict:
     right_panel = ctk.CTkFrame(main, corner_radius=8)
     right_panel.grid(row=0, column=1, sticky="nsew", padx=(6, 0), pady=0)
     right_panel.grid_rowconfigure(1, weight=1)
+    right_panel.grid_columnconfigure(0, weight=1)  # Para que ocupe todo el ancho
     
     # Barra superior derecha
     top_right = ctk.CTkFrame(right_panel, corner_radius=6)
@@ -67,11 +56,6 @@ def build_main_layout(parent, callbacks: dict) -> dict:
                                width=160, font=("Segoe UI", 12), state="disabled")
     path2_entry.pack(side="left", padx=(6, 4), pady=4)
     tooltip_path2_entry = ToolTip(path2_entry, "Ruta del segundo archivo .pmdl cargado")
-    
-    open2_btn = ctk.CTkButton(top_right, text="Importar PMDL secundario", width=180,
-                              height=btn_h, font=("Segoe UI", 12),
-                              command=callbacks['on_open_file_secondary'])
-    open2_btn.pack(side="left", padx=(0, 4), pady=4)
     
     # Área de tabla de partes (derecha, solo lectura)
     mid_right = ctk.CTkFrame(right_panel, corner_radius=8)
