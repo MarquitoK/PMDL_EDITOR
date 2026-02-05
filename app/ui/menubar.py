@@ -45,9 +45,9 @@ class Menu(ctk.CTkFrame):
         )
         self.button.pack(padx=1, pady=1)
         
-    def add_command(self, label: str, command=None):
+    def add_command(self, label: str, command=None, accelerator: str = None):
         """Agrega un comando al menú."""
-        self.commands.append({"label": label, "command": command})
+        self.commands.append({"label": label, "command": command, "accelerator": accelerator})
         
     def add_separator(self):
         """Agrega un separador al menú."""
@@ -92,18 +92,42 @@ class Menu(ctk.CTkFrame):
                 sep = ctk.CTkFrame(container, height=1, fg_color=("gray70", "gray30"))
                 sep.pack(fill="x", padx=4, pady=2)
             else:
-                btn = ctk.CTkButton(
-                    container,
-                    text=item["label"],
-                    width=180,
-                    height=28,
-                    corner_radius=3,
-                    font=("Segoe UI", 11),
-                    fg_color="transparent",
-                    hover_color=("gray75", "gray25"),
-                    anchor="w",
-                    command=lambda cmd=item["command"]: self._execute_command(cmd)
-                )
+                # Crear frame para comando con label y accelerator
+                cmd_frame = ctk.CTkFrame(container, fg_color="transparent")
+                cmd_frame.pack(fill="x", padx=0, pady=0)
+                
+                # Texto del comando (alineado a la izquierda)
+                cmd_text = item["label"]
+                accelerator = item.get("accelerator", "")
+                
+                if accelerator:
+                    # Botón con label y shortcut
+                    btn = ctk.CTkButton(
+                        cmd_frame,
+                        text=f"{cmd_text:<25} {accelerator:>15}",
+                        width=180,
+                        height=28,
+                        corner_radius=3,
+                        font=("Segoe UI", 11),
+                        fg_color="transparent",
+                        hover_color=("gray75", "gray25"),
+                        anchor="w",
+                        command=lambda cmd=item["command"]: self._execute_command(cmd)
+                    )
+                else:
+                    # Botón sin shortcut
+                    btn = ctk.CTkButton(
+                        cmd_frame,
+                        text=cmd_text,
+                        width=180,
+                        height=28,
+                        corner_radius=3,
+                        font=("Segoe UI", 11),
+                        fg_color="transparent",
+                        hover_color=("gray75", "gray25"),
+                        anchor="w",
+                        command=lambda cmd=item["command"]: self._execute_command(cmd)
+                    )
                 btn.pack(fill="x", padx=3, pady=1)
         
         # Bind para cerrar al hacer clic fuera
