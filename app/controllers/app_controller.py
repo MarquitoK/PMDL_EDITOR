@@ -83,7 +83,7 @@ class PmdlPartsApp(ctk.CTk):
         self.menubar = MenuBar(self, height=28)
         self.menubar.pack(side="top", fill="x", pady=(0, 0))
         
-        # Menú Archivo (Principal)
+        # Menú Archivo
         menu_archivo = self.menubar.add_menu("Archivo")
         menu_archivo.add_command("Abrir PMDL", self.on_open_file)
         menu_archivo.add_command("Abrir Parche", self.on_open_patch)
@@ -97,9 +97,14 @@ class PmdlPartsApp(ctk.CTk):
         
         # Menú Opciones
         menu_opciones = self.menubar.add_menu("Opciones")
+<<<<<<< Updated upstream
         # Aquí agregaré las opciones a futuro, más que nada estoy considerando mucho implementar un sistema de lang pero aun es solo una idea
         
         # Botón Acerca de
+=======
+        
+        # Botón Acerca De
+>>>>>>> Stashed changes
         acerca_btn = ctk.CTkButton(
             self.menubar,
             text="Acerca De",
@@ -119,8 +124,43 @@ class PmdlPartsApp(ctk.CTk):
         
         # Menú Archivo Secundario
         menu_archivo_sec = self.menubar.add_menu("Archivo Secundario")
+<<<<<<< Updated upstream
         menu_archivo_sec.add_command("Abrir PMDL Secundario", self.on_open_file_secondary)
         menu_archivo_sec.add_command("Abrir Parche Secundario", self.on_open_patch_secondary)
+=======
+        menu_archivo_sec.add_command("Abrir PMDL Secundario", self.on_open_file_secondary, "Ctrl+Shift+O")
+        menu_archivo_sec.add_command("Abrir Parche Secundario", self.on_open_patch_secondary, "Ctrl+Shift+P")
+    
+    def _bind_keyboard_shortcuts(self):
+        """Configura los atajos de teclado."""
+        # Archivo Principal
+        self.bind("<Control-o>", lambda e: self.on_open_file())
+        self.bind("<Control-O>", lambda e: self.on_open_file())
+        
+        self.bind("<Control-p>", lambda e: self.on_open_patch())
+        self.bind("<Control-P>", lambda e: self.on_open_patch())
+        
+        self.bind("<Control-s>", lambda e: self.on_save())
+        self.bind("<Control-S>", lambda e: self.on_save())
+        
+        self.bind("<Control-Shift-S>", lambda e: self.on_save_as())
+        self.bind("<Control-Shift-s>", lambda e: self.on_save_as())
+        
+        # Tools
+        self.bind("<Control-t>", lambda e: self.on_open_subparts_editor())
+        self.bind("<Control-T>", lambda e: self.on_open_subparts_editor())
+        
+        # Archivo Secundario
+        self.bind("<Control-Shift-O>", lambda e: self.on_open_file_secondary())
+        self.bind("<Control-Shift-o>", lambda e: self.on_open_file_secondary())
+        
+        self.bind("<Control-Shift-P>", lambda e: self.on_open_patch_secondary())
+        self.bind("<Control-Shift-p>", lambda e: self.on_open_patch_secondary())
+        
+        # Importar Parte
+        self.bind("<Control-i>", lambda e: self.on_import_part() if self._blob else None)
+        self.bind("<Control-I>", lambda e: self.on_import_part() if self._blob else None)
+>>>>>>> Stashed changes
     
     def on_close(self):
         """Confirmación antes de cerrar la aplicación."""

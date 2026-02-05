@@ -19,7 +19,7 @@ class PartsTable(ctk.CTkScrollableFrame):
         
         # Estado UI
         self._rows_widgets = []
-        self._row_backgrounds = []  # Para zebra striping
+        self._row_backgrounds = []
         self._controls_frame = None
         self._parts_count_label = None
         self._top_import_btn = None
@@ -55,14 +55,32 @@ class PartsTable(ctk.CTkScrollableFrame):
         self._controls_frame = ctk.CTkFrame(self, fg_color="transparent")
         self._controls_frame.grid(row=0, column=0, columnspan=6, padx=(6, 4), pady=(4, 0), sticky="we")
         
+<<<<<<< Updated upstream
+=======
+        # Contador de partes
+        self._parts_count_label = ctk.CTkLabel(
+            self._controls_frame, text=f"Partes: {part_count}", font=("Segoe UI", 12)
+        )
+        self._parts_count_label.pack(side="left", padx=(0, 8))
+        
+        # Botón Importar Parte
+>>>>>>> Stashed changes
         self._top_import_btn = ctk.CTkButton(
             self._controls_frame, text="Importar Parte", width=120, height=24,
             font=("Segoe UI", 12), command=on_import_part_cb
         )
         self._top_import_btn.pack(side="left", padx=(0, 8))
         
+<<<<<<< Updated upstream
         self._parts_count_label = ctk.CTkLabel(
             self._controls_frame, text=f"Partes: {part_count}", font=("Segoe UI", 12)
+=======
+        # Botón Cerrar PMDL
+        self._close_btn = ctk.CTkButton(
+            self._controls_frame, text="Cerrar PMDL", width=100, height=24,
+            font=("Segoe UI", 12), fg_color="#DC2626", hover_color="#B91C1C",
+            command=self._on_close_pmdl
+>>>>>>> Stashed changes
         )
         self._parts_count_label.pack(side="left", padx=(0, 8))
     
@@ -107,11 +125,11 @@ class PartsTable(ctk.CTkScrollableFrame):
         for i, p in enumerate(parts):
             row = i + 2
             
-            # Zebra striping - colores alternados para mejor legibilidad
+            # Zebra striping
             is_even = i % 2 == 0
             bg_color = ("gray85", "gray20") if is_even else ("gray90", "gray17")
             
-            # Frame de fondo para la fila (zebra striping)
+            # Frame de fondo para la fila
             row_bg = ctk.CTkFrame(self, fg_color=bg_color, corner_radius=0, height=28)
             row_bg.grid(row=row, column=0, columnspan=6, sticky="ew", padx=0, pady=0)
             self._row_backgrounds.append(row_bg)
@@ -312,7 +330,7 @@ class SecondaryPartsTable(ctk.CTkScrollableFrame):
         self.grid_columnconfigure(5, weight=0)  # Agregar
         
         self._rows_widgets = []
-        self._row_backgrounds = []  # Para zebra striping
+        self._row_backgrounds = []
     
     def update_part_count(self, part_count: int):
         """Actualiza el contador de partes."""
@@ -343,11 +361,11 @@ class SecondaryPartsTable(ctk.CTkScrollableFrame):
         for i, p in enumerate(parts):
             row = i + 2
             
-            # Zebra striping - colores alternados para mejor legibilidad
+            # Zebra striping
             is_even = i % 2 == 0
             bg_color = ("gray85", "gray20") if is_even else ("gray90", "gray17")
             
-            # Frame de fondo para la fila (zebra striping)
+            # Frame de fondo para la fila
             row_bg = ctk.CTkFrame(self, fg_color=bg_color, corner_radius=0, height=28)
             row_bg.grid(row=row, column=0, columnspan=6, sticky="ew", padx=0, pady=0)
             self._row_backgrounds.append(row_bg)
