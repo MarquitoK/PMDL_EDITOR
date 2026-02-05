@@ -19,7 +19,7 @@ from app.logic_sub_parts_pmdl.ui_pmdl_sub_parts import UiSubparts
 
 
 APP_TITLE = "Pmdl Editor (TTT) · By Los ijue30s · v1.4.2"
-GEOMETRY = (1060, 550)
+GEOMETRY = (1070, 600)
 
 
 class PmdlPartsApp(ctk.CTk):
@@ -77,7 +77,7 @@ class PmdlPartsApp(ctk.CTk):
         self.parts2_table = widgets['parts2_table']
         self.status_var = widgets['status_var']
 
-        # Referencia para la ventana de subparts (se abrirá desde el menú)
+        # Referencia para la ventana de subparts
         self.window_subparts = None
         
         # Configurar shortcuts de teclado
@@ -88,7 +88,7 @@ class PmdlPartsApp(ctk.CTk):
         self.menubar = MenuBar(self, height=28)
         self.menubar.pack(side="top", fill="x", pady=(0, 0))
         
-        # Menú Archivo (Principal)
+        # Menú Archivo
         menu_archivo = self.menubar.add_menu("Archivo")
         menu_archivo.add_command("Abrir PMDL", self.on_open_file, "Ctrl+O")
         menu_archivo.add_command("Abrir Parche", self.on_open_patch, "Ctrl+P")
@@ -104,7 +104,7 @@ class PmdlPartsApp(ctk.CTk):
         menu_opciones = self.menubar.add_menu("Opciones")
         # Aquí se agregarán opciones en el futuro
         
-        # Botón Acerca De (sin cascada, abre directamente)
+        # Botón Acerca De
         acerca_btn = ctk.CTkButton(
             self.menubar,
             text="Acerca De",
@@ -118,11 +118,11 @@ class PmdlPartsApp(ctk.CTk):
         )
         acerca_btn.pack(side="left", padx=1, pady=1)
         
-        # Separador visual ajustable (cambia el width para mover "Archivo Secundario")
+        # Separador
         separator = ctk.CTkFrame(self.menubar, width=200, fg_color="transparent")
         separator.pack(side="left", fill="x", expand=True)
         
-        # Menú Archivo Secundario (a la derecha)
+        # Menú Archivo Secundario
         menu_archivo_sec = self.menubar.add_menu("Archivo Secundario")
         menu_archivo_sec.add_command("Abrir PMDL Secundario", self.on_open_file_secondary, "Ctrl+Shift+O")
         menu_archivo_sec.add_command("Abrir Parche Secundario", self.on_open_patch_secondary, "Ctrl+Shift+P")
@@ -153,7 +153,7 @@ class PmdlPartsApp(ctk.CTk):
         self.bind("<Control-Shift-P>", lambda e: self.on_open_patch_secondary())
         self.bind("<Control-Shift-p>", lambda e: self.on_open_patch_secondary())
         
-        # Importar Parte (solo si hay PMDL cargado)
+        # Importar Parte
         self.bind("<Control-i>", lambda e: self.on_import_part() if self._blob else None)
         self.bind("<Control-I>", lambda e: self.on_import_part() if self._blob else None)
     
