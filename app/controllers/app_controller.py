@@ -13,9 +13,11 @@ from app.core import (
 )
 from app.ui import build_main_layout
 from app.utils import center_window
+from app.logic_sub_parts_pmdl.ui_pmdl_sub_parts import UiSubparts
 
 
 APP_TITLE = "Pmdl Editor (TTT) · By Los ijue30s · v1.4.1"
+GEOMETRY = (880,550)
 
 
 class PmdlPartsApp(ctk.CTk):
@@ -28,14 +30,11 @@ class PmdlPartsApp(ctk.CTk):
         ctk.set_default_color_theme("blue")
         
         self.title(APP_TITLE)
-        self.geometry("880x550")
+        self.geometry(f"{GEOMETRY[0]}x{GEOMETRY[1]}")
         self.minsize(540, 540)
         
-        # Forzar cálculo real del tamaño
-        self.update_idletasks()
-        
         # Centrar ventana
-        center_window(self, 880, 550)
+        center_window(self, GEOMETRY[0], GEOMETRY[1])
         
         # Interceptar cierre de la ventana
         self.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -76,6 +75,9 @@ class PmdlPartsApp(ctk.CTk):
         self.parts_table = widgets['parts_table']
         self.parts2_table = widgets['parts2_table']
         self.status_var = widgets['status_var']
+
+        # llamado temporal a la ventana subpart
+        self.window_subparts = UiSubparts(self)
     
     def on_close(self):
         """Confirmación antes de cerrar la aplicación."""

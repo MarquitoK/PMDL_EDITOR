@@ -1,9 +1,8 @@
-from ast import Str
-
 import customtkinter as ctk
+from pathlib import Path
 
 class ToolTip:
-    def __init__(self, widget, text:str):
+    def __init__(self, widget, text: str):
         self.widget = widget
         self.text = text
         self.tip = None
@@ -11,11 +10,24 @@ class ToolTip:
         widget.bind("<Enter>", self.show)
         widget.bind("<Leave>", self.hide)
 
-    def change_text(self, text:str):
-        self.text = text
+        # NUEVOS BINDS GLOBALES IMPORTANTES
+        widget.bind("<ButtonPress>", self.hide, add="+")
+        widget.bind("<FocusOut>", self.hide, add="+")
+        widget.bind("<Destroy>", self.hide, add="+")
+
+        # Cuando la app pierde foco (Alt+Tab, cambiar a Chrome, etc)
+        widget.winfo_toplevel().bind("<FocusOut>", self.hide, add="+")
+        widget.winfo_toplevel().bind("<Unmap>", self.hide, add="+")  # minimizar ventana
+
+    # ------------------------------
+
+    def change_text(self, text: str):
+        self.text = self.__user_hide(text)
+
+    # ------------------------------
 
     def show(self, event=None):
-        if self.tip:
+        if self.tip or not self.text:
             return
 
         x = self.widget.winfo_rootx() + 20
@@ -39,7 +51,24 @@ class ToolTip:
 
         self.tip.geometry(f"+{x}+{y}")
 
+    # ------------------------------
+
     def hide(self, event=None):
-        if self.tip:
-            self.tip.destroy()
+        if self.tip is not None:
+            try:
+                self.tip.destroy()
+            except:
+                pass
             self.tip = None
+
+    # ------------------------------
+
+    def __user_hide(self, path_str: str):
+        p = Path(path_str)
+        home = Path.home()
+
+        try:
+            rel = p.relative_to(home)
+            return f"{p.drive}\\~\\{rel}".replace("\\", "/")
+        except ValueError:
+            return path_str.replace("\\", "/")

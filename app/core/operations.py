@@ -172,6 +172,47 @@ def import_part(blob: bytearray, hdr: PmdlHeader, parts: List[PartIndexEntry], n
     
     return new_offset, new_length
 
+def replace_part(blob: bytearray, hdr: PmdlHeader, parts: List[PartIndexEntry], part_data: bytearray, id_part: int):
+    """
+    remplaza una parte existen
+    :param blob: Datos del archivo PMDL.
+    :param hdr: Header del PMDL.
+    :param parts: Lista de partes.
+    :param part_data: Bytes de la nueva parte.
+    :param id_part: Identificador de la parte del PMDL.
+    """
+
+    offset_part = parts[id_part].part_offset
+    old_length = parts[id_part].part_length
+    offset_part_end = offset_part + old_length
+
+    # 1️⃣ Reemplazar datos de la parte EN SITIO
+    blob[offset_part:offset_part_end] = part_data
+
+    # 2️⃣ Actualizar longitud
+    new_length = len(part_data)
+    parts[id_part].part_length = new_length
+
+    # 3️⃣ Calcular diferencia de tamaño
+    delta = new_length - old_length
+
+    # 4️⃣ Ajustar offsets de las partes siguientes
+    if delta != 0:
+        for i in range(id_part + 1, len(parts)):
+            parts[i].part_offset += delta
+
+    # 5️⃣ Reescribir tabla de índices
+    base_index = hdr.parts_index_offset
+
+    for i, p in enumerate(parts):
+        entry_off = base_index + i * 0x20
+
+        struct.pack_into("<I", blob, entry_off + 4,  p.part_offset)
+        struct.pack_into("<I", blob, entry_off + 8,  p.part_length)
+
+    return parts
+
+
 
 def add_part_from_secondary(blob_dest: bytearray, hdr_dest: PmdlHeader, parts_dest: List[PartIndexEntry],
                             blob_src: bytearray, part_src: PartIndexEntry):
