@@ -19,7 +19,7 @@ from app.logic_sub_parts_pmdl.ui_pmdl_sub_parts import UiSubparts
 
 
 APP_TITLE = "Pmdl Editor (TTT) · By Los ijue30s · v1.4.2"
-GEOMETRY = (1070, 600)
+GEOMETRY = (1060, 550)
 
 
 class PmdlPartsApp(ctk.CTk):
@@ -35,8 +35,10 @@ class PmdlPartsApp(ctk.CTk):
         self.geometry(f"{GEOMETRY[0]}x{GEOMETRY[1]}")
         self.minsize(540, 540)
         
+        # Centrar ventana
         center_window(self, GEOMETRY[0], GEOMETRY[1])
         
+        # Interceptar cierre de la ventana
         self.protocol("WM_DELETE_WINDOW", self.on_close)
         
         # Estado del PMDL Principal
@@ -75,8 +77,11 @@ class PmdlPartsApp(ctk.CTk):
         self.parts2_table = widgets['parts2_table']
         self.status_var = widgets['status_var']
 
-        # Referencia para la ventana de subparts
+        # Referencia para la ventana de subparts (se abrirá desde el menú)
         self.window_subparts = None
+        
+        # Configurar shortcuts de teclado
+        self._bind_keyboard_shortcuts()
     
     def _build_menubar(self):
         """Construye el menu bar de la aplicación."""
@@ -85,21 +90,21 @@ class PmdlPartsApp(ctk.CTk):
         
         # Menú Archivo (Principal)
         menu_archivo = self.menubar.add_menu("Archivo")
-        menu_archivo.add_command("Abrir PMDL", self.on_open_file)
-        menu_archivo.add_command("Abrir Parche", self.on_open_patch)
+        menu_archivo.add_command("Abrir PMDL", self.on_open_file, "Ctrl+O")
+        menu_archivo.add_command("Abrir Parche", self.on_open_patch, "Ctrl+P")
         menu_archivo.add_separator()
-        menu_archivo.add_command("Guardar", self.on_save)
-        menu_archivo.add_command("Guardar Como", self.on_save_as)
+        menu_archivo.add_command("Guardar", self.on_save, "Ctrl+S")
+        menu_archivo.add_command("Guardar Como", self.on_save_as, "Ctrl+Shift+S")
         
         # Menú Tools
         menu_tools = self.menubar.add_menu("Tools")
-        menu_tools.add_command("SubParts Editor", self.on_open_subparts_editor)
+        menu_tools.add_command("SubParts Editor", self.on_open_subparts_editor, "Ctrl+T")
         
         # Menú Opciones
         menu_opciones = self.menubar.add_menu("Opciones")
-        # Aquí agregaré las opciones a futuro, más que nada estoy considerando mucho implementar un sistema de lang pero aun es solo una idea
+        # Aquí se agregarán opciones en el futuro
         
-        # Botón Acerca de
+        # Botón Acerca De (sin cascada, abre directamente)
         acerca_btn = ctk.CTkButton(
             self.menubar,
             text="Acerca De",
@@ -113,14 +118,44 @@ class PmdlPartsApp(ctk.CTk):
         )
         acerca_btn.pack(side="left", padx=1, pady=1)
         
-        # Separador
+        # Separador visual ajustable (cambia el width para mover "Archivo Secundario")
         separator = ctk.CTkFrame(self.menubar, width=200, fg_color="transparent")
         separator.pack(side="left", fill="x", expand=True)
         
-        # Menú Archivo Secundario
+        # Menú Archivo Secundario (a la derecha)
         menu_archivo_sec = self.menubar.add_menu("Archivo Secundario")
-        menu_archivo_sec.add_command("Abrir PMDL Secundario", self.on_open_file_secondary)
-        menu_archivo_sec.add_command("Abrir Parche Secundario", self.on_open_patch_secondary)
+        menu_archivo_sec.add_command("Abrir PMDL Secundario", self.on_open_file_secondary, "Ctrl+Shift+O")
+        menu_archivo_sec.add_command("Abrir Parche Secundario", self.on_open_patch_secondary, "Ctrl+Shift+P")
+    
+    def _bind_keyboard_shortcuts(self):
+        """Configura los atajos de teclado."""
+        # Archivo Principal
+        self.bind("<Control-o>", lambda e: self.on_open_file())
+        self.bind("<Control-O>", lambda e: self.on_open_file())
+        
+        self.bind("<Control-p>", lambda e: self.on_open_patch())
+        self.bind("<Control-P>", lambda e: self.on_open_patch())
+        
+        self.bind("<Control-s>", lambda e: self.on_save())
+        self.bind("<Control-S>", lambda e: self.on_save())
+        
+        self.bind("<Control-Shift-S>", lambda e: self.on_save_as())
+        self.bind("<Control-Shift-s>", lambda e: self.on_save_as())
+        
+        # Tools
+        self.bind("<Control-t>", lambda e: self.on_open_subparts_editor())
+        self.bind("<Control-T>", lambda e: self.on_open_subparts_editor())
+        
+        # Archivo Secundario
+        self.bind("<Control-Shift-O>", lambda e: self.on_open_file_secondary())
+        self.bind("<Control-Shift-o>", lambda e: self.on_open_file_secondary())
+        
+        self.bind("<Control-Shift-P>", lambda e: self.on_open_patch_secondary())
+        self.bind("<Control-Shift-p>", lambda e: self.on_open_patch_secondary())
+        
+        # Importar Parte (solo si hay PMDL cargado)
+        self.bind("<Control-i>", lambda e: self.on_import_part() if self._blob else None)
+        self.bind("<Control-I>", lambda e: self.on_import_part() if self._blob else None)
     
     def on_close(self):
         """Confirmación antes de cerrar la aplicación."""
@@ -445,6 +480,47 @@ class PmdlPartsApp(ctk.CTk):
         
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo agregar la parte desde el secundario:\n{e}")
+    
+    def on_close_pmdl_main(self):
+        """Cierra el PMDL principal y limpia la interfaz."""
+        # Limpiar estado
+        self._blob = None
+        self._hdr = None
+        self._parts = []
+        self._path = None
+        
+        # Limpiar entry de ruta
+        self.path_entry.configure(state="normal")
+        self.path_entry.delete(0, tk.END)
+        self.path_entry.configure(state="disabled")
+        self.tooltip_path_entry.change_text("")
+        
+        # Limpiar tabla
+        self.parts_table.clear()
+        self.parts_table.hide_top_controls()
+        
+        self.status_var.set("PMDL principal cerrado · Los ijue30s")
+    
+    def on_close_pmdl_secondary(self):
+        """Cierra el PMDL secundario y limpia la interfaz."""
+        # Limpiar estado
+        self._blob2 = None
+        self._hdr2 = None
+        self._parts2 = []
+        self._path2 = None
+        
+        # Limpiar entry de ruta
+        self.path2_entry.configure(state="normal")
+        self.path2_entry.delete(0, tk.END)
+        self.path2_entry.configure(state="disabled")
+        self.tooltip_path2_entry.change_text("")
+        
+        # Limpiar tabla
+        self.parts2_table.clear()
+        self.parts2_table.update_part_count(0)
+        self.parts2_table._parts_count_label.configure(text="Partes: -")
+        
+        self.status_var.set("PMDL secundario cerrado · Los ijue30s")
 
 
 def run():

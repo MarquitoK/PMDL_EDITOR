@@ -23,6 +23,7 @@ class PartsTable(ctk.CTkScrollableFrame):
         self._controls_frame = None
         self._parts_count_label = None
         self._top_import_btn = None
+        self._close_btn = None
         
         # Encabezados (fila 1)
         headers = ["Capa", "Nombre", "Tamaño", "Opacidad", "Función", "Exportar Parte"]
@@ -42,7 +43,7 @@ class PartsTable(ctk.CTkScrollableFrame):
         self._vcmd = (self.register(self._validate_hex_keystroke), "%P")
     
     def show_top_controls(self, part_count: int, on_import_part_cb: Callable):
-        """Muestra los controles superiores (importar y contador)."""
+        """Muestra los controles superiores (contador, botones)."""
         if self._controls_frame is not None:
             try:
                 self._controls_frame.destroy()
@@ -51,20 +52,31 @@ class PartsTable(ctk.CTkScrollableFrame):
             self._controls_frame = None
             self._parts_count_label = None
             self._top_import_btn = None
+            self._close_btn = None
         
         self._controls_frame = ctk.CTkFrame(self, fg_color="transparent")
         self._controls_frame.grid(row=0, column=0, columnspan=6, padx=(6, 4), pady=(4, 0), sticky="we")
         
+        # Contador de partes (a la izquierda)
+        self._parts_count_label = ctk.CTkLabel(
+            self._controls_frame, text=f"Partes: {part_count}", font=("Segoe UI", 12)
+        )
+        self._parts_count_label.pack(side="left", padx=(0, 8))
+        
+        # Botón Importar Parte (después del contador)
         self._top_import_btn = ctk.CTkButton(
             self._controls_frame, text="Importar Parte", width=120, height=24,
             font=("Segoe UI", 12), command=on_import_part_cb
         )
         self._top_import_btn.pack(side="left", padx=(0, 8))
         
-        self._parts_count_label = ctk.CTkLabel(
-            self._controls_frame, text=f"Partes: {part_count}", font=("Segoe UI", 12)
+        # Botón Cerrar PMDL (después de Importar Parte)
+        self._close_btn = ctk.CTkButton(
+            self._controls_frame, text="Cerrar PMDL", width=100, height=24,
+            font=("Segoe UI", 12), fg_color="#DC2626", hover_color="#B91C1C",
+            command=self._on_close_pmdl
         )
-        self._parts_count_label.pack(side="left", padx=(0, 8))
+        self._close_btn.pack(side="left", padx=(0, 0))
     
     def hide_top_controls(self):
         """Oculta los controles superiores."""
@@ -76,6 +88,7 @@ class PartsTable(ctk.CTkScrollableFrame):
             self._controls_frame = None
             self._parts_count_label = None
             self._top_import_btn = None
+            self._close_btn = None
     
     def update_part_count(self, part_count: int):
         """Actualiza el contador de partes."""
@@ -280,6 +293,14 @@ class PartsTable(ctk.CTkScrollableFrame):
         """Callback de eliminación."""
         if callable(self.on_delete_part):
             self.on_delete_part(part_index)
+    
+    def _on_close_pmdl(self):
+        """Callback para cerrar el PMDL."""
+        from tkinter import messagebox
+        if messagebox.askyesno("Cerrar PMDL", "¿Estás seguro de que deseas cerrar el PMDL principal?\nSe perderán todos los cambios no guardados."):
+            # Llamar al método del controlador para limpiar todo
+            if hasattr(self.master, 'master') and hasattr(self.master.master, 'on_close_pmdl_main'):
+                self.master.master.on_close_pmdl_main()
 
 
 class SecondaryPartsTable(ctk.CTkScrollableFrame):
@@ -294,8 +315,17 @@ class SecondaryPartsTable(ctk.CTkScrollableFrame):
         self._controls_frame = ctk.CTkFrame(self, fg_color="transparent")
         self._controls_frame.grid(row=0, column=0, columnspan=6, padx=(6, 4), pady=(4, 0), sticky="we")
         
+        # Contador de partes
         self._parts_count_label = ctk.CTkLabel(self._controls_frame, text="Partes: -", font=("Segoe UI", 12))
         self._parts_count_label.pack(side="left", padx=(0, 8))
+        
+        # Botón Cerrar PMDL Secundario
+        self._close_btn = ctk.CTkButton(
+            self._controls_frame, text="Cerrar PMDL", width=100, height=24,
+            font=("Segoe UI", 12), fg_color="#DC2626", hover_color="#B91C1C",
+            command=self._on_close_pmdl_secondary
+        )
+        self._close_btn.pack(side="left", padx=(0, 0))
         
         # Encabezados (fila 1)
         headers = ["Capa", "Nombre", "Tamaño", "Opacidad", "Función", "Agregar"]
@@ -386,3 +416,11 @@ class SecondaryPartsTable(ctk.CTkScrollableFrame):
             add_btn.grid(row=row, column=5, padx=(6, 4), pady=(2, 2), sticky="w")
             
             self._rows_widgets.append([capa_lbl, name_lbl, size_lbl, pct_lbl, func_lbl, add_btn])
+    
+    def _on_close_pmdl_secondary(self):
+        """Callback para cerrar el PMDL secundario."""
+        from tkinter import messagebox
+        if messagebox.askyesno("Cerrar PMDL Secundario", "¿Estás seguro de que deseas cerrar el PMDL secundario?"):
+            # Llamar al método del controlador para limpiar todo
+            if hasattr(self.master, 'master') and hasattr(self.master.master, 'on_close_pmdl_secondary'):
+                self.master.master.on_close_pmdl_secondary()
