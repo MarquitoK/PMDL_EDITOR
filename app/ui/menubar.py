@@ -6,10 +6,9 @@ class MenuBar(ctk.CTkFrame):
     """Menu bar personalizado para customtkinter."""
     
     def __init__(self, master, **kwargs):
-        # Extraer height si viene en kwargs, sino usar 28 por defecto
         height = kwargs.pop('height', 28)
         super().__init__(master, corner_radius=0, height=height, **kwargs)
-        self.pack_propagate(False)  # CRÍTICO: evita que se expanda
+        self.pack_propagate(False)
         self.menus = {}
         self.active_dropdown = None
         
@@ -31,7 +30,7 @@ class Menu(ctk.CTkFrame):
         self.dropdown = None
         self.commands = []
         
-        # Botón del menú - Fuente 11pt
+        # Botón del menú
         self.button = ctk.CTkButton(
             self, 
             text=label, 
@@ -96,7 +95,7 @@ class Menu(ctk.CTkFrame):
                 cmd_frame = ctk.CTkFrame(container, fg_color="transparent")
                 cmd_frame.pack(fill="x", padx=0, pady=0)
                 
-                # Texto del comando (alineado a la izquierda)
+                # Texto del comando
                 cmd_text = item["label"]
                 accelerator = item.get("accelerator", "")
                 
