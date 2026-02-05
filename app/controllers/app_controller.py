@@ -12,12 +12,14 @@ from app.core import (
     add_part_from_secondary, sync_parts_from_ui
 )
 from app.ui import build_main_layout
+from app.ui.menubar import MenuBar
+from app.ui.about_window import AboutWindow
 from app.utils import center_window
 from app.logic_sub_parts_pmdl.ui_pmdl_sub_parts import UiSubparts
 
 
-APP_TITLE = "Pmdl Editor (TTT) · By Los ijue30s · v1.4.1"
-GEOMETRY = (880,550)
+APP_TITLE = "Pmdl Editor (TTT) · By Los ijue30s · v1.4.2"
+GEOMETRY = (1070, 600)
 
 
 class PmdlPartsApp(ctk.CTk):
@@ -33,10 +35,8 @@ class PmdlPartsApp(ctk.CTk):
         self.geometry(f"{GEOMETRY[0]}x{GEOMETRY[1]}")
         self.minsize(540, 540)
         
-        # Centrar ventana
         center_window(self, GEOMETRY[0], GEOMETRY[1])
         
-        # Interceptar cierre de la ventana
         self.protocol("WM_DELETE_WINDOW", self.on_close)
         
         # Estado del PMDL Principal
@@ -51,17 +51,16 @@ class PmdlPartsApp(ctk.CTk):
         self._parts2: List[PartIndexEntry] = []
         self._path2: Optional[str] = None
         
+        # Construir menu bar
+        self._build_menubar()
+        
         # Construir UI
         callbacks = {
-            'on_open_file': self.on_open_file,
-            'on_save': self.on_save,
-            'on_save_as': self.on_save_as,
             'on_part_depth_changed': self.on_part_depth_changed,
             'on_part_opacity_changed': self.on_part_opacity_changed,
             'on_part_flag_changed': self.on_part_flag_changed,
             'on_export_part': self.on_export_part,
             'on_delete_part': self.on_delete_part,
-            'on_open_file_secondary': self.on_open_file_secondary,
             'on_add_part_from_secondary': self.on_add_part_from_secondary,
         }
         
@@ -76,13 +75,78 @@ class PmdlPartsApp(ctk.CTk):
         self.parts2_table = widgets['parts2_table']
         self.status_var = widgets['status_var']
 
-        # llamado temporal a la ventana subpart
-        self.window_subparts = UiSubparts(self)
+        # Referencia para la ventana de subparts
+        self.window_subparts = None
+    
+    def _build_menubar(self):
+        """Construye el menu bar de la aplicación."""
+        self.menubar = MenuBar(self, height=28)
+        self.menubar.pack(side="top", fill="x", pady=(0, 0))
+        
+        # Menú Archivo (Principal)
+        menu_archivo = self.menubar.add_menu("Archivo")
+        menu_archivo.add_command("Abrir PMDL", self.on_open_file)
+        menu_archivo.add_command("Abrir Parche", self.on_open_patch)
+        menu_archivo.add_separator()
+        menu_archivo.add_command("Guardar", self.on_save)
+        menu_archivo.add_command("Guardar Como", self.on_save_as)
+        
+        # Menú Tools
+        menu_tools = self.menubar.add_menu("Tools")
+        menu_tools.add_command("SubParts Editor", self.on_open_subparts_editor)
+        
+        # Menú Opciones
+        menu_opciones = self.menubar.add_menu("Opciones")
+        # Aquí agregaré las opciones a futuro, más que nada estoy considerando mucho implementar un sistema de lang pero aun es solo una idea
+        
+        # Botón Acerca de
+        acerca_btn = ctk.CTkButton(
+            self.menubar,
+            text="Acerca De",
+            width=75,
+            height=22,
+            corner_radius=3,
+            font=("Segoe UI", 11),
+            fg_color="transparent",
+            hover_color=("gray75", "gray25"),
+            command=self.on_show_about
+        )
+        acerca_btn.pack(side="left", padx=1, pady=1)
+        
+        # Separador
+        separator = ctk.CTkFrame(self.menubar, width=200, fg_color="transparent")
+        separator.pack(side="left", fill="x", expand=True)
+        
+        # Menú Archivo Secundario
+        menu_archivo_sec = self.menubar.add_menu("Archivo Secundario")
+        menu_archivo_sec.add_command("Abrir PMDL Secundario", self.on_open_file_secondary)
+        menu_archivo_sec.add_command("Abrir Parche Secundario", self.on_open_patch_secondary)
     
     def on_close(self):
         """Confirmación antes de cerrar la aplicación."""
         if messagebox.askyesno("Salir", "¿Estas seguro de que deseas cerrar la aplicacion?"):
             self.destroy()
+    
+    def on_show_about(self):
+        """Muestra la ventana Acerca de."""
+        AboutWindow(self)
+    
+    def on_open_subparts_editor(self):
+        """Abre el editor de SubParts."""
+        if self.window_subparts is None or not self.window_subparts.winfo_exists():
+            self.window_subparts = UiSubparts(self)
+        else:
+            # Si ya existe, traerla al frente
+            self.window_subparts.focus()
+            self.window_subparts.lift()
+    
+    def on_open_patch(self):
+        """Placeholder para abrir parche principal."""
+        messagebox.showinfo("Próximamente", "Función 'Abrir Parche' en desarrollo.")
+    
+    def on_open_patch_secondary(self):
+        """Placeholder para abrir parche secundario."""
+        messagebox.showinfo("Próximamente", "Función 'Abrir Parche Secundario' en desarrollo.")
     
     # ------------ Carga / Render ------------
     

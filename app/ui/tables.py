@@ -19,6 +19,7 @@ class PartsTable(ctk.CTkScrollableFrame):
         
         # Estado UI
         self._rows_widgets = []
+        self._row_backgrounds = []  # Para zebra striping
         self._controls_frame = None
         self._parts_count_label = None
         self._top_import_btn = None
@@ -90,6 +91,14 @@ class PartsTable(ctk.CTkScrollableFrame):
                 except Exception:
                     pass
         self._rows_widgets.clear()
+        
+        # Limpiar backgrounds de zebra striping
+        for bg in self._row_backgrounds:
+            try:
+                bg.destroy()
+            except Exception:
+                pass
+        self._row_backgrounds.clear()
     
     def populate(self, parts: List[PartIndexEntry]):
         """Puebla la tabla con las partes del PMDL."""
@@ -98,9 +107,18 @@ class PartsTable(ctk.CTkScrollableFrame):
         for i, p in enumerate(parts):
             row = i + 2
             
+            # Zebra striping - colores alternados para mejor legibilidad
+            is_even = i % 2 == 0
+            bg_color = ("gray85", "gray20") if is_even else ("gray90", "gray17")
+            
+            # Frame de fondo para la fila (zebra striping)
+            row_bg = ctk.CTkFrame(self, fg_color=bg_color, corner_radius=0, height=28)
+            row_bg.grid(row=row, column=0, columnspan=6, sticky="ew", padx=0, pady=0)
+            self._row_backgrounds.append(row_bg)
+            
             # Capa
             depth_hex = f"{p.part_id & 0xFF:02X}"
-            depth_entry = ctk.CTkEntry(self, width=56, justify="center", font=("Segoe UI", 12))
+            depth_entry = ctk.CTkEntry(self, width=56, justify="center", font=("Segoe UI", 12), fg_color=bg_color)
             depth_entry.insert(0, depth_hex)
             depth_entry.configure(validate="key", validatecommand=self._vcmd)
             depth_entry.bind("<FocusOut>", lambda e, idx=i: self._commit_depth(e.widget.get(), idx, e.widget))
@@ -108,11 +126,11 @@ class PartsTable(ctk.CTkScrollableFrame):
             depth_entry.grid(row=row, column=0, padx=(6, 4), pady=(2, 2), sticky="w")
             
             # Nombre
-            name_lbl = ctk.CTkLabel(self, text=f"Parte_{i}", font=("Segoe UI", 12))
+            name_lbl = ctk.CTkLabel(self, text=f"Parte_{i}", font=("Segoe UI", 12), fg_color=bg_color)
             name_lbl.grid(row=row, column=1, padx=(6, 4), pady=(2, 2), sticky="w")
             
             # Tamaño
-            size_lbl = ctk.CTkLabel(self, text=f"{p.part_length:X}", font=("Segoe UI", 12))
+            size_lbl = ctk.CTkLabel(self, text=f"{p.part_length:X}", font=("Segoe UI", 12), fg_color=bg_color)
             size_lbl.grid(row=row, column=2, padx=(6, 4), pady=(2, 2), sticky="w")
             
             # Opacidad
@@ -123,10 +141,10 @@ class PartsTable(ctk.CTkScrollableFrame):
             else:
                 pct = round(p.opacity * 100 / 0xFFFF)
             
-            pct_lbl = ctk.CTkLabel(self, text=f"{pct}%", width=36, font=("Segoe UI", 12))
+            pct_lbl = ctk.CTkLabel(self, text=f"{pct}%", width=36, font=("Segoe UI", 12), fg_color=bg_color)
             pct_lbl.grid(row=row, column=3, padx=(6, 2), pady=(2, 2), sticky="w")
             
-            slider = ctk.CTkSlider(self, from_=0, to=100, number_of_steps=100, width=60, height=10)
+            slider = ctk.CTkSlider(self, from_=0, to=100, number_of_steps=100, width=60, height=10, fg_color=bg_color)
             slider.set(pct)
             slider.configure(command=lambda val, idx=i, lbl=pct_lbl: self._on_opacity(val, idx, lbl))
             slider.grid(row=row, column=3, padx=(46, 2), pady=(2, 2), sticky="w")
@@ -142,6 +160,7 @@ class PartsTable(ctk.CTkScrollableFrame):
                 width=100,
                 font=("Segoe UI", 12),
                 state="readonly",
+                fg_color=bg_color,
                 command=lambda new_label, idx=i: self._on_flag(idx, new_label)
             )
             flag_opt.grid(row=row, column=4, padx=(6, 4), pady=(2, 2), sticky="w")
@@ -293,6 +312,7 @@ class SecondaryPartsTable(ctk.CTkScrollableFrame):
         self.grid_columnconfigure(5, weight=0)  # Agregar
         
         self._rows_widgets = []
+        self._row_backgrounds = []  # Para zebra striping
     
     def update_part_count(self, part_count: int):
         """Actualiza el contador de partes."""
@@ -307,6 +327,14 @@ class SecondaryPartsTable(ctk.CTkScrollableFrame):
                 except Exception:
                     pass
         self._rows_widgets.clear()
+        
+        # Limpiar backgrounds de zebra striping
+        for bg in self._row_backgrounds:
+            try:
+                bg.destroy()
+            except Exception:
+                pass
+        self._row_backgrounds.clear()
     
     def populate(self, parts: List[PartIndexEntry]):
         """Puebla la tabla con las partes del PMDL secundario."""
@@ -315,17 +343,26 @@ class SecondaryPartsTable(ctk.CTkScrollableFrame):
         for i, p in enumerate(parts):
             row = i + 2
             
+            # Zebra striping - colores alternados para mejor legibilidad
+            is_even = i % 2 == 0
+            bg_color = ("gray85", "gray20") if is_even else ("gray90", "gray17")
+            
+            # Frame de fondo para la fila (zebra striping)
+            row_bg = ctk.CTkFrame(self, fg_color=bg_color, corner_radius=0, height=28)
+            row_bg.grid(row=row, column=0, columnspan=6, sticky="ew", padx=0, pady=0)
+            self._row_backgrounds.append(row_bg)
+            
             # Capa
             capa_lbl = ctk.CTkLabel(self, text=f"{p.part_id & 0xFF:02X}",
-                                    font=("Segoe UI", 12), width=40)
+                                    font=("Segoe UI", 12), width=40, fg_color=bg_color)
             capa_lbl.grid(row=row, column=0, padx=(6, 4), pady=(2, 2), sticky="w")
             
             # Nombre
-            name_lbl = ctk.CTkLabel(self, text=f"Parte_{i}", font=("Segoe UI", 12))
+            name_lbl = ctk.CTkLabel(self, text=f"Parte_{i}", font=("Segoe UI", 12), fg_color=bg_color)
             name_lbl.grid(row=row, column=1, padx=(6, 4), pady=(2, 2), sticky="w")
             
             # Tamaño
-            size_lbl = ctk.CTkLabel(self, text=f"{p.part_length:X}", font=("Segoe UI", 12))
+            size_lbl = ctk.CTkLabel(self, text=f"{p.part_length:X}", font=("Segoe UI", 12), fg_color=bg_color)
             size_lbl.grid(row=row, column=2, padx=(6, 4), pady=(2, 2), sticky="w")
             
             # Opacidad
@@ -335,12 +372,12 @@ class SecondaryPartsTable(ctk.CTkScrollableFrame):
                 pct = 100
             else:
                 pct = round(p.opacity * 100 / 0xFFFF)
-            pct_lbl = ctk.CTkLabel(self, text=f"{pct}%", font=("Segoe UI", 12))
+            pct_lbl = ctk.CTkLabel(self, text=f"{pct}%", font=("Segoe UI", 12), fg_color=bg_color)
             pct_lbl.grid(row=row, column=3, padx=(6, 4), pady=(2, 2), sticky="w")
             
             # Función
             func_lbl = ctk.CTkLabel(self, text=FLAG_MAP_VALUE_TO_LABEL.get(p.special_flag, "Ninguna"),
-                                    font=("Segoe UI", 12))
+                                    font=("Segoe UI", 12), fg_color=bg_color)
             func_lbl.grid(row=row, column=4, padx=(6, 4), pady=(2, 2), sticky="w")
             
             # Botón Agregar
