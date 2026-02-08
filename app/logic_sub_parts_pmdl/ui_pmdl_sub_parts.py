@@ -1,5 +1,6 @@
 import copy
 import os
+import re
 import struct
 import tkinter as tk
 from pathlib import Path
@@ -400,66 +401,93 @@ class MultiSelectTable(ctk.CTkFrame):
 
         insert_at = row_idx[0]
 
-        path_subpart = filedialog.askopenfilename(
-            title="Importar Subparte",
-            initialdir=".",
-            filetypes=[
-                ("Archivos SubPart", "*.tttsubpart"),
-                ("Todos los archivos", "*.*")
-            ]
+        def natural_sort_key(s):
+            return [int(t) if t.isdigit() else t.lower()
+                    for t in re.split(r'(\d+)', s)]
+
+        paths_subpart = sorted(
+            filedialog.askopenfilenames(
+                title="Importar Subparte",
+                filetypes=[
+                    ("Archivos SubPart", "*.tttsubpart"),
+                    ("Todos los archivos", "*.*")
+                ]
+            ),
+            key=natural_sort_key
         )
-        if not path_subpart:
+
+        if not paths_subpart:
             return
 
-        with open(path_subpart, "rb") as f:
-            raw = f.read()
-            if not raw:
-                raise ValueError("El archivo esta vacia")
+        for path_subpart in paths_subpart:
+            with open(path_subpart, "rb") as f:
+                raw = f.read()
+                if not raw:
+                    raise ValueError(f"El archivo \"{path_subpart}\" esta vacio")
 
-        raw = bytearray(raw)
-        dat_chunk = raw[:0x10]
-        chunk = raw[0x10:]  # ya es bytearray por el slice
+            raw = bytearray(raw)
+            dat_chunk = raw[:0x10]
+            chunk = raw[0x10:]  # ya es bytearray por el slice
 
-        # ---- Header de la subparte ----
-        num_vertices, = struct.unpack_from("<H", dat_chunk, 0)
-        num_bones, = struct.unpack_from("<H", dat_chunk, 2)
-        id_bones = list(struct.unpack_from("<4B", dat_chunk, 4))
-        unk, = struct.unpack_from("<I", dat_chunk, 8)
+            # ---- Header de la subparte ----
+            num_vertices, = struct.unpack_from("<H", dat_chunk, 0)
+            num_bones, = struct.unpack_from("<H", dat_chunk, 2)
+            id_bones = list(struct.unpack_from("<4B", dat_chunk, 4))
+            unk, = struct.unpack_from("<I", dat_chunk, 8)
 
-        # ---- Inserción binaria ----
-        blob = self._get_blob()
-        subparts_by_part = self._get_subparts()
-        part_dat = subparts_by_part[part_idx][insert_at]
+            # ---- Inserción binaria ----
+            blob = self._get_blob()
+            subparts_by_part = self._get_subparts()
+            part_dat = subparts_by_part[part_idx][insert_at]
 
-        data_part, cant, offset_insert = insert_sub_part(
-            blob,
-            part_idx,
-            part_dat,
-            chunk,
-            dat_chunk
-        )
+            data_part, cant, offset_insert = insert_sub_part(
+                blob,
+                part_idx,
+                part_dat,
+                chunk,
+                dat_chunk
+            )
 
-        # ---- Actualizar estructura de subpartes ----
-        sub_parts = subparts_by_part[part_idx]
+            # ---- Actualizar estructura de subpartes ----
+            sub_parts = subparts_by_part[part_idx]
 
-        new_entry = SubPartIndexEntry(
-            insert_at + 1,
-            offset_insert,
-            num_vertices,
-            num_bones,
-            id_bones,
-            unk
-        )
-        sub_parts.insert(insert_at + 1, new_entry)
+            new_entry = SubPartIndexEntry(
+                insert_at + 1,
+                offset_insert,
+                num_vertices,
+                num_bones,
+                id_bones,
+                unk
+            )
+            sub_parts.insert(insert_at + 1, new_entry)
 
-        # Reindexar IDs y ajustar offsets base (+0x10 del nuevo header)
-        for entry in sub_parts:
-            entry.sub_part = sub_parts.index(entry)
-            entry.sub_part_offset += 0x10
+            # Reindexar IDs y ajustar offsets base (+0x10 del nuevo header)
+            for entry in sub_parts:
+                entry.sub_part = sub_parts.index(entry)
+                entry.sub_part_offset += 0x10
 
-        # Ajustar offsets de los que están después del insert real en el blob
-        for i in range(insert_at + 2, len(sub_parts)):
-            sub_parts[i].sub_part_offset += cant
+            # Ajustar offsets de los que están después del insert real en el blob
+            for i in range(insert_at + 2, len(sub_parts)):
+                sub_parts[i].sub_part_offset += cant
+
+
+            # ---- Alinear y actualizar blob ----
+            del data_part[sub_parts[-1].sub_part_offset + calc_subpart_size(sub_parts[-1].num_vertices, sub_parts[-1].num_bones):]
+            align_16(data_part)
+            blob[str(part_idx)] = data_part
+
+            # print(len(data_part))
+
+            # ---- Reemplazar parte completa en el modelo ----
+            replace_part(
+                self.parent_app._blob,
+                self.parent_app._hdr,
+                self.parent_app._parts,
+                data_part,
+                part_idx
+            )
+
+            insert_at+=1
 
         # ---- Refrescar tabla UI ----
         self.set_table(
@@ -468,23 +496,7 @@ class MultiSelectTable(ctk.CTkFrame):
             part_idx
         )
 
-        # ---- Alinear y actualizar blob ----
-        del data_part[sub_parts[-1].sub_part_offset + calc_subpart_size(sub_parts[-1].num_vertices, sub_parts[-1].num_bones):]
-        align_16(data_part)
-        blob[str(part_idx)] = data_part
-
-        # print(len(data_part))
-
-        # ---- Reemplazar parte completa en el modelo ----
-        replace_part(
-            self.parent_app._blob,
-            self.parent_app._hdr,
-            self.parent_app._parts,
-            data_part,
-            part_idx
-        )
-
-        messagebox.showinfo("Insertado", f"SubParte insertada en posicion {insert_at + 1:02}")
+        messagebox.showinfo("Insertado", f"SubParte insertada desde la posicion {row_idx[0] + 1:02}\n{paths_subpart}")
 
     def _add_subparts(self):
         pass
@@ -736,21 +748,21 @@ class UiSubparts(ctk.CTkToplevel):
             font=("Segoe UI", 14, "bold")
         ).pack(pady=(8, 12))
 
-        self.btn_left_load = ctk.CTkButton(
-            card_actions,
-            text="Cargar",
-            width=120,
-            command=self.get_data_subpart
-        )
-        self.btn_left_load.pack(pady=5)
-
-        self.btn_right_load = ctk.CTkButton(
-            card_actions,
-            text="Cargar 2",
-            width=120,
-            command=lambda: self.get_data_subpart(1)
-        )
-        self.btn_right_load.pack(pady=(0, 10))
+        # self.btn_left_load = ctk.CTkButton(
+        #     card_actions,
+        #     text="Cargar",
+        #     width=120,
+        #     command=self.get_data_subpart
+        # )
+        # self.btn_left_load.pack(pady=5)
+        #
+        # self.btn_right_load = ctk.CTkButton(
+        #     card_actions,
+        #     text="Cargar 2",
+        #     width=120,
+        #     command=lambda: self.get_data_subpart(1)
+        # )
+        # self.btn_right_load.pack(pady=(0, 10))
 
         self.btn_save_part = ctk.CTkButton(
             card_actions,

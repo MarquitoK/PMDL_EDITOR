@@ -178,7 +178,11 @@ class PmdlPartsApp(ctk.CTk):
             # Si ya existe, traerla al frente
             self.window_subparts.focus()
             self.window_subparts.lift()
-    
+
+        # cargar subparts en la UI
+        self.window_subparts.get_data_subpart()
+        self.window_subparts.get_data_subpart(1)
+
     def on_open_patch(self):
         """Placeholder para abrir parche principal."""
         messagebox.showinfo("Próximamente", "Función 'Abrir Parche' en desarrollo.")
