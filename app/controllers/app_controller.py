@@ -168,6 +168,10 @@ class PmdlPartsApp(ctk.CTk):
     
     def on_open_subparts_editor(self):
         """Abre el editor de SubParts."""
+        if not self._path and not self._path2:
+            messagebox.showinfo("Informacion", "Abre al menos un archivo para editar")
+            return
+
         if self.window_subparts is None or not self.window_subparts.winfo_exists():
             self.window_subparts = UiSubparts(self)
         else:

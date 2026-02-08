@@ -1,3 +1,4 @@
+import copy
 import os
 import struct
 import tkinter as tk
@@ -489,42 +490,51 @@ class MultiSelectTable(ctk.CTkFrame):
         pass
 
     def _delete_subparts(self):
+        band = False
         part_idx = self.master.master._index_opt_left
         row_idx = self.get_selected_row_indices()
+        row_idx_old = copy.deepcopy(row_idx)
 
         messagebox.showinfo("Advertencia", f"Vas a eliminar las siguientes subpartes {row_idx}")
 
-        blob = self._get_blob()
-        subparts_by_part = self._get_subparts()
-        subpart_dat = subparts_by_part[part_idx][row_idx[0]]
+        for index_row in range(len(row_idx)):
+            blob = self._get_blob()
+            subparts_by_part = self._get_subparts()
 
-        data_part, cant = delete_sub_part(blob, part_idx, subpart_dat)
+            if band:
+                for cor in range(len(row_idx)):
+                    row_idx[cor]-=1
+            band = True
 
-        # eliminar datos de la subpart
-        del subparts_by_part[part_idx][subpart_dat.sub_part]
+            subpart_dat = subparts_by_part[part_idx][row_idx[index_row]]
 
-        # arreglar offsets
-        for i in range(len(subparts_by_part[part_idx])):
-            subparts_by_part[part_idx][i].sub_part_offset -= 0x10
-            subparts_by_part[part_idx][i].sub_part = i
+            data_part, cant = delete_sub_part(blob, part_idx, subpart_dat)
 
-        for i in range(subpart_dat.sub_part, len(subparts_by_part[part_idx])):
-            subparts_by_part[part_idx][i].sub_part_offset -= cant
+            # eliminar datos de la subpart
+            del subparts_by_part[part_idx][subpart_dat.sub_part]
 
-        # ---- Alinear y actualizar blob ----
-        del data_part[subparts_by_part[part_idx][-1].sub_part_offset + calc_subpart_size(subparts_by_part[part_idx][-1].num_vertices,
-                                                                               subparts_by_part[part_idx][-1].num_bones):]
-        align_16(data_part)
-        blob[str(part_idx)] = data_part
+            # arreglar offsets
+            for i in range(len(subparts_by_part[part_idx])):
+                subparts_by_part[part_idx][i].sub_part_offset -= 0x10
+                subparts_by_part[part_idx][i].sub_part = i
 
-        # ---- Reemplazar parte completa en el modelo ----
-        replace_part(
-            self.parent_app._blob,
-            self.parent_app._hdr,
-            self.parent_app._parts,
-            data_part,
-            part_idx
-        )
+            for i in range(subpart_dat.sub_part, len(subparts_by_part[part_idx])):
+                subparts_by_part[part_idx][i].sub_part_offset -= cant
+
+            # ---- Alinear y actualizar blob ----
+            del data_part[subparts_by_part[part_idx][-1].sub_part_offset + calc_subpart_size(subparts_by_part[part_idx][-1].num_vertices,
+                                                                                   subparts_by_part[part_idx][-1].num_bones):]
+            align_16(data_part)
+            blob[str(part_idx)] = data_part
+
+            # ---- Reemplazar parte completa en el modelo ----
+            replace_part(
+                self.parent_app._blob,
+                self.parent_app._hdr,
+                self.parent_app._parts,
+                data_part,
+                part_idx
+            )
 
         # ---- Refrescar tabla UI ----
         self.set_table(
@@ -533,7 +543,7 @@ class MultiSelectTable(ctk.CTkFrame):
             part_idx
         )
 
-        messagebox.showinfo("Elimanado", f"SubParte {row_idx} eliminado correctamente")
+        messagebox.showinfo("Elimanado", f"SubPartes {row_idx_old} eliminadas correctamente")
 
 
     # =========================
