@@ -720,6 +720,8 @@ class UiSubparts(ctk.CTkToplevel):
         self.title(APP_TITLE)
         self.geometry("1200x600")
 
+        self.protocol("WM_DELETE_WINDOW", self._disable_close)
+
         self.grid_columnconfigure((0, 2), weight=1)
         self.grid_columnconfigure(1, weight=0, minsize=220)
         self.grid_rowconfigure(0, weight=1)
@@ -1014,3 +1016,6 @@ class UiSubparts(ctk.CTkToplevel):
         self.master.on_open_pmdl_editor()
         self.withdraw()
         self.destroy()
+
+    def _disable_close(self):
+        pass  # No hace nada → botón X deshabilitado
