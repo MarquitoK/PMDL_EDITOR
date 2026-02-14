@@ -97,6 +97,7 @@ def insert_sub_part(blob: dict, part: int, subpart: SubPartIndexEntry, data_subp
     pos = 4 + (0x10 * num_subpart)
     data_part[pos:pos] = inf_subpart
 
+    # actualiza la cantidad de subparts en la parte
     num_parts+=1
     struct.pack_into("<I", data_part, 0, num_parts)
 
@@ -151,6 +152,11 @@ def delete_sub_part(blob: dict, part:int, subpart: SubPartIndexEntry) -> tuple[b
         offset_old, = struct.unpack_from("<I", data_part, 0x10 * i)
         offset_old -= size
         struct.pack_into("<I", data_part, 0x10 * i, offset_old)
+
+
+    # actualiza la cantidad de subparts en la parte
+    num_subparts -= 1
+    struct.pack_into("<I", data_part, 0, num_subparts)
 
     return data_part, size
 

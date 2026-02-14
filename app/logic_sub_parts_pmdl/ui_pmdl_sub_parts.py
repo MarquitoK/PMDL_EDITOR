@@ -1,4 +1,6 @@
+import copy
 import os
+import re
 import struct
 import tkinter as tk
 from pathlib import Path
@@ -399,66 +401,93 @@ class MultiSelectTable(ctk.CTkFrame):
 
         insert_at = row_idx[0]
 
-        path_subpart = filedialog.askopenfilename(
-            title="Importar Subparte",
-            initialdir=".",
-            filetypes=[
-                ("Archivos SubPart", "*.tttsubpart"),
-                ("Todos los archivos", "*.*")
-            ]
+        def natural_sort_key(s):
+            return [int(t) if t.isdigit() else t.lower()
+                    for t in re.split(r'(\d+)', s)]
+
+        paths_subpart = sorted(
+            filedialog.askopenfilenames(
+                title="Importar Subparte",
+                filetypes=[
+                    ("Archivos SubPart", "*.tttsubpart"),
+                    ("Todos los archivos", "*.*")
+                ]
+            ),
+            key=natural_sort_key
         )
-        if not path_subpart:
+
+        if not paths_subpart:
             return
 
-        with open(path_subpart, "rb") as f:
-            raw = f.read()
-            if not raw:
-                raise ValueError("El archivo esta vacia")
+        for path_subpart in paths_subpart:
+            with open(path_subpart, "rb") as f:
+                raw = f.read()
+                if not raw:
+                    raise ValueError(f"El archivo \"{path_subpart}\" esta vacio")
 
-        raw = bytearray(raw)
-        dat_chunk = raw[:0x10]
-        chunk = raw[0x10:]  # ya es bytearray por el slice
+            raw = bytearray(raw)
+            dat_chunk = raw[:0x10]
+            chunk = raw[0x10:]  # ya es bytearray por el slice
 
-        # ---- Header de la subparte ----
-        num_vertices, = struct.unpack_from("<H", dat_chunk, 0)
-        num_bones, = struct.unpack_from("<H", dat_chunk, 2)
-        id_bones = list(struct.unpack_from("<4B", dat_chunk, 4))
-        unk, = struct.unpack_from("<I", dat_chunk, 8)
+            # ---- Header de la subparte ----
+            num_vertices, = struct.unpack_from("<H", dat_chunk, 0)
+            num_bones, = struct.unpack_from("<H", dat_chunk, 2)
+            id_bones = list(struct.unpack_from("<4B", dat_chunk, 4))
+            unk, = struct.unpack_from("<I", dat_chunk, 8)
 
-        # ---- Inserción binaria ----
-        blob = self._get_blob()
-        subparts_by_part = self._get_subparts()
-        part_dat = subparts_by_part[part_idx][insert_at]
+            # ---- Inserción binaria ----
+            blob = self._get_blob()
+            subparts_by_part = self._get_subparts()
+            part_dat = subparts_by_part[part_idx][insert_at]
 
-        data_part, cant, offset_insert = insert_sub_part(
-            blob,
-            part_idx,
-            part_dat,
-            chunk,
-            dat_chunk
-        )
+            data_part, cant, offset_insert = insert_sub_part(
+                blob,
+                part_idx,
+                part_dat,
+                chunk,
+                dat_chunk
+            )
 
-        # ---- Actualizar estructura de subpartes ----
-        sub_parts = subparts_by_part[part_idx]
+            # ---- Actualizar estructura de subpartes ----
+            sub_parts = subparts_by_part[part_idx]
 
-        new_entry = SubPartIndexEntry(
-            insert_at + 1,
-            offset_insert,
-            num_vertices,
-            num_bones,
-            id_bones,
-            unk
-        )
-        sub_parts.insert(insert_at + 1, new_entry)
+            new_entry = SubPartIndexEntry(
+                insert_at + 1,
+                offset_insert,
+                num_vertices,
+                num_bones,
+                id_bones,
+                unk
+            )
+            sub_parts.insert(insert_at + 1, new_entry)
 
-        # Reindexar IDs y ajustar offsets base (+0x10 del nuevo header)
-        for entry in sub_parts:
-            entry.sub_part = sub_parts.index(entry)
-            entry.sub_part_offset += 0x10
+            # Reindexar IDs y ajustar offsets base (+0x10 del nuevo header)
+            for entry in sub_parts:
+                entry.sub_part = sub_parts.index(entry)
+                entry.sub_part_offset += 0x10
 
-        # Ajustar offsets de los que están después del insert real en el blob
-        for i in range(insert_at + 2, len(sub_parts)):
-            sub_parts[i].sub_part_offset += cant
+            # Ajustar offsets de los que están después del insert real en el blob
+            for i in range(insert_at + 2, len(sub_parts)):
+                sub_parts[i].sub_part_offset += cant
+
+
+            # ---- Alinear y actualizar blob ----
+            del data_part[sub_parts[-1].sub_part_offset + calc_subpart_size(sub_parts[-1].num_vertices, sub_parts[-1].num_bones):]
+            align_16(data_part)
+            blob[str(part_idx)] = data_part
+
+            # print(len(data_part))
+
+            # ---- Reemplazar parte completa en el modelo ----
+            replace_part(
+                self.parent_app._blob,
+                self.parent_app._hdr,
+                self.parent_app._parts,
+                data_part,
+                part_idx
+            )
+
+            insert_at+=1
 
         # ---- Refrescar tabla UI ----
         self.set_table(
@@ -467,74 +496,190 @@ class MultiSelectTable(ctk.CTkFrame):
             part_idx
         )
 
-        # ---- Alinear y actualizar blob ----
-        del data_part[sub_parts[-1].sub_part_offset + calc_subpart_size(sub_parts[-1].num_vertices, sub_parts[-1].num_bones):]
-        align_16(data_part)
-        blob[str(part_idx)] = data_part
-
-        # print(len(data_part))
-
-        # ---- Reemplazar parte completa en el modelo ----
-        replace_part(
-            self.parent_app._blob,
-            self.parent_app._hdr,
-            self.parent_app._parts,
-            data_part,
-            part_idx
-        )
-
-        messagebox.showinfo("Insertado", f"SubParte insertada en posicion {insert_at + 1:02}")
+        messagebox.showinfo("Insertado", f"SubParte insertada desde la posicion {row_idx[0] + 1:02}\n{paths_subpart}")
 
     def _add_subparts(self):
-        pass
+        # segundo pmdl
+        part_idx_2 = self.master.master._index_opt_right
+        row_idx_2 = self.get_selected_row_indices()
 
-    def _delete_subparts(self):
+        # primer pmdl
         part_idx = self.master.master._index_opt_left
-        row_idx = self.get_selected_row_indices()
+        row_idx = self.master.master.tab_left.get_selected_row_indices()
 
-        messagebox.showinfo("Advertencia", f"Vas a eliminar las siguientes subpartes {row_idx}")
+        if row_idx is None or row_idx_2 is None:
+            return
 
-        blob = self._get_blob()
-        subparts_by_part = self._get_subparts()
-        subpart_dat = subparts_by_part[part_idx][row_idx[0]]
+        if len(row_idx) > 1:
+            raise ValueError("No se puede agregar si tienes seleccionada mas de una subparte en pmdl 1.")
 
-        data_part, cant = delete_sub_part(blob, part_idx, subpart_dat)
+        insert_at = row_idx[0]
 
-        # eliminar datos de la subpart
-        del subparts_by_part[part_idx][subpart_dat.sub_part]
+        # datos del pmdl 1
+        subparts_by_part =  self.master.master._sub_parts
+        blob = self.master.master._blobs
 
-        # arreglar offsets
-        for i in range(len(subparts_by_part[part_idx])):
-            subparts_by_part[part_idx][i].sub_part_offset -= 0x10
-            subparts_by_part[part_idx][i].sub_part = i
+        # datos del pmdl 2
+        blob_2 = self._get_blob()
+        subparts_by_part_2 = self._get_subparts()
 
-        for i in range(subpart_dat.sub_part, len(subparts_by_part[part_idx])):
-            subparts_by_part[part_idx][i].sub_part_offset -= cant
+        if not messagebox.askokcancel(
+                "Confirmar Agruegar",
+                f"Vas a agruegar las siguientes subpartes: {row_idx_2}\n\n¿Deseas continuar?"
+        ):
+            return
 
-        # ---- Alinear y actualizar blob ----
-        del data_part[subparts_by_part[part_idx][-1].sub_part_offset + calc_subpart_size(subparts_by_part[part_idx][-1].num_vertices,
-                                                                               subparts_by_part[part_idx][-1].num_bones):]
-        align_16(data_part)
-        blob[str(part_idx)] = data_part
+        for subpart_2 in row_idx_2:
+            # obtener la subparte del pmdl 2
+            part_dat_2 = subparts_by_part_2[part_idx_2][subpart_2]
+            raw = export_sub_part(
+                blob_2,
+                part_idx_2,
+                part_dat_2
+                )
+            raw = bytearray(raw)
 
-        # ---- Reemplazar parte completa en el modelo ----
-        replace_part(
-            self.parent_app._blob,
-            self.parent_app._hdr,
-            self.parent_app._parts,
-            data_part,
-            part_idx
-        )
+            # data chunk y chunk de la subparte a add
+            dat_chunk = bytearray(b'\x00' * 0x10)
+            struct.pack_into("<H", dat_chunk, 0, part_dat_2.num_vertices)
+            struct.pack_into("<H", dat_chunk, 2, part_dat_2.num_bones)
+            struct.pack_into("<4B", dat_chunk, 4, *part_dat_2.id_bones)
+            struct.pack_into("<I", dat_chunk, 8, part_dat_2.unk)
+            chunk = raw
+
+            # ---- Header de la subparte ----
+            num_vertices, = struct.unpack_from("<H", dat_chunk, 0)
+            num_bones, = struct.unpack_from("<H", dat_chunk, 2)
+            id_bones = list(struct.unpack_from("<4B", dat_chunk, 4))
+            unk, = struct.unpack_from("<I", dat_chunk, 8)
+
+            # ---- Inserción binaria ----
+            part_dat = subparts_by_part[part_idx][insert_at]
+            data_part, cant, offset_insert = insert_sub_part(
+                blob,
+                part_idx,
+                part_dat,
+                chunk,
+                dat_chunk
+            )
+
+            # ---- Actualizar estructura de subpartes ----
+            sub_parts = subparts_by_part[part_idx]
+
+            new_entry = SubPartIndexEntry(
+                insert_at + 1,
+                offset_insert,
+                num_vertices,
+                num_bones,
+                id_bones,
+                unk
+            )
+            sub_parts.insert(insert_at + 1, new_entry)
+
+            # Reindexar IDs y ajustar offsets base (+0x10 del nuevo header)
+            for entry in sub_parts:
+                entry.sub_part = sub_parts.index(entry)
+                entry.sub_part_offset += 0x10
+
+            # Ajustar offsets de los que están después del insert real en el blob
+            for i in range(insert_at + 2, len(sub_parts)):
+                sub_parts[i].sub_part_offset += cant
+
+
+            # ---- Alinear y actualizar blob ----
+            del data_part[sub_parts[-1].sub_part_offset + calc_subpart_size(sub_parts[-1].num_vertices, sub_parts[-1].num_bones):]
+            align_16(data_part)
+            blob[str(part_idx)] = data_part
+
+            # print(len(data_part))
+
+            # ---- Reemplazar parte completa en el modelo ----
+            replace_part(
+                self.parent_app._blob,
+                self.parent_app._hdr,
+                self.parent_app._parts,
+                data_part,
+                part_idx
+            )
+
+            insert_at+=1
 
         # ---- Refrescar tabla UI ----
-        self.set_table(
+        self.master.master.tab_left.set_table(
             len(self.master.master._sub_parts[part_idx]),
             self.master.master._sub_parts,
             part_idx
         )
 
-        messagebox.showinfo("Elimanado", f"SubParte {row_idx} eliminado correctamente")
+        messagebox.showinfo("Agruegada", f"SubParte agruegada desde la posicion {row_idx[0] + 1:02}")
 
+
+    def _delete_subparts(self):
+        band = False
+        part_idx = self.master.master._index_opt_left
+        row_idx = self.get_selected_row_indices()
+        row_idx_old = copy.deepcopy(row_idx)
+
+        if not messagebox.askokcancel(
+                "Confirmar eliminación",
+                f"Vas a eliminar las siguientes subpartes: {row_idx}\n\n¿Deseas continuar?"
+        ):
+            return
+
+        try:
+            for index_row in range(len(row_idx)):
+                blob = self._get_blob()
+                subparts_by_part = self._get_subparts()
+
+                if band:
+                    for cor in range(len(row_idx)):
+                        row_idx[cor]-=1
+                band = True
+
+                subpart_dat = subparts_by_part[part_idx][row_idx[index_row]]
+
+                data_part, cant = delete_sub_part(blob, part_idx, subpart_dat)
+
+                # eliminar datos de la subpart
+                del subparts_by_part[part_idx][subpart_dat.sub_part]
+
+                # arreglar offsets
+                for i in range(len(subparts_by_part[part_idx])):
+                    subparts_by_part[part_idx][i].sub_part_offset -= 0x10
+                    subparts_by_part[part_idx][i].sub_part = i
+
+                for i in range(subpart_dat.sub_part, len(subparts_by_part[part_idx])):
+                    subparts_by_part[part_idx][i].sub_part_offset -= cant
+
+                # ---- Alinear y actualizar blob ----
+                del data_part[subparts_by_part[part_idx][-1].sub_part_offset + calc_subpart_size(subparts_by_part[part_idx][-1].num_vertices,
+                                                                                       subparts_by_part[part_idx][-1].num_bones):]
+                align_16(data_part)
+                blob[str(part_idx)] = data_part
+
+                # ---- Reemplazar parte completa en el modelo ----
+                replace_part(
+                    self.parent_app._blob,
+                    self.parent_app._hdr,
+                    self.parent_app._parts,
+                    data_part,
+                    part_idx
+                )
+
+            # ---- Refrescar tabla UI ----
+            self.set_table(
+                len(self.master.master._sub_parts[part_idx]),
+                self.master.master._sub_parts,
+                part_idx
+            )
+
+            messagebox.showinfo("Elimanado", f"SubPartes {row_idx_old} eliminadas correctamente")
+        except Exception as e:
+
+            messagebox.showerror(
+                "Error",
+                f"Ocurrió un problema al eliminar las subpartes.\n{e}"
+            )
 
     # =========================
     # PANEL UPDATE
@@ -574,6 +719,8 @@ class UiSubparts(ctk.CTkToplevel):
 
         self.title(APP_TITLE)
         self.geometry("1200x600")
+
+        self.protocol("WM_DELETE_WINDOW", self._disable_close)
 
         self.grid_columnconfigure((0, 2), weight=1)
         self.grid_columnconfigure(1, weight=0, minsize=220)
@@ -728,7 +875,7 @@ class UiSubparts(ctk.CTkToplevel):
 
         self.btn_left_load = ctk.CTkButton(
             card_actions,
-            text="Cargar",
+            text="Mover arriba",
             width=120,
             command=self.get_data_subpart
         )
@@ -736,7 +883,7 @@ class UiSubparts(ctk.CTkToplevel):
 
         self.btn_right_load = ctk.CTkButton(
             card_actions,
-            text="Cargar 2",
+            text="Mover abajo",
             width=120,
             command=lambda: self.get_data_subpart(1)
         )
@@ -749,6 +896,14 @@ class UiSubparts(ctk.CTkToplevel):
             command=self.on_save_part
         )
         self.btn_save_part.pack(pady=(0, 10))
+
+        self.btn_ui_pmdl_editor = ctk.CTkButton(
+            card_actions,
+            text="Regresar",
+            width=120,
+            command=self.on_back
+        )
+        self.btn_ui_pmdl_editor.pack(pady=(0, 10))
 
         # =========================
         # CONTENEDOR DERECHO
@@ -856,3 +1011,11 @@ class UiSubparts(ctk.CTkToplevel):
             messagebox.showinfo("Guardado", f"cambios guardados en ememorio")
         except Exception as e:
             messagebox.showerror("Error", str(e))
+
+    def on_back(self):
+        self.master.on_open_pmdl_editor()
+        self.withdraw()
+        self.destroy()
+
+    def _disable_close(self):
+        pass  # No hace nada → botón X deshabilitado

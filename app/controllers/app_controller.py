@@ -168,13 +168,26 @@ class PmdlPartsApp(ctk.CTk):
     
     def on_open_subparts_editor(self):
         """Abre el editor de SubParts."""
+        if not self._path and not self._path2:
+            messagebox.showinfo("Informacion", "Abre al menos un archivo para editar")
+            return
+
+        self.withdraw()
         if self.window_subparts is None or not self.window_subparts.winfo_exists():
             self.window_subparts = UiSubparts(self)
         else:
             # Si ya existe, traerla al frente
             self.window_subparts.focus()
             self.window_subparts.lift()
-    
+
+        # cargar subparts en la UI
+        self.window_subparts.get_data_subpart()
+        self.window_subparts.get_data_subpart(1)
+
+    def on_open_pmdl_editor(self):
+        """Mostrar el editor PMDL."""
+        self.deiconify()
+
     def on_open_patch(self):
         """Placeholder para abrir parche principal."""
         messagebox.showinfo("Próximamente", "Función 'Abrir Parche' en desarrollo.")
