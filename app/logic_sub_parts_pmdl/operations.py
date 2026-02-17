@@ -1,3 +1,4 @@
+import copy
 import struct
 
 from app.logic_sub_parts_pmdl.sub_parts_index import SubPartIndexEntry
@@ -184,3 +185,101 @@ def align_16(buf: bytearray):
     padding = (-len(buf)) % 0x10
     if padding:
         buf.extend(b'\x00' * padding)
+
+def move_up(blob: dict, part:int, subparts: list[SubPartIndexEntry], num_subpart: int):
+    """
+    mueve una subparte de la memoria hacia arriba
+    """
+    part_data = blob.get(f"{part}", None)
+    part_data = bytearray(part_data)
+
+    # datos de la subparte a mover
+    subpart = subparts[part][num_subpart]
+    subpart_offset = subpart.sub_part_offset
+    subpart_size = calc_subpart_size(subpart.num_vertices, subpart.num_bones)
+
+    # datos de la subparte de arriba
+    subpart_1 = copy.deepcopy(subparts[part][num_subpart-1])
+    subpart_offset_1 = subpart_1.sub_part_offset
+    # subpart_size_1 = calc_subpart_size(subpart_1.num_vertices, subpart_1.num_bones)
+
+    # mover bytes
+    data_subpart = part_data[subpart_offset: subpart_offset + subpart_size]
+    del part_data[subpart_offset: subpart_offset + subpart_size]
+
+    part_data[subpart_offset_1:subpart_offset_1] = data_subpart
+
+    dat_subpart = part_data[(num_subpart * 0x10) + 4 : ((num_subpart + 1) * 0x10) + 4]
+    dat_subpart_1 = part_data[((num_subpart-1) * 0x10) + 4 : (num_subpart * 0x10) + 4]
+
+    dat_subpart[0xc:] = dat_subpart_1[0xc:]
+    del part_data[num_subpart + 4 : num_subpart + 4 + 0x10]
+    part_data[num_subpart - 1 + 4: num_subpart - 1 + 4 + 0x10] = dat_subpart
+
+    # intercambiar offsets
+    subparts[part][num_subpart].sub_part_offset = subpart_offset_1
+    subparts[part][num_subpart-1].sub_part_offset = subpart_offset_1 + subpart_size
+    struct.pack_into("<I", part_data, (num_subpart + 1) * 0x10, subpart_offset_1 + subpart_size)
+
+    # intercambiar id
+    subparts[part][num_subpart - 1].sub_part = subpart.sub_part
+    subparts[part][num_subpart].sub_part = subpart_1.sub_part
+
+    # mover en la lista
+    subparts[part][num_subpart], subparts[part][num_subpart - 1] = subparts[part][num_subpart - 1], subparts[part][num_subpart]
+
+    return part_data
+
+def replace_id_ff(part: bytearray, reemp = True):
+    """
+    reemplaza las id 0xff de la parte
+    :param part: parte del pmdl
+    :param reemp: True indica si se debe reemplzar las 0xff o False escribir los 0xff
+
+    """
+    num_subparts, = struct.unpack_from("<I", part, 0)
+    num_subparts-=1
+    if reemp:
+        for row in range(num_subparts):
+            for i in range(4):
+                id_1, = struct.unpack_from("<B", part, (row * 0x10) + 8 + i)
+                id_2, = struct.unpack_from("<B", part, ((row + 1) * 0x10) + 8 + i)
+                if id_2 == 0xff:
+                    struct.pack_into("<B", part, ((row + 1) * 0x10) + 8 + i, id_1)
+        return
+
+    # agruega las 0xff
+    for row in range(num_subparts):
+        for i in range(4):
+            id_1, = struct.unpack_from("<B", part, (row * 0x10) + 8 + i)
+            id_2, = struct.unpack_from("<B", part, ((row + 1) * 0x10) + 8 + i)
+            if id_2 == id_1 and id_1 != 0 and id_2 != 0:
+                struct.pack_into("<B", part, ((row + 1) * 0x10) + 8 + i, 0xff)
+
+def split_fixed(data: bytes | bytearray, size: int):
+    return [data[i:i+size] for i in range(0, len(data), size)]
+
+def bones_strip(dat_subpart: bytearray, size_vertex: int, bones_num: int, subpart: SubPartIndexEntry) -> tuple[bytearray, int]:
+    if bones_num == subpart.num_bones:
+        return dat_subpart, 0
+
+    list_vertices = split_fixed(dat_subpart, size_vertex)
+
+    # agregar influencias a los vertices
+    if bones_num > subpart.num_bones:
+        cant = bones_num - subpart.num_bones
+        for i in range(len(list_vertices)):
+            for j in range(cant):
+                list_vertices[i][subpart.num_bones * 2:subpart.num_bones * 2] = b'\x00\x80'
+
+    # quitar influencias
+    if bones_num < subpart.num_bones:
+        cant = bones_num - subpart.num_bones
+        for i in range(len(list_vertices)):
+            for j in range(subpart.num_bones, bones_num, -1):
+                del list_vertices[i][(j - 1) * 2: j * 2]
+
+    dat_new = bytearray().join(list_vertices)
+    size = len(dat_new) - len(dat_subpart)
+
+    return dat_new, size
