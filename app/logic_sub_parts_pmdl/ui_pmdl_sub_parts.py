@@ -11,7 +11,9 @@ from app.core.operations import export_part, replace_part
 from app.logic_sub_parts_pmdl.scrollable_option_menu import ScrollableOptionMenu
 from app.logic_sub_parts_pmdl.sub_parts_index import parse_subparts_index, SubPartIndexEntry
 from app.logic_sub_parts_pmdl.operations import calc_subpart_size, export_sub_part, import_sub_part, align_16, \
-    insert_sub_part, delete_sub_part
+    insert_sub_part, delete_sub_part, move_up, split_fixed, bones_strip, replace_id_ff
+from app.logic_sub_parts_pmdl.ui_edit_vertex import VertexEditor
+from app.utils import center_window
 
 APP_TITLE = "Pmdl Editor - SubParts"
 UI_FONT = ("Segoe UI", 12)
@@ -27,6 +29,8 @@ class MultiSelectTable(ctk.CTkFrame):
         self.parent_app = parent_app # clase controllers/app_controller
         self.path = path          # 0 = izquierda, 1 = derecha
         self.path_name = None
+
+        self.anchor_row: int | None = None
 
         self.rows_count = rows
         self.cols_count = cols
@@ -165,6 +169,7 @@ class MultiSelectTable(ctk.CTkFrame):
             return
 
         self.selected_rows = {row_idx}
+        self.anchor_row = row_idx  # ← importante
         self._update_visuals()
 
         if scroll_to:
@@ -177,11 +182,39 @@ class MultiSelectTable(ctk.CTkFrame):
 
     def _handle_click(self, event, row_idx):
         ctrl = (event.state & 0x0004) != 0
+        shift = (event.state & 0x0001) != 0
 
-        if not ctrl:
-            self.selected_rows = {row_idx}
+        # =========================
+        # SHIFT → agregar rango desde anchor
+        # =========================
+        if shift:
+            if self.anchor_row is None:
+                self.anchor_row = row_idx
+
+            start = min(self.anchor_row, row_idx)
+            end = max(self.anchor_row, row_idx)
+
+            # 🔹 añade rango sin borrar lo anterior
+            self.selected_rows.update(range(start, end + 1))
+
+        # =========================
+        # CTRL → toggle individual
+        # =========================
+        elif ctrl:
+            if row_idx in self.selected_rows:
+                self.selected_rows.remove(row_idx)
+            else:
+                self.selected_rows.add(row_idx)
+
+            # Ctrl redefine anchor
+            self.anchor_row = row_idx
+
+        # =========================
+        # CLICK NORMAL → selección única
+        # =========================
         else:
-            self.selected_rows.symmetric_difference_update({row_idx})
+            self.selected_rows = {row_idx}
+            self.anchor_row = row_idx
 
         self._update_visuals()
 
@@ -325,7 +358,7 @@ class MultiSelectTable(ctk.CTkFrame):
         part_idx = self.master.master._index_opt_left
 
         row_idx = self.get_selected_row_indices()
-        if row_idx is None:
+        if row_idx is None or len(row_idx) > 1:
             return
 
         path_subpart = filedialog.askopenfilename(
@@ -389,6 +422,75 @@ class MultiSelectTable(ctk.CTkFrame):
         replace_part(self.parent_app._blob, self.parent_app._hdr, self.parent_app._parts, data_part, part_idx)
 
         messagebox.showinfo("Importado", f"SubParte importada")
+
+    def import_sub_part_pmdl(self, part_idx:int, row_idx:int, chunk:bytearray, dat_chunk:list):
+        """
+        reemplaza una subpart existente en el pmdl 1
+        :param part_idx: id de la parte
+        :param row_idx: id de la subparte
+        :param chunk: chunk de vertices
+        :param dat_chunk: parametros de la subparte [int, int, list[int], int]
+        """
+
+        # blob de las partes en bytes
+        blob = self._get_blob()
+        part_dat = self._get_subparts()[part_idx][row_idx]
+        data_part, cant = import_sub_part(
+            blob,
+            part_idx,
+            part_dat,
+            chunk
+        )
+        # actualizar offset de las subparts
+        parts = self._get_subparts()[part_idx]
+        for i in range(part_idx + 1, len(parts)):
+            parts[i].sub_part_offset += cant
+
+        # actualizar valores de la subparte
+        # num_vertices, = struct.unpack_from("<H", dat_chunk, 0)
+        # num_bones, = struct.unpack_from("<H", dat_chunk, 2)
+        # id_bones = list(struct.unpack_from("<4B", dat_chunk, 4))
+        # unk, = struct.unpack_from("<I", dat_chunk, 8)
+
+        # actualizar valores de la subparte
+        num_vertices = dat_chunk[0]
+        num_bones = dat_chunk[1]
+        id_bones = dat_chunk[2] # lista de int
+        unk = dat_chunk[3]
+
+        part_dat.num_vertices = num_vertices
+        part_dat.num_bones = num_bones
+        part_dat.id_bones = id_bones
+        part_dat.unk = unk
+
+        # obtener el tamaño de la subparte final
+        size_part_end = calc_subpart_size(parts[-1].num_vertices, parts[-1].num_bones)
+
+        # quitar los residuos al final de la parte y alinear a 16
+        data_part = data_part[:parts[-1].sub_part_offset + size_part_end]
+        align_16(data_part)
+
+        # actualizar el blob dict
+        blob[f"{part_idx}"] = data_part
+
+        # añadir los cambios al modelo
+        replace_part(
+            self.parent_app._blob,
+            self.parent_app._hdr,
+            self.parent_app._parts,
+            data_part,
+            part_idx
+        )
+
+        # ---- Refrescar tabla UI ----
+        self.set_table(
+            len(self.master.master._sub_parts[part_idx]),
+            self.master.master._sub_parts,
+            part_idx
+        )
+
+        # seleccionar la subparte en la tabla
+        self.select_row(row_idx)
 
     def _insert_subparts(self):
         part_idx = self.master.master._index_opt_left
@@ -719,6 +821,7 @@ class UiSubparts(ctk.CTkToplevel):
 
         self.title(APP_TITLE)
         self.geometry("1200x600")
+        center_window(self, 1200, 600)
 
         self.protocol("WM_DELETE_WINDOW", self._disable_close)
 
@@ -873,21 +976,25 @@ class UiSubparts(ctk.CTkToplevel):
             font=("Segoe UI", 14, "bold")
         ).pack(pady=(8, 12))
 
-        self.btn_left_load = ctk.CTkButton(
+        self.btn_mov_up = ctk.CTkButton(
             card_actions,
             text="Mover arriba",
             width=120,
-            command=self.get_data_subpart
+            command=self.mov_up
         )
-        self.btn_left_load.pack(pady=5)
+        self.btn_mov_up.pack(pady=5)
 
-        self.btn_right_load = ctk.CTkButton(
+        self.mov_up_st = True
+
+        self.btn_mov_down = ctk.CTkButton(
             card_actions,
             text="Mover abajo",
             width=120,
-            command=lambda: self.get_data_subpart(1)
+            command=self.mov_down
         )
-        self.btn_right_load.pack(pady=(0, 10))
+        self.btn_mov_down.pack(pady=(0, 10))
+
+        self.mov_down_st = True
 
         self.btn_save_part = ctk.CTkButton(
             card_actions,
@@ -896,6 +1003,14 @@ class UiSubparts(ctk.CTkToplevel):
             command=self.on_save_part
         )
         self.btn_save_part.pack(pady=(0, 10))
+
+        self.btn_vertex_ed = ctk.CTkButton(
+            card_actions,
+            text="Editar vertices",
+            width=120,
+            command=self.on_ed_vertex
+        )
+        self.btn_vertex_ed.pack(pady=(0, 10))
 
         self.btn_ui_pmdl_editor = ctk.CTkButton(
             card_actions,
@@ -951,6 +1066,11 @@ class UiSubparts(ctk.CTkToplevel):
         for id_part in range(parts_ids):
             data_part = export_part(self.master._blob if pmdl == 0 else self.master._blob2,
                                     self.master._parts[id_part] if pmdl == 0 else self.master._parts2[id_part])
+            # elimina los id 0xff
+            data_part = bytearray(data_part)
+            replace_id_ff(data_part)
+            # por conveniencia se vuelve a convertir a bytes
+            data_part = bytes(data_part)
 
             if pmdl == 0:
                 self._sub_parts.append(parse_subparts_index(data_part))
@@ -1000,22 +1120,225 @@ class UiSubparts(ctk.CTkToplevel):
                 self.entry_huesos[i].pack_forget()
 
     def on_save_part(self):
-        try:
-            # guardar la id de la parte actual
-            id_part = self._index_opt_left
+        # guardar la id de la parte actual
+        part_id = self._index_opt_left
+        row_idx = self.tab_left.get_selected_row_indices()
+        if len(row_idx) > 1:
+            messagebox.showinfo("Advertencia", "no se puede guardar si tienes mas de una subpart seleccionada")
+            return
 
-            # datos de la parte en bytes
-            part_data = self._sub_parts[0][id_part].blob_subpart
-            replace_part(self.master._blob, self.master._hdr, self.master._parts, part_data, id_part)
+        if not row_idx:
+            return
 
-            messagebox.showinfo("Guardado", f"cambios guardados en ememorio")
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
+        subpart = self._sub_parts[part_id][row_idx[0]]
+        part_data = self._blobs.get(f"{part_id}", None)
+        part_data = bytearray(part_data)
+
+        bones_num = int(self.opt_huesos.get())
+        id_bones = [int(self.entry_huesos[i].get()) for i in range(4)]
+        for i in range(bones_num, 4):
+            id_bones[i] = 0
+        unk_value = int(self.entry_unk.get())
+
+        size = calc_subpart_size(subpart.num_vertices, subpart.num_bones)
+        size_vertex = calc_subpart_size(subpart.num_vertices, subpart.num_bones, True)
+
+        dat_subpart = part_data[subpart.sub_part_offset : subpart.sub_part_offset + size]
+
+        # agregar o quitar influencias en los vertices
+        dat_subpart, cant = bones_strip(dat_subpart, size_vertex, bones_num, subpart)
+
+        part_data[subpart.sub_part_offset : subpart.sub_part_offset + size] = dat_subpart
+
+        # actualizar datos de la subpart en bytes
+        struct.pack_into("<H", part_data, (subpart.sub_part * 0x10)+ 2 + 4, bones_num)
+        struct.pack_into("<4B", part_data, (subpart.sub_part * 0x10)+ 4 + 4, *id_bones)
+        struct.pack_into("<I", part_data, (subpart.sub_part * 0x10)+ 8 + 4, unk_value)
+
+        # arreglar offsets de las subpartes
+        for i in range(row_idx[0] + 1, len(self._sub_parts[part_id])):
+            self._sub_parts[part_id][i].sub_part_offset += cant
+            struct.pack_into("<I", part_data, (i + 1) * 0x10, self._sub_parts[part_id][i].sub_part_offset)
+
+        # actualizar los datos de la subpart
+        subpart.num_bones = bones_num
+        subpart.id_bones = id_bones
+        subpart.unk = unk_value
+
+        # cambiar dat en blob
+        self._blobs[f"{part_id}"] = part_data
+
+        # ---- Reemplazar parte completa en el modelo ----
+        replace_part(
+            self.master._blob,
+            self.master._hdr,
+            self.master._parts,
+            part_data,
+            part_id
+        )
+
+        # ---- Refrescar tabla UI ----
+        self.tab_left.set_table(
+            len(self._sub_parts[part_id]),
+            self._sub_parts,
+            part_id
+        )
+
+        self.tab_left.select_row(row_idx[0])
+
+        # datos de la parte en bytes
+        # part_data = self._sub_parts[0][id_part].blob_subpart
+        # replace_part(self.master._blob, self.master._hdr, self.master._parts, part_data, id_part)
+
+
+        messagebox.showinfo("Guardado", f"cambios guardados en memoria")
 
     def on_back(self):
+        # agregar las id 0xff
+        for part_id, blob in self._blobs.items():
+            blob = bytearray(blob)
+            replace_id_ff(blob, False)
+
+            # ---- Reemplazar parte completa en el modelo ----
+            replace_part(
+                self.master._blob,
+                self.master._hdr,
+                self.master._parts,
+                blob,
+                int(part_id)
+            )
+
         self.master.on_open_pmdl_editor()
         self.withdraw()
         self.destroy()
 
     def _disable_close(self):
         pass  # No hace nada → botón X deshabilitado
+
+    def mov_up(self):
+        if not self.mov_up_st:
+            return
+
+        self.mov_up_st = False
+        part_idx = self._index_opt_left
+        row_idx = self.tab_left.get_selected_row_indices()
+
+        if len(row_idx) > 1:
+            messagebox.showinfo("Informacion", "solo puedes mover una subpart a la vez")
+            return
+
+        if row_idx[0] == 0:
+            return
+
+        part_data = move_up(self._blobs, part_idx, self._sub_parts, row_idx[0])
+
+        self._blobs[f"{part_idx}"] = part_data
+
+        # ---- Reemplazar parte completa en el modelo ----
+        replace_part(
+            self.master._blob,
+            self.master._hdr,
+            self.master._parts,
+            part_data,
+            part_idx
+        )
+
+        # ---- Refrescar tabla UI ----
+        self.tab_left.set_table(
+            len(self._sub_parts[part_idx]),
+            self._sub_parts,
+            part_idx
+        )
+
+        self.tab_left.select_row(row_idx[0]-1)
+        self.mov_up_st = True
+
+    def mov_down(self):
+        if not self.mov_down_st:
+            return
+
+        self.mov_down_st = False
+        part_idx = self._index_opt_left
+        row_idx = self.tab_left.get_selected_row_indices()
+
+        if len(row_idx) > 1:
+            messagebox.showinfo("Informacion", "solo puedes mover una subpart a la vez")
+            return
+
+        if row_idx[0] + 1 >= len(self._sub_parts[part_idx]):
+            return
+
+        part_data = move_up(self._blobs, part_idx, self._sub_parts, row_idx[0] + 1)
+
+        self._blobs[f"{part_idx}"] = part_data
+
+        # ---- Reemplazar parte completa en el modelo ----
+        replace_part(
+            self.master._blob,
+            self.master._hdr,
+            self.master._parts,
+            part_data,
+            part_idx
+        )
+
+        # ---- Refrescar tabla UI ----
+        self.tab_left.set_table(
+            len(self._sub_parts[part_idx]),
+            self._sub_parts,
+            part_idx
+        )
+
+        self.tab_left.select_row(row_idx[0] + 1)
+
+        self.mov_down_st = True
+
+    def on_ed_vertex(self):
+        part_id = self._index_opt_left
+        row_idx = self.tab_left.get_selected_row_indices()
+        if len(row_idx) > 1:
+            messagebox.showinfo("Advertencia", "no se puede guardar si tienes mas de una subpart seleccionada")
+            return
+
+        if not row_idx:
+            return
+
+        subpart = self._sub_parts[part_id][row_idx[0]]
+        part_data = self._blobs.get(f"{part_id}", None)
+        part_data = bytearray(part_data)
+
+        size = calc_subpart_size(subpart.num_vertices, subpart.num_bones)
+        size_vertex = calc_subpart_size(subpart.num_vertices, subpart.num_bones, True)
+        subpart_data = part_data[subpart.sub_part_offset: subpart.sub_part_offset + size]
+        list_vertices = split_fixed(subpart_data, size_vertex)
+
+        # formatear datos
+        vertices = []
+        for vertex in list_vertices:
+            dat = {}
+
+            pos_x, = struct.unpack_from("<H", vertex, (subpart.num_bones * 2) + 2)
+            pos_y, = struct.unpack_from("<H", vertex, (subpart.num_bones * 2) + 4)
+            pos_z, = struct.unpack_from("<H", vertex, (subpart.num_bones * 2) + 6)
+
+            dat["pos"] = (pos_x, pos_y, pos_z)
+
+            uv, = struct.unpack_from("<B", vertex, subpart.num_bones * 2)
+            uv_1, = struct.unpack_from("<B", vertex, (subpart.num_bones * 2) + 1)
+
+            dat["uv"] = (uv, uv_1)
+
+            bones = []
+            for i in range(subpart.num_bones):
+                bone, = struct.unpack_from("<H", vertex, i * 2)
+                bones.append(bone)
+
+            dat["weights"] = bones
+
+            vertices.append(dat)
+
+        # vertices_demo = [
+        #     {"pos": (1, 2, 3), "uv": (0.5, 0.7), "weights": [1.0]},
+        #     {"pos": (4, 5, 6), "uv": (0.2, 0.1), "weights": [0.5, 0.3, 0.2]},
+        #     {"pos": (7, 8, 9), "uv": (0.9, 0.4), "weights": [0.7, 0.3]},
+        # ]
+        self.editor = VertexEditor(self, vertices, f"{row_idx[0]:02}")
