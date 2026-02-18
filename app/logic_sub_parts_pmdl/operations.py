@@ -234,7 +234,7 @@ def replace_id_ff(part: bytearray, reemp = True):
     """
     reemplaza las id 0xff de la parte
     :param part: parte del pmdl
-    :param reemp: True indica si se debe reemplzar las 0xff o False escribir los 0xff
+    :param reemp: True indica si se debe reemplazar las 0xff o False escribir los 0xff
 
     """
     num_subparts, = struct.unpack_from("<I", part, 0)
