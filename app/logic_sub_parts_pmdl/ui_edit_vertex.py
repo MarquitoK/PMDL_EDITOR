@@ -11,10 +11,10 @@ ctk.set_default_color_theme("blue")
 
 
 class VertexEditor(ctk.CTkToplevel):
-    def __init__(self, parent, vertices:list, namesubpart:str, **kwargs):
+    def __init__(self, parent, vertices:list, idsubpart:str, namepmdl:str, path:str, **kwargs):
         super().__init__(parent)
 
-        self.title(f"Pmdl Editor - Subpart N°: ** {namesubpart} **")
+        self.title(f"Pmdl Editor - Subpart N°: ** {idsubpart} ** - {namepmdl}")
         self.geometry("920x520")
         self.attributes("-toolwindow", True)
         self.resizable(False, False)
@@ -71,6 +71,18 @@ class VertexEditor(ctk.CTkToplevel):
             width=140,
             command=self.on_save_change
         ).pack(side="left", padx=5)
+
+        # ----- FRAME DEL PATH (debajo de botones) -----
+        self.path_frame = ctk.CTkFrame(self)
+        self.path_frame.pack(fill="x", padx=10, pady=(0,8))
+
+        self.path_label = ctk.CTkLabel(
+            self.path_frame,
+            text=f"Ruta: {path}",
+            anchor="w",   # texto alineado a la izquierda dentro del label
+        )
+        self.path_label.pack(side="left", fill="x", expand=True)
+
 
     # ----------------------------
     def create_header(self, parent):
@@ -215,7 +227,7 @@ class VertexEditor(ctk.CTkToplevel):
         # actualizar la subpart en el pmdl
         self.master.tab_left.import_sub_part_pmdl(part_id, row_idx, out, dat_chunk)
 
-        messagebox.showinfo("Guardado", "Se guardaron los datos")
+        messagebox.showinfo("Guardado", "Se guardaron los datos", parent=self)
 
     def center(self, parent):
         self.update_idletasks()
@@ -278,7 +290,7 @@ class VertexEditor(ctk.CTkToplevel):
         with open(ruta, "w", encoding="utf-8") as f:
             json.dump(result, f, indent=4)
 
-        messagebox.showinfo("Guardado", "Se guardaron los datos")
+        messagebox.showinfo("Guardado", "Se guardaron los datos", parent=self)
 
     def on_import_data(self):
 
@@ -298,4 +310,4 @@ class VertexEditor(ctk.CTkToplevel):
             v["uv"] = tuple(v["uv"])
 
         self.load_vertices(data)
-        messagebox.showinfo("Cargado", "Datos cargados")
+        messagebox.showinfo("Cargado", "Datos cargados", parent=self)

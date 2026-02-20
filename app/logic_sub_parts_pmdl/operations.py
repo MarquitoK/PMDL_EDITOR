@@ -230,31 +230,59 @@ def move_up(blob: dict, part:int, subparts: list[SubPartIndexEntry], num_subpart
 
     return part_data
 
-def replace_id_ff(part: bytearray, reemp = True):
+def replace_id_ff(parent=None, part: bytearray=None, reemp = True):
     """
     reemplaza las id 0xff de la parte
+    :param parent: self necesario para guardar las ids temporalmente
     :param part: parte del pmdl
-    :param reemp: True indica si se debe reemplzar las 0xff o False escribir los 0xff
+    :param reemp: True indica si se debe reemplazar las 0xff o False escribir los 0xff
 
     """
+
+    def find_id_no_cero_col(data: list[list[int]], col: int) -> int | None:
+        for fila in reversed(data):
+            val = fila[col]
+            if val != 0:
+                return val
+        return None
+
     num_subparts, = struct.unpack_from("<I", part, 0)
     num_subparts-=1
+    id_old_2 = []
     if reemp:
         for row in range(num_subparts):
+            id_old = [0, 0, 0, 0]
+            id_old_2 = [0, 0, 0, 0]
             for i in range(4):
                 id_1, = struct.unpack_from("<B", part, (row * 0x10) + 8 + i)
+                id_old[i] = id_1
                 id_2, = struct.unpack_from("<B", part, ((row + 1) * 0x10) + 8 + i)
                 if id_2 == 0xff:
+                    # si es cero busca una id valida
+                    if id_1 == 0:
+                        id_1 = find_id_no_cero_col(parent.ids_old, i)
                     struct.pack_into("<B", part, ((row + 1) * 0x10) + 8 + i, id_1)
+                    id_2 = id_1
+                id_old_2[i] = id_2
+
+            # guarda las id sin 0xFF
+            parent.ids_old.append(id_old)
+            # agruega las ultimas id de la parte
+        parent.ids_old.append(id_old_2)
         return
 
     # agruega las 0xff
+    id_old = [0, 0, 0, 0]
+    band = False
     for row in range(num_subparts):
         for i in range(4):
-            id_1, = struct.unpack_from("<B", part, (row * 0x10) + 8 + i)
+            id_1 = struct.unpack_from("<B", part, (row * 0x10) + 8 + i)[0] if not band else id_old[i]
+
             id_2, = struct.unpack_from("<B", part, ((row + 1) * 0x10) + 8 + i)
+            id_old[i] = id_2
             if id_2 == id_1 and id_1 != 0 and id_2 != 0:
                 struct.pack_into("<B", part, ((row + 1) * 0x10) + 8 + i, 0xff)
+        band = True
 
 def split_fixed(data: bytes | bytearray, size: int):
     return [data[i:i+size] for i in range(0, len(data), size)]
