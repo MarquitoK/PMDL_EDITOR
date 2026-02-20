@@ -13,6 +13,7 @@ from app.logic_sub_parts_pmdl.sub_parts_index import parse_subparts_index, SubPa
 from app.logic_sub_parts_pmdl.operations import calc_subpart_size, export_sub_part, import_sub_part, align_16, \
     insert_sub_part, delete_sub_part, move_up, split_fixed, bones_strip, replace_id_ff
 from app.logic_sub_parts_pmdl.ui_edit_vertex import VertexEditor
+from app.ui import ToolTip
 from app.utils import center_window
 from app.utils.ui_error_window import error_window_ui
 
@@ -275,7 +276,7 @@ class MultiSelectTable(ctk.CTkFrame):
             os.path.basename(self.parent_app._path if self.path == 0 else self.parent_app._path2)
         )[0]
 
-        messagebox.showinfo("Informacion", f"Se exportaran las siguientes subpartes\n{row_idx}\ndel pmdl: {base}")
+        messagebox.showinfo("Informacion", f"Se exportaran las siguientes subpartes\n{row_idx}\ndel pmdl: {base}", parent=self.master.master)
 
         part_idx = (
             self.master.master._index_opt_left
@@ -315,7 +316,7 @@ class MultiSelectTable(ctk.CTkFrame):
             with open(out_path, "wb") as f:
                 f.write(chunk)
 
-            messagebox.showinfo("Exportado", f"SubParte {row_idx[0]:02} exportada")
+            messagebox.showinfo("Exportado", f"SubParte {row_idx[0]:02} exportada", parent=self.master.master)
             return
 
         # ==============================
@@ -349,7 +350,7 @@ class MultiSelectTable(ctk.CTkFrame):
             with open(Path(out_path, filename), "wb") as f:
                 f.write(chunk)
 
-        messagebox.showinfo("Exportado", f"SubPartes\n{row_idx}\nexportadas")
+        messagebox.showinfo("Exportado", f"SubPartes\n{row_idx}\nexportadas", parent=self.master.master)
         # self.parent_app.status_var.set(f"SubParte {row_idx:02} exportada.")
 
     @error_window_ui
@@ -420,7 +421,7 @@ class MultiSelectTable(ctk.CTkFrame):
         # añadir los cambios al modelo
         replace_part(self.parent_app._blob, self.parent_app._hdr, self.parent_app._parts, data_part, part_idx)
 
-        messagebox.showinfo("Importado", f"SubParte importada")
+        messagebox.showinfo("Importado", f"SubParte importada", parent=self.master.master)
 
     def import_sub_part_pmdl(self, part_idx:int, row_idx:int, chunk:bytearray, dat_chunk:list):
         """
@@ -598,7 +599,7 @@ class MultiSelectTable(ctk.CTkFrame):
             part_idx
         )
 
-        messagebox.showinfo("Insertado", f"SubParte insertada desde la posicion {row_idx[0] + 1:02}\n{paths_subpart}")
+        messagebox.showinfo("Insertado", f"SubParte insertada desde la posicion {row_idx[0] + 1:02}\n{paths_subpart}", parent=self.master.master)
 
     @error_window_ui
     def _add_subparts(self):
@@ -716,7 +717,7 @@ class MultiSelectTable(ctk.CTkFrame):
 
         self.select_row(row_idx[0])
 
-        messagebox.showinfo("Agruegada", f"SubParte agruegada desde la posicion {row_idx[0] + 1:02}")
+        messagebox.showinfo("Agruegada", f"SubParte agruegada desde la posicion {row_idx[0] + 1:02}", parent=self.master.master)
 
     @error_window_ui
     def _delete_subparts(self):
@@ -730,7 +731,8 @@ class MultiSelectTable(ctk.CTkFrame):
 
         if not messagebox.askokcancel(
                 "Confirmar eliminación",
-                f"Vas a eliminar las siguientes subpartes: {row_idx}\n\n¿Deseas continuar?"
+                f"Vas a eliminar las siguientes subpartes: {row_idx}\n\n¿Deseas continuar?",
+                parent=self   # ← IMPORTANTE
         ):
             return
 
@@ -780,7 +782,7 @@ class MultiSelectTable(ctk.CTkFrame):
             part_idx
         )
 
-        messagebox.showinfo("Elimanado", f"SubPartes {row_idx_old} eliminadas correctamente")
+        messagebox.showinfo("Elimanado", f"SubPartes {row_idx_old} eliminadas correctamente", parent=self.master.master)
 
     # =========================
     # PANEL UPDATE
@@ -797,6 +799,7 @@ class MultiSelectTable(ctk.CTkFrame):
         ui = self.master.master # clase UiSubparts
         ui.label_name_part.configure(text=f"Pmdl: {self.path_name}")
         ui.label_name_subpart.configure(text=f"SubPart: {row_idx:02}")
+        # ui.tooltip_label_namepart.change_text(path)
 
         entry = self._get_subparts()[
             ui._index_opt_left if self.path == 0 else ui._index_opt_right
@@ -829,6 +832,9 @@ class UiSubparts(ctk.CTkToplevel):
         # guarda los parametros de las subpartes, de cada parte del pmdl
         self._sub_parts = []
         self._sub_parts2 = []
+
+        # guarda las id de las subpartes temporalmente
+        self.ids_old = []
 
         # guarda los bytes de las partes del pmdl
         self._blobs = {}
@@ -887,6 +893,7 @@ class UiSubparts(ctk.CTkToplevel):
             font=("Segoe UI", 16, "bold")
         )
         self.label_name_part.pack()
+        # self.tooltip_label_namepart = ToolTip(self.label_name_part, "Ruta del archivo .pmdl cargado", timeout=3000)
 
         self.label_name_subpart = ctk.CTkLabel(
             header,
@@ -1056,13 +1063,14 @@ class UiSubparts(ctk.CTkToplevel):
         name_parts = []
         # self._sub_parts = []
         # self._sub_parts2 = []
+        self.ids_old = []
 
         for id_part in range(parts_ids):
             data_part = export_part(self.master._blob if pmdl == 0 else self.master._blob2,
                                     self.master._parts[id_part] if pmdl == 0 else self.master._parts2[id_part])
             # elimina los id 0xff
             data_part = bytearray(data_part)
-            replace_id_ff(data_part)
+            replace_id_ff(parent=self, part=data_part)
             # por conveniencia se vuelve a convertir a bytes
             data_part = bytes(data_part)
 
@@ -1128,7 +1136,7 @@ class UiSubparts(ctk.CTkToplevel):
         if not row_idx:
             return
         if len(row_idx) > 1:
-            messagebox.showinfo("Advertencia", "no se puede guardar si tienes mas de una subpart seleccionada")
+            messagebox.showinfo("Advertencia", "no se puede guardar si tienes mas de una subpart seleccionada", parent=self)
             return
 
         row = row_idx[0]
@@ -1198,14 +1206,14 @@ class UiSubparts(ctk.CTkToplevel):
         self.tab_left.set_table(len(subparts), self._sub_parts, part_id)
         self.tab_left.select_row(row)
 
-        messagebox.showinfo("Guardado", "cambios guardados en memoria")
+        messagebox.showinfo("Guardado", "cambios guardados en memoria", parent=self)
 
     @error_window_ui
     def on_back(self):
         # agregar las id 0xff
         for part_id, blob in self._blobs.items():
             blob = bytearray(blob)
-            replace_id_ff(blob, False)
+            replace_id_ff(part=blob, reemp=False)
 
             # ---- Reemplazar parte completa en el modelo ----
             replace_part(
@@ -1244,7 +1252,7 @@ class UiSubparts(ctk.CTkToplevel):
             return
 
         if len(rows) > 1:
-            messagebox.showinfo("Informacion", "solo puedes mover una subpart a la vez")
+            messagebox.showinfo("Informacion", "solo puedes mover una subpart a la vez", parent=self)
             self.mov_up_st = True
             return
 
@@ -1289,7 +1297,7 @@ class UiSubparts(ctk.CTkToplevel):
             return
 
         if len(rows) > 1:
-            messagebox.showinfo("Informacion", "solo puedes mover una subpart a la vez")
+            messagebox.showinfo("Informacion", "solo puedes mover una subpart a la vez", parent=self)
             self.mov_down_st = True
             return
 
@@ -1322,7 +1330,8 @@ class UiSubparts(ctk.CTkToplevel):
         part_id = self._index_opt_left
         row_idx = self.tab_left.get_selected_row_indices()
         if len(row_idx) > 1:
-            messagebox.showinfo("Advertencia", "no se puede guardar si tienes mas de una subpart seleccionada")
+            messagebox.showinfo("Advertencia",
+                                "tienes mas de una subpart seleccionada", parent=self)
             return
 
         if not row_idx:
@@ -1335,6 +1344,7 @@ class UiSubparts(ctk.CTkToplevel):
         size = calc_subpart_size(subpart.num_vertices, subpart.num_bones)
         size_vertex = calc_subpart_size(subpart.num_vertices, subpart.num_bones, True)
         subpart_data = part_data[subpart.sub_part_offset: subpart.sub_part_offset + size]
+        # pasa los vertices de la subpart a una lista
         list_vertices = split_fixed(subpart_data, size_vertex)
 
         # formatear datos
@@ -1361,4 +1371,9 @@ class UiSubparts(ctk.CTkToplevel):
             dat["weights"] = bones
 
             vertices.append(dat)
-        self.editor = VertexEditor(self, vertices, f"{row_idx[0]:02}")
+
+
+        path = self.tab_left.parent_app._path
+        name_pmdl = os.path.basename(path)
+        path = self.master.tooltip_path2_entry._user_hide(path)
+        self.editor = VertexEditor(self, vertices, f"{row_idx[0]:02}", name_pmdl, path)
