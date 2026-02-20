@@ -121,7 +121,7 @@ class AboutWindow(ctk.CTkToplevel):
         
         thanks_title = ctk.CTkLabel(
             thanks_frame,
-            text="Agradecimientos Especiales",
+            text="Agradecimientos",
             font=("Segoe UI", 13, "bold")
         )
         thanks_title.pack(pady=(12, 4))

@@ -7,19 +7,6 @@ from .flags import FLAG_MAP_LABEL_TO_VALUE
 
 
 def export_part(blob: bytearray, part: PartIndexEntry) -> bytes:
-    """
-    Extrae los bytes de una parte específica.
-    
-    Args:
-        blob: Datos del archivo PMDL.
-        part: Entrada de la parte a exportar.
-        
-    Returns:
-        Bytes de la parte.
-        
-    Raises:
-        ValueError: Si el rango es inválido.
-    """
     off = part.part_offset
     ln = part.part_length
     
@@ -30,18 +17,6 @@ def export_part(blob: bytearray, part: PartIndexEntry) -> bytes:
 
 
 def delete_part(blob: bytearray, hdr: PmdlHeader, parts: List[PartIndexEntry], part_index: int):
-    """
-    Elimina una parte del PMDL y ajusta el índice.
-    
-    Args:
-        blob: Datos del archivo PMDL (modificado in-place).
-        hdr: Header del PMDL (modificado in-place).
-        parts: Lista de partes (modificada in-place).
-        part_index: Índice de la parte a eliminar.
-        
-    Raises:
-        ValueError: Si el índice es inválido.
-    """
     if not (0 <= part_index < len(parts)):
         raise ValueError("Índice de parte inválido.")
     
@@ -91,21 +66,6 @@ def delete_part(blob: bytearray, hdr: PmdlHeader, parts: List[PartIndexEntry], p
 
 
 def import_part(blob: bytearray, hdr: PmdlHeader, parts: List[PartIndexEntry], new_part_data: bytes):
-    """
-    Importa una nueva parte al PMDL.
-    
-    Args:
-        blob: Datos del archivo PMDL (modificado in-place).
-        hdr: Header del PMDL (modificado in-place).
-        parts: Lista de partes (modificada in-place).
-        new_part_data: Bytes de la nueva parte.
-        
-    Returns:
-        Tupla (offset, length) de la parte importada.
-        
-    Raises:
-        ValueError: Si la parte está vacía.
-    """
     if not new_part_data:
         raise ValueError("La parte está vacía.")
     
@@ -186,22 +146,22 @@ def replace_part(blob: bytearray, hdr: PmdlHeader, parts: List[PartIndexEntry], 
     old_length = parts[id_part].part_length
     offset_part_end = offset_part + old_length
 
-    # 1️⃣ Reemplazar datos de la parte EN SITIO
+    # 1️ Reemplazar datos de la parte EN SITIO
     blob[offset_part:offset_part_end] = part_data
 
-    # 2️⃣ Actualizar longitud
+    # 2️ Actualizar longitud
     new_length = len(part_data)
     parts[id_part].part_length = new_length
 
-    # 3️⃣ Calcular diferencia de tamaño
+    # 3️ Calcular diferencia de tamaño
     delta = new_length - old_length
 
-    # 4️⃣ Ajustar offsets de las partes siguientes
+    # 4️ Ajustar offsets de las partes siguientes
     if delta != 0:
         for i in range(id_part + 1, len(parts)):
             parts[i].part_offset += delta
 
-    # 5️⃣ Reescribir tabla de índices
+    # 5️ Reescribir tabla de índices
     base_index = hdr.parts_index_offset
 
     for i, p in enumerate(parts):
@@ -215,23 +175,8 @@ def replace_part(blob: bytearray, hdr: PmdlHeader, parts: List[PartIndexEntry], 
 
 
 def add_part_from_secondary(blob_dest: bytearray, hdr_dest: PmdlHeader, parts_dest: List[PartIndexEntry],
-                            blob_src: bytearray, part_src: PartIndexEntry):
-    """
-    Agrega una parte desde un PMDL secundario al principal.
-    
-    Args:
-        blob_dest: Blob del PMDL destino (modificado in-place).
-        hdr_dest: Header del PMDL destino (modificado in-place).
-        parts_dest: Lista de partes del destino (modificada in-place).
-        blob_src: Blob del PMDL origen.
-        part_src: Entrada de la parte a copiar.
-        
-    Returns:
-        Tupla (offset, length) de la parte agregada.
-        
-    Raises:
-        ValueError: Si el rango es inválido.
-    """
+                            blob_src: bytearray, part_src: PartIndexEntry, normalize_thickness: bool = True):
+
     src_off = part_src.part_offset
     src_len = part_src.part_length
     
@@ -242,6 +187,21 @@ def add_part_from_secondary(blob_dest: bytearray, hdr_dest: PmdlHeader, parts_de
     src_id = part_src.part_id & 0xFFFF
     src_opac = part_src.opacity & 0xFFFF
     src_flag = part_src.special_flag & 0xFFFFFFFF
+    
+    # Normalización de grosor si está activada
+    if normalize_thickness:
+        from app.utils.thickness_normalizer import leer_grosor, normalizar_pmdl_completo, preparar_parte_externa_para_insercion
+        
+        # 1. Normalizar PMDL destino si es necesario
+        was_normalized = normalizar_pmdl_completo(blob_dest, hdr_dest.parts_index_offset, parts_dest)
+        if was_normalized:
+            print("✓ PMDL principal normalizado a grosor máximo")
+        
+        # 2. Leer grosor del PMDL origen
+        grosor_src = leer_grosor(blob_src)
+        
+        # 3. Convertir parte a grosor máximo
+        src_bytes = bytes(preparar_parte_externa_para_insercion(src_bytes, grosor_src))
     
     # Insertar bloque de índice
     index_base = hdr_dest.parts_index_offset
@@ -275,7 +235,7 @@ def add_part_from_secondary(blob_dest: bytearray, hdr_dest: PmdlHeader, parts_de
     struct.pack_into("<H", blob_dest, new_entry_off + 0x00, src_id)
     struct.pack_into("<H", blob_dest, new_entry_off + 0x02, src_opac)
     struct.pack_into("<I", blob_dest, new_entry_off + 0x04, insert_pos)
-    struct.pack_into("<I", blob_dest, new_entry_off + 0x08, src_len)
+    struct.pack_into("<I", blob_dest, new_entry_off + 0x08, len(src_bytes))
     struct.pack_into("<I", blob_dest, new_entry_off + 0x0C, src_flag)
     
     # Actualizar modelo
@@ -283,29 +243,21 @@ def add_part_from_secondary(blob_dest: bytearray, hdr_dest: PmdlHeader, parts_de
         part_id=src_id,
         opacity=src_opac,
         part_offset=insert_pos,
-        part_length=src_len,
+        part_length=len(src_bytes),
         special_flag=src_flag
     ))
     
     # Truncar residuos
-    end_of_model = insert_pos + src_len
+    end_of_model = insert_pos + len(src_bytes)
     if len(blob_dest) > end_of_model:
         del blob_dest[end_of_model:]
     
-    return insert_pos, src_len
+    return insert_pos, len(src_bytes)
 
 
 def sync_parts_from_ui(blob: bytearray, hdr: PmdlHeader, parts: List[PartIndexEntry], 
                        ui_data: List[dict]):
-    """
-    Sincroniza las partes en memoria con los datos de la UI.
-    
-    Args:
-        blob: Datos del archivo PMDL (modificado in-place).
-        hdr: Header del PMDL.
-        parts: Lista de partes (modificada in-place).
-        ui_data: Lista de diccionarios con 'depth', 'opacity_pct', 'flag_label'.
-    """
+
     for i, data in enumerate(ui_data):
         if i >= len(parts):
             break
