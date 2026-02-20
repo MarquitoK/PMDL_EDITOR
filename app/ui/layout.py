@@ -6,27 +6,51 @@ from .tooltip import ToolTip
 
 
 def build_main_layout(parent, callbacks: dict) -> dict:
-    # Contenedor principal a dos columnas con proporción 60-40
+    # Contenedor principal a dos columnas
     main = ctk.CTkFrame(parent, corner_radius=0)
     main.pack(side="top", fill="both", expand=True, padx=6, pady=(6, 4))
-    main.grid_columnconfigure(0, weight=6)  # 60% - Panel principal
-    main.grid_columnconfigure(1, weight=4)  # 40% - Panel secundario
+    main.grid_columnconfigure(0, weight=6)
+    main.grid_columnconfigure(1, weight=4)
     main.grid_rowconfigure(0, weight=1)
     
     # Panel IZQUIERDO (PMDL PRINCIPAL / EDITOR)
     left_panel = ctk.CTkFrame(main, corner_radius=8)
     left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 6), pady=0)
     left_panel.grid_rowconfigure(1, weight=1)
-    left_panel.grid_columnconfigure(0, weight=1)  # Para que ocupe todo el ancho
+    left_panel.grid_columnconfigure(0, weight=1)
     
     # Barra superior izquierda
     top_left = ctk.CTkFrame(left_panel, corner_radius=6)
     top_left.grid(row=0, column=0, sticky="ew", padx=6, pady=(6, 4))
+    top_left.grid_columnconfigure(0, weight=1)
     
     path_entry = ctk.CTkEntry(top_left, placeholder_text="Ruta .pmdl", width=160,
                               font=("Segoe UI", 12), state="disabled")
-    path_entry.pack(side="left", padx=(6, 4), pady=4)
+    path_entry.grid(row=0, column=0, sticky="ew", padx=(6, 4), pady=4)
     tooltip_path_entry = ToolTip(path_entry, "Ruta del archivo .pmdl cargado")
+    
+    # Toggle de normalización de grosor
+    normalize_toggle_var = tk.BooleanVar(value=True)
+    normalize_toggle = ctk.CTkSwitch(
+        top_left,
+        text="Normalizar escala",
+        variable=normalize_toggle_var,
+        onvalue=True,
+        offvalue=False,
+        font=("Segoe UI", 11, "bold"),
+        progress_color=("#3B8ED0", "#1F6AA5"),
+        button_color=("#3B8ED0", "#1F6AA5"),
+        button_hover_color=("#5AA0E0", "#2F8AB5")
+    )
+    normalize_toggle.grid(row=0, column=1, sticky="e", padx=(4, 6), pady=4)
+    
+    tooltip_text = (
+        "Encendido: Ajusta la escala del modelo principal y de las partes importadas "
+        "para que el grosor de las partes sea uniforme. (Recomendado)\n\n"
+        "Apagado: Las partes importadas de otros modelos podrían tener un tamaño "
+        "o grosor inesperados viéndose planas o muy estiradas. (Usar solo si sabes lo que haces)"
+    )
+    tooltip_normalize = ToolTip(normalize_toggle, tooltip_text)
     
     # Área de tabla de partes (izquierda)
     mid_left = ctk.CTkFrame(left_panel, corner_radius=8)
@@ -42,11 +66,11 @@ def build_main_layout(parent, callbacks: dict) -> dict:
     )
     parts_table.pack(fill="both", expand=True, padx=8, pady=8)
     
-    # Panel DERECHO (PMDL SECUNDARIO / VISOR)
+    # Panel DERECHO
     right_panel = ctk.CTkFrame(main, corner_radius=8)
     right_panel.grid(row=0, column=1, sticky="nsew", padx=(6, 0), pady=0)
     right_panel.grid_rowconfigure(1, weight=1)
-    right_panel.grid_columnconfigure(0, weight=1)  # Para que ocupe todo el ancho
+    right_panel.grid_columnconfigure(0, weight=1)
     
     # Barra superior derecha
     top_right = ctk.CTkFrame(right_panel, corner_radius=6)
@@ -81,4 +105,6 @@ def build_main_layout(parent, callbacks: dict) -> dict:
         'parts_table': parts_table,
         'parts2_table': parts2_table,
         'status_var': status_var,
+        'normalize_toggle': normalize_toggle,
+        'normalize_toggle_var': normalize_toggle_var,
     }

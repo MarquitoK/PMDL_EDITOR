@@ -72,8 +72,25 @@ class Menu(ctk.CTkFrame):
         self.dropdown.configure(bg=self._get_dropdown_bg())
         
         # Posicionar debajo del botón
-        x = self.button.winfo_rootx()
-        y = self.button.winfo_rooty() + self.button.winfo_height()
+        button_x = self.button.winfo_rootx()
+        button_y = self.button.winfo_rooty()
+        button_height = self.button.winfo_height()
+        button_width = self.button.winfo_width()
+        screen_width = self.winfo_screenwidth()
+        
+        # Ancho del dropdown (ajustado para los shortcuts)
+        dropdown_width = 230
+        
+        # Calcular posición X del borde derecho del botón
+        button_right_edge = button_x + button_width
+        
+        # Decidir si abrir a la izquierda o derecha
+        if button_right_edge + dropdown_width > screen_width:
+            x = button_right_edge - dropdown_width
+        else:
+            x = button_x
+        
+        y = button_y + button_height
         self.dropdown.geometry(f"+{x}+{y}")
         
         # Frame contenedor

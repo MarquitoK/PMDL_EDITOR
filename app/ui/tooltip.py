@@ -17,7 +17,7 @@ class ToolTip:
 
         # Cuando la app pierde foco (Alt+Tab, cambiar a Chrome, etc)
         widget.winfo_toplevel().bind("<FocusOut>", self.hide, add="+")
-        widget.winfo_toplevel().bind("<Unmap>", self.hide, add="+")  # minimizar ventana
+        widget.winfo_toplevel().bind("<Unmap>", self.hide, add="+")
 
     # ------------------------------
 

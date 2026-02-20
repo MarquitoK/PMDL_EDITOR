@@ -16,8 +16,8 @@ def parse_header(blob: bytes) -> PmdlHeader:
         raise ValueError("Archivo demasiado corto para cabecera .pmdl (0x70 bytes).")
     
     magic = blob[0x00:0x04]
-    if magic != b"pMdl":
-        raise ValueError(f"Firma inválida: {magic} (se esperaba b'pMdl').")
+    if magic not in (b"pMdl", b"pMdF"):
+        raise ValueError(f"Firma inválida: {magic} (se esperaba b'pMdl' o b'pMdF').")
     
     bone_count = blob[0x08]
     bones_offset = struct.unpack_from("<I", blob, 0x50)[0]

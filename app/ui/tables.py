@@ -39,7 +39,7 @@ class PartsTable(ctk.CTkScrollableFrame):
         self.grid_columnconfigure(4, weight=0)  # Función
         self.grid_columnconfigure(5, weight=0)  # Exportar Parte
         
-        # Validación para campo hex (Capa)
+        # Validación para campo hex
         self._vcmd = (self.register(self._validate_hex_keystroke), "%P")
     
     def show_top_controls(self, part_count: int, on_import_part_cb: Callable):
@@ -57,7 +57,7 @@ class PartsTable(ctk.CTkScrollableFrame):
         self._controls_frame = ctk.CTkFrame(self, fg_color="transparent")
         self._controls_frame.grid(row=0, column=0, columnspan=6, padx=(6, 4), pady=(4, 0), sticky="we")
         
-        # Contador de partes
+        # Contador de partes (a la izquierda)
         self._parts_count_label = ctk.CTkLabel(
             self._controls_frame, text=f"Partes: {part_count}", font=("Segoe UI", 12)
         )
@@ -120,7 +120,7 @@ class PartsTable(ctk.CTkScrollableFrame):
         for i, p in enumerate(parts):
             row = i + 2
             
-            # Zebra striping
+            # Zebra striping - colores alternados para mejor legibilidad
             is_even = i % 2 == 0
             bg_color = ("gray85", "gray20") if is_even else ("gray90", "gray17")
             
@@ -311,21 +311,10 @@ class SecondaryPartsTable(ctk.CTkScrollableFrame):
         
         self.on_add_part = on_add_part
         
-        # Barra superior
-        self._controls_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self._controls_frame.grid(row=0, column=0, columnspan=6, padx=(6, 4), pady=(4, 0), sticky="we")
-        
-        # Contador de partes
-        self._parts_count_label = ctk.CTkLabel(self._controls_frame, text="Partes: -", font=("Segoe UI", 12))
-        self._parts_count_label.pack(side="left", padx=(0, 8))
-        
-        # Botón Cerrar PMDL Secundario
-        self._close_btn = ctk.CTkButton(
-            self._controls_frame, text="Cerrar PMDL", width=100, height=24,
-            font=("Segoe UI", 12), fg_color="#DC2626", hover_color="#B91C1C",
-            command=self._on_close_pmdl_secondary
-        )
-        self._close_btn.pack(side="left", padx=(0, 0))
+        # Referencias a controles
+        self._controls_frame = None
+        self._parts_count_label = None
+        self._close_btn = None
         
         # Encabezados (fila 1)
         headers = ["Capa", "Nombre", "Tamaño", "Opacidad", "Función", "Agregar"]
@@ -344,9 +333,49 @@ class SecondaryPartsTable(ctk.CTkScrollableFrame):
         self._rows_widgets = []
         self._row_backgrounds = []
     
+    def show_top_controls(self, part_count: int):
+        """Muestra los controles superiores cuando se carga un PMDL secundario."""
+        if self._controls_frame is not None:
+            try:
+                self._controls_frame.destroy()
+            except Exception:
+                pass
+            self._controls_frame = None
+            self._parts_count_label = None
+            self._close_btn = None
+        
+        self._controls_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self._controls_frame.grid(row=0, column=0, columnspan=6, padx=(6, 4), pady=(4, 0), sticky="we")
+        
+        # Contador de partes
+        self._parts_count_label = ctk.CTkLabel(
+            self._controls_frame, text=f"Partes: {part_count}", font=("Segoe UI", 12)
+        )
+        self._parts_count_label.pack(side="left", padx=(0, 8))
+        
+        # Botón Cerrar PMDL Secundario
+        self._close_btn = ctk.CTkButton(
+            self._controls_frame, text="Cerrar PMDL", width=100, height=24,
+            font=("Segoe UI", 12), fg_color="#DC2626", hover_color="#B91C1C",
+            command=self._on_close_pmdl_secondary
+        )
+        self._close_btn.pack(side="left", padx=(0, 0))
+    
+    def hide_top_controls(self):
+        """Oculta los controles superiores."""
+        if self._controls_frame is not None:
+            try:
+                self._controls_frame.destroy()
+            except Exception:
+                pass
+            self._controls_frame = None
+            self._parts_count_label = None
+            self._close_btn = None
+    
     def update_part_count(self, part_count: int):
         """Actualiza el contador de partes."""
-        self._parts_count_label.configure(text=f"Partes: {part_count}")
+        if self._parts_count_label is not None:
+            self._parts_count_label.configure(text=f"Partes: {part_count}")
     
     def clear(self):
         """Limpia todas las filas de la tabla."""
@@ -373,7 +402,7 @@ class SecondaryPartsTable(ctk.CTkScrollableFrame):
         for i, p in enumerate(parts):
             row = i + 2
             
-            # Zebra striping
+            # Zebra striping - colores alternados para mejor legibilidad
             is_even = i % 2 == 0
             bg_color = ("gray85", "gray20") if is_even else ("gray90", "gray17")
             
