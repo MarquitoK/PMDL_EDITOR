@@ -3,7 +3,6 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 import customtkinter as ctk
 from typing import Optional, List
-
 from app.core import (
     PmdlHeader, parse_header,
     PartIndexEntry, parse_parts_index,
@@ -20,6 +19,7 @@ from app.utils.part_header import exportar_parte_con_encabezado, importar_parte_
 from app.logic_sub_parts_pmdl.ui_pmdl_sub_parts import UiSubparts
 from app.logic_patch import PatchBridge, CharacterEditorUI
 from app.logic_3d.main_window import PMDLViewerApp
+from app.utils.ui_error_window import error_window_ui
 
 APP_TITLE = "Pmdl Editor (TTT) · By Los ijue30s · v1.4.2"
 GEOMETRY = (1070, 600)
@@ -197,36 +197,27 @@ class PmdlPartsApp(ctk.CTk):
     def on_show_about(self):
         """Muestra la ventana Acerca de."""
         AboutWindow(self)
-    
-    def on_open_subparts_editor(self):
-<<<<<<< Updated upstream
-        """Abre el editor de SubParts."""
-        if not self._path and not self._path2:
-            messagebox.showinfo("Informacion", "Abre al menos un archivo para editar")
-            return
 
-        self.withdraw()
-=======
+    @error_window_ui
+    def on_open_subparts_editor(self):
         """Abre el editor de SubParts con intercambio de ventanas."""
         # Validación previa: verificar que al menos un archivo esté cargado
         if not self._path and not self._path2:
             messagebox.showinfo("Información", "Abre al menos un archivo para editar")
             return
-        
->>>>>>> Stashed changes
+
+        self.withdraw()
+
         if self.window_subparts is None or not self.window_subparts.winfo_exists():
-            # Ocultar ventana principal
-            self.withdraw()
-            
             # Crear ventana de subparts
             self.window_subparts = UiSubparts(self)
-            
+
             # Bind para volver con ESC
             self.window_subparts.bind("<Escape>", lambda e: self._return_from_subparts())
-            
+
             # Bind para cuando se cierre la ventana
             self.window_subparts.protocol("WM_DELETE_WINDOW", self._return_from_subparts)
-            
+
             # Cargar subparts en la UI automáticamente
             self.window_subparts.get_data_subpart()
             self.window_subparts.get_data_subpart(1)
@@ -234,17 +225,11 @@ class PmdlPartsApp(ctk.CTk):
             # Si ya existe, traerla al frente
             self.window_subparts.focus()
             self.window_subparts.lift()
-<<<<<<< Updated upstream
-
-        # cargar subparts en la UI
-        self.window_subparts.get_data_subpart()
-        self.window_subparts.get_data_subpart(1)
 
     def on_open_pmdl_editor(self):
         """Mostrar el editor PMDL."""
         self.deiconify()
 
-=======
     
     def _return_from_subparts(self):
         # Cierra subparts y regresa a la ventana principal
@@ -503,7 +488,6 @@ class PmdlPartsApp(ctk.CTk):
         self.deiconify()
         self.focus_force()
     
->>>>>>> Stashed changes
     def on_open_patch(self):
         """Abre un parche principal en el Character Editor."""
         file_path = filedialog.askopenfilename(
@@ -539,6 +523,12 @@ class PmdlPartsApp(ctk.CTk):
             self._return_from_character_editor()
 
     
+    @error_window_ui
+    def on_open_patch(self):
+        """Placeholder para abrir parche principal."""
+        messagebox.showinfo("Próximamente", "Función 'Abrir Parche' en desarrollo.")
+
+    @error_window_ui
     def on_open_patch_secondary(self):
         """Abre un parche secundario en el Character Editor (modo solo lectura)."""
         file_path = filedialog.askopenfilename(
@@ -548,7 +538,7 @@ class PmdlPartsApp(ctk.CTk):
                 ("Todos los archivos", "*.*")
             ]
         )
-        
+
         if not file_path:
             return
         
@@ -604,7 +594,8 @@ class PmdlPartsApp(ctk.CTk):
 
     
     # ------------ Carga / Render ------------
-    
+
+    @error_window_ui
     def on_open_file(self):
         """Abre y carga un archivo PMDL principal."""
         path = filedialog.askopenfilename(
@@ -623,8 +614,8 @@ class PmdlPartsApp(ctk.CTk):
             hdr = parse_header(blob)
             parts = parse_parts_index(blob, hdr)
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo leer el .pmdl:\n{e}")
-            return
+            raise ValueError(f"No se pudo leer el .pmdl:\n{e}")
+
         
         self._blob = blob
         self._hdr = hdr
@@ -675,8 +666,8 @@ class PmdlPartsApp(ctk.CTk):
             return
         
         if not (0 <= part_index < len(self._parts)):
-            messagebox.showerror("Error", "Índice de parte inválido.")
-            return
+            raise ValueError("Índice de parte inválido.")
+
         
         try:
             p = self._parts[part_index]
@@ -723,7 +714,7 @@ class PmdlPartsApp(ctk.CTk):
             self.status_var.set(f"Parte {part_index:02d} exportada.")
         
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo exportar la parte:\n{e}")
+            raise ValueError(f"No se pudo exportar la parte:\n{e}")
     
     def on_delete_part(self, part_index: int):
         """Elimina una parte del PMDL."""
@@ -742,10 +733,11 @@ class PmdlPartsApp(ctk.CTk):
             messagebox.showinfo("Borrado", "Parte eliminada correctamente.")
         
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo borrar la parte:\n{e}")
+            raise ValueError(f"No se pudo borrar la parte:\n{e}")
     
     # ------------ Guardar ------------
-    
+
+    @error_window_ui
     def on_save(self):
         """Guarda los cambios en el archivo original o parche."""
         if self._blob is None or self._hdr is None or not self._parts:
@@ -782,8 +774,9 @@ class PmdlPartsApp(ctk.CTk):
             messagebox.showinfo("Listo", "Cambios guardados en el .pmdl.")
         
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo guardar el archivo:\n{e}")
-    
+            raise ValueError(f"No se pudo guardar el archivo:\n{e}")
+
+    @error_window_ui
     def on_save_as(self):
         """Guarda el PMDL con un nuevo nombre."""
         if self._blob is None or self._hdr is None or not self._parts:
@@ -828,10 +821,10 @@ class PmdlPartsApp(ctk.CTk):
             messagebox.showinfo("Listo", f"Guardado como:\n{out_path}")
         
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo guardar:\n{e}")
+            raise ValueError(f"No se pudo guardar:\n{e}")
     
     # ------------ Importar Parte (.tttpart) ------------
-    
+    @error_window_ui
     def on_import_part(self):
         """Importa una parte desde archivo .tttpart (con o sin encabezado)."""
         if self._blob is None or self._hdr is None or self._parts is None:
@@ -989,7 +982,7 @@ class PmdlPartsApp(ctk.CTk):
         self.patch_bridge.mark_saved()
     
     # ------------ PMDL Secundario ------------
-    
+    @error_window_ui
     def on_open_file_secondary(self):
         """Abre y carga un archivo PMDL secundario."""
         path = filedialog.askopenfilename(
@@ -1008,8 +1001,8 @@ class PmdlPartsApp(ctk.CTk):
             hdr = parse_header(blob)
             parts = parse_parts_index(blob, hdr)
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo leer el .pmdl secundario:\n{e}")
-            return
+            raise ValueError(f"No se pudo leer el .pmdl secundario:\n{e}")
+
         
         self._blob2 = blob
         self._hdr2 = hdr
@@ -1040,8 +1033,8 @@ class PmdlPartsApp(ctk.CTk):
             return
         
         if not (0 <= part_index < len(self._parts2)):
-            messagebox.showerror("Error", "Índice de parte (secundario) inválido.")
-            return
+            raise ValueError("Índice de parte (secundario) inválido.")
+
         
         try:
             # Verificar estado del toggle de normalización
@@ -1067,7 +1060,7 @@ class PmdlPartsApp(ctk.CTk):
             messagebox.showinfo("Listo", msg)
         
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo agregar la parte desde el secundario:\n{e}")
+            raise ValueError(f"No se pudo agregar la parte desde el secundario:\n{e}")
     
     def on_close_pmdl_main(self):
         """Cierra el PMDL principal y limpia la interfaz."""

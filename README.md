@@ -74,7 +74,7 @@ pip install -r requirements.txt
 
 Ejecutar la aplicación con:
 
-python "PMDL_EDITOR.py"
+python "main.py"
 
 ---
 

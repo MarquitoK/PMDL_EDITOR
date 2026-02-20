@@ -2,27 +2,29 @@ import customtkinter as ctk
 from pathlib import Path
 
 class ToolTip:
-    def __init__(self, widget, text: str):
+    def __init__(self, widget, text: str, timeout: int = 3000):
         self.widget = widget
         self.text = text
         self.tip = None
+        self.timeout = timeout   # tiempo en ms
+        self._after_id = None    # id del temporizador
+        self._focus_check = None
 
         widget.bind("<Enter>", self.show)
         widget.bind("<Leave>", self.hide)
 
-        # NUEVOS BINDS GLOBALES IMPORTANTES
         widget.bind("<ButtonPress>", self.hide, add="+")
         widget.bind("<FocusOut>", self.hide, add="+")
         widget.bind("<Destroy>", self.hide, add="+")
 
-        # Cuando la app pierde foco (Alt+Tab, cambiar a Chrome, etc)
         widget.winfo_toplevel().bind("<FocusOut>", self.hide, add="+")
         widget.winfo_toplevel().bind("<Unmap>", self.hide, add="+")
+        widget.winfo_toplevel().bind("<Leave>", self.hide, add="+")
 
     # ------------------------------
 
     def change_text(self, text: str):
-        self.text = self.__user_hide(text)
+        self.text = self._user_hide(text)
 
     # ------------------------------
 
@@ -51,9 +53,35 @@ class ToolTip:
 
         self.tip.geometry(f"+{x}+{y}")
 
+        # ⏱️ autocierre normal
+        if self.timeout > 0:
+            root = self.widget.winfo_toplevel()
+            self._after_id = root.after(self.timeout, self.hide)
+
+        # 👇 iniciar verificación global de foco
+        self._check_focus_loop()
+
     # ------------------------------
 
     def hide(self, event=None):
+
+        # cancelar timer de autocierre
+        if self._after_id is not None and self.tip:
+            try:
+                root = self.widget.winfo_toplevel()
+                root.after_cancel(self._after_id)
+            except:
+                pass
+            self._after_id = None
+
+        # cancelar loop de foco
+        if self._focus_check is not None and self.tip:
+            try:
+                self.tip.after_cancel(self._focus_check)
+            except:
+                pass
+            self._focus_check = None
+
         if self.tip is not None:
             try:
                 self.tip.destroy()
@@ -63,7 +91,10 @@ class ToolTip:
 
     # ------------------------------
 
-    def __user_hide(self, path_str: str):
+    def _user_hide(self, path_str: str) -> str:
+        if not self._is_path_like(path_str):
+            return path_str
+
         p = Path(path_str)
         home = Path.home()
 
@@ -72,3 +103,26 @@ class ToolTip:
             return f"{p.drive}\\~\\{rel}".replace("\\", "/")
         except ValueError:
             return path_str.replace("\\", "/")
+
+    def _is_path_like(self, path_str: str) -> bool:
+        try:
+            return Path(path_str).anchor != "" or "/" in path_str or "\\" in path_str
+        except Exception:
+            return False
+
+    def _check_focus_loop(self):
+        if not self.tip:
+            return
+
+        try:
+            # si la app ya no tiene foco → cerrar tooltip
+            root = self.widget.winfo_toplevel()
+            if root.focus_displayof() is None:
+                self.hide()
+                return
+        except:
+            self.hide()
+            return
+
+        # repetir cada 250 ms
+        self._focus_check = self.tip.after(250, self._check_focus_loop)
