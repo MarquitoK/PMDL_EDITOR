@@ -321,28 +321,15 @@ class PmdlPartsApp(ctk.CTk):
                     
                     # Re-analizar el PMDL actualizado
                     try:
-                        from app.logic_3d.pmdl_reader import analizar_pmdl
-                        import tempfile
-                        with tempfile.NamedTemporaryFile(mode='wb', suffix='.pmdl', delete=False) as tmp:
-                            tmp.write(self._blob)
-                            temp_path = tmp.name
+                        from app.core import parse_header, parse_parts_index
                         
-                        info, error = analizar_pmdl(temp_path)
-                        if not error and info:
-                            self._hdr = info['header']
-                            self._parts = info['partes']
-                            # Actualizar tabla
-                            if hasattr(self, 'parts_table'):
-                                ui_data = []
-                                for p in self._parts:
-                                    ui_data.append({
-                                        'index': p['indice'],
-                                        'enabled': p['habilitado'],
-                                        'opacity': p['opacidad']
-                                    })
-                                self.parts_table.set_ui_data(ui_data)
+                        self._hdr = parse_header(self._blob)
+                        self._parts = parse_parts_index(self._blob, self._hdr)
                         
-                        os.unlink(temp_path)
+                        # Actualizar tabla
+                        if hasattr(self, 'parts_table'):
+                            self.parts_table.populate(self._parts)
+                            self.parts_table.update_part_count(self._hdr.part_count)
                     except Exception as e:
                         print(f"Error al re-analizar PMDL: {e}")
             
@@ -388,10 +375,6 @@ class PmdlPartsApp(ctk.CTk):
         self.lift()
     
     def _on_load_pmdl_from_patch(self, analyzer):
-        """
-        Callback cuando se abre PMDL desde Character Editor (modo principal).
-        Extrae PMDL del parche y lo carga en el editor principal.
-        """
         # Extraer PMDL del parche
         pmdl_data = self.patch_bridge.extract_pmdl_from_patch(analyzer)
         
@@ -433,10 +416,6 @@ class PmdlPartsApp(ctk.CTk):
         self.status_var.set(f"PMDL cargado desde parche: {os.path.basename(patch_path)} · Los ijue30s")
     
     def _on_load_pmdl_from_patch_secondary(self, analyzer):
-        """
-        Callback cuando se abre PMDL desde Character Editor (modo secundario).
-        Extrae PMDL del parche y lo carga como PMDL secundario.
-        """
         # Extraer PMDL del parche
         pmdl_data = self.patch_bridge_secondary.extract_pmdl_from_patch(analyzer)
         
@@ -521,12 +500,6 @@ class PmdlPartsApp(ctk.CTk):
         if not self.window_character_editor.load_character_from_path(file_path):
             messagebox.showerror("Error", "No se pudo cargar el parche")
             self._return_from_character_editor()
-
-    
-    @error_window_ui
-    def on_open_patch(self):
-        """Placeholder para abrir parche principal."""
-        messagebox.showinfo("Próximamente", "Función 'Abrir Parche' en desarrollo.")
 
     @error_window_ui
     def on_open_patch_secondary(self):

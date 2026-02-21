@@ -1,3 +1,6 @@
+"""
+Canvas Drawing - Dibuja y actualiza UVs (Triangle Strip)
+"""
 from PIL import Image, ImageTk
 
 from ..ui_components import (
@@ -220,9 +223,13 @@ class UVCanvasDrawing:
         delta_y = self.pan_y - old_pan_y
         pan_changed = abs(delta_x) > 0.1 or abs(delta_y) > 0.1
         
+        self.delete("edge_grad")
+        
         # OPTIMIZACIÓN
         if pan_changed and not scale_changed:
             self.move("uv_items", delta_x, delta_y)
+            if hasattr(self, '_refresh_colors'):
+                self._refresh_colors()
             return
         
         # Si hay zoom, recalcular coordenadas

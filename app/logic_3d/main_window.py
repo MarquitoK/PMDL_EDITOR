@@ -20,7 +20,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
         self.geometry("1280x720")
         
         self.pmdl_data = None
-        self.escala = 0.00051875  # 0.002075 / 4
+        self.escala = 0.00051875
         self.texture_loaded = False
         self.temp_pmdl_path = None
         self.temp_texture_path = texture_path
@@ -37,18 +37,16 @@ class PMDLViewerApp(ctk.CTkToplevel):
         self.uv_parser = None
         self.parte_seleccionada = None
         
-        self.bind("<Configure>", self._on_window_resize)
+        # Bind para detectar inicio/fin de movimiento de ventana
+        self.bind("<ButtonPress-1>", self._on_window_move_start, add="+")
+        self.bind("<ButtonRelease-1>", self._on_window_move_end, add="+")
         
         self.setup_ui()
-        
-        # Bind para manejar resize de ventana
-        self.bind("<Configure>", self._on_window_resize)
         
         # Bindings globales para Undo/Redo
         self.bind_all("<Control-z>", self._global_undo)
         self.bind_all("<Control-y>", self._global_redo)
         
-        # Cargar datos DESPUÉS de que la ventana esté lista
         if pmdl_data:
             self.after(200, lambda: self._load_from_data(pmdl_data, texture_path))
     
@@ -526,7 +524,6 @@ class PMDLViewerApp(ctk.CTkToplevel):
                 pass
     
     def reload_pmdl_from_file(self, skip_uv_reload=False):
-        """Recarga el PMDL desde el archivo temporal para reflejar cambios"""
         if not self.temp_pmdl_path or not os.path.exists(self.temp_pmdl_path):
             return
         
@@ -572,11 +569,31 @@ class PMDLViewerApp(ctk.CTkToplevel):
             print(f"Error al recargar PMDL: {e}")
     
     def _on_window_resize(self, event):
-        """Maneja el resize de la ventana para actualizar OpenGL"""
+        # Ignorar eventos que no son de la ventana principal
+        if event.widget != self:
+            return
+        
+        # Ignorar eventos de movimiento
+        if hasattr(self, '_last_size'):
+            if (event.width, event.height) == self._last_size:
+                return
+        
+        self._last_size = (event.width, event.height)
+        
+        # Cancelar timer anterior si existe
+        if hasattr(self, '_resize_timer'):
+            self.after_cancel(self._resize_timer)
+        
+        self._resize_timer = self.after(100, self._do_window_resize)
+    
+    def _do_window_resize(self):
+        """Ejecuta la actualización real de OpenGL"""
         if hasattr(self, 'gl_viewport') and self.gl_viewport:
             try:
                 if self.gl_viewport.winfo_exists():
-                    self.after(10, lambda: self.gl_viewport.update() if hasattr(self, 'gl_viewport') and self.gl_viewport and self.gl_viewport.winfo_exists() else None)
+                    # Mini rotación para refrescar el viewport
+                    self.gl_viewport.trigger_mini_rotation()
+                    self.gl_viewport.update()
             except:
                 pass
     
@@ -594,9 +611,12 @@ class PMDLViewerApp(ctk.CTkToplevel):
     
     def create_splitter(self):
         """Crea el divisor arrastrable entre el 3D y el panel UV"""
-        self.splitter = ctk.CTkFrame(self, width=4, corner_radius=0, fg_color=("gray70", "gray30"))
+        self.splitter = ctk.CTkFrame(self, width=4, corner_radius=0, fg_color=("gray60", "gray40"))
         self.splitter.grid(row=1, column=2, sticky="ns", padx=0, pady=0)
         self.splitter.grid_propagate(False)
+        
+        # Forzar el width mínimo
+        self.splitter.configure(width=4)
         
         # Cambiar cursor al pasar sobre el splitter
         self.splitter.bind("<Enter>", lambda e: self.splitter.configure(cursor="sb_h_double_arrow"))
@@ -632,16 +652,40 @@ class PMDLViewerApp(ctk.CTkToplevel):
         
         # Aplicar nuevo ancho
         self.uv_panel_width = new_width
-        self.uv_panel.configure(width=new_width)
         
-        # Forzar actualización
-        self.update_idletasks()
-        if hasattr(self, 'gl_viewport') and self.gl_viewport:
-            self.gl_viewport.update()
+        if self.uv_panel:
+            self.uv_panel.configure(width=new_width)
+            self.grid_columnconfigure(3, minsize=new_width)
     
     def on_splitter_release(self, event):
         """Termina el arrastre del splitter"""
         self.splitter_dragging = False
+        
+        # Forzar redibujado del OpenGL al terminar
+        self.update_idletasks()
+        if hasattr(self, 'gl_viewport') and self.gl_viewport:
+            self.after(50, self._force_gl_redraw)
+    
+    def _force_gl_redraw(self):
+        """Fuerza el redibujado del viewport OpenGL"""
+        if hasattr(self, 'gl_viewport') and self.gl_viewport and self.gl_viewport.winfo_exists():
+            try:
+                self.gl_viewport.redraw()
+            except:
+                pass
+    
+    def _on_window_move_start(self, event):
+        """Se llama al empezar a mover la ventana (reduce lag)"""
+        # Solo si el click es en el título de la ventana
+        if event.y < 30:
+            self._window_moving = True
+    
+    def _on_window_move_end(self, event):
+        """Se llama al terminar de mover la ventana"""
+        if hasattr(self, '_window_moving') and self._window_moving:
+            self._window_moving = False
+            # Forzar redibujado al terminar de mover
+            self.after(50, self._force_gl_redraw)
             
     def toggle_uv_panel(self):
         """Toggle para mostrar/ocultar el panel de UVs"""
@@ -651,16 +695,24 @@ class PMDLViewerApp(ctk.CTkToplevel):
                 self.uv_panel.grid_forget()
             if hasattr(self, 'splitter') and self.splitter:
                 self.splitter.grid_forget()
+            # Resetear minsize de la columna
+            self.grid_columnconfigure(3, minsize=0)
             self.uv_panel_visible = False
             self.btn_edit_uvs.configure(
                 fg_color=("#FF8C00", "#FF6F00"),
                 hover_color=("#FF7F00", "#FF5500")
             )
+            # Forzar redibujado completo del OpenGL
+            self.update_idletasks()
+            self.after(100, self._force_gl_redraw)
         else:
             # Mostrar panel y splitter
             if not self.uv_panel:
                 self.create_uv_panel()
             else:
+                # Re-aplicar el ancho guardado y minsize
+                self.uv_panel.configure(width=self.uv_panel_width)
+                self.grid_columnconfigure(3, minsize=self.uv_panel_width)
                 if hasattr(self, 'splitter') and self.splitter:
                     self.splitter.grid(row=1, column=2, sticky="ns", padx=0, pady=0)
                 self.uv_panel.grid(row=1, column=3, sticky="nsew", padx=0, pady=0)
@@ -668,8 +720,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
             
             # Forzar actualización del viewport OpenGL
             self.update_idletasks()
-            if hasattr(self, 'gl_viewport') and self.gl_viewport:
-                self.gl_viewport.update()
+            self.after(50, self._force_gl_redraw)
                 
             self.btn_edit_uvs.configure(
                 fg_color=("#FFA500", "#FF8C00"),
@@ -682,8 +733,9 @@ class PMDLViewerApp(ctk.CTkToplevel):
 
     def create_uv_panel(self):
         """Crea el panel lateral de UVs con splitter redimensionable"""
-        # Ancho inicial del panel UV (se puede cambiar con el splitter)
-        self.uv_panel_width = 450
+        # Inicializar ancho solo si no existe
+        if not hasattr(self, 'uv_panel_width'):
+            self.uv_panel_width = 450
         
         self.uv_panel = ctk.CTkFrame(self, width=self.uv_panel_width, corner_radius=0)
         self.uv_panel.grid(row=1, column=3, sticky="nsew", padx=0, pady=0)
@@ -691,8 +743,12 @@ class PMDLViewerApp(ctk.CTkToplevel):
         self.uv_panel.grid_columnconfigure(0, weight=1)
         self.uv_panel.grid_rowconfigure(1, weight=1)
         
-        # Crear splitter
-        self.create_splitter()
+        # Establecer minsize en la columna para mantener el ancho
+        self.grid_columnconfigure(3, minsize=self.uv_panel_width)
+        
+        # Crear splitter solo si no existe
+        if not hasattr(self, 'splitter') or not self.splitter:
+            self.create_splitter()
         
         # Header
         header = ctk.CTkFrame(self.uv_panel, height=50, corner_radius=0, fg_color=("gray85", "gray20"))
@@ -756,7 +812,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
         self.uv_canvas.grid(row=0, column=0, sticky="nsew")
         self.uv_canvas.editor = self
         
-        # Footer con botón guardar
+        # Footer
         footer = ctk.CTkFrame(self.uv_panel, height=60, corner_radius=0)
         footer.grid(row=2, column=0, sticky="ew", padx=0, pady=0)
         
@@ -857,7 +913,9 @@ class PMDLViewerApp(ctk.CTkToplevel):
             # Guardar UVs
             if self.uv_parser.save_uvs(self.uv_parser.parts_data, self.temp_pmdl_path):
                 print("✓ UVs guardadas")
-                # Recargar modelo 3D sin cambiar el modo actual (skip_uv_reload=True para no recargar UVs)
+                # Marcar como guardado
+                self.has_unsaved_changes = True
+                # Recargar modelo 3D sin cambiar el modo actual
                 self.reload_pmdl_from_file(skip_uv_reload=True)
             else:
                 messagebox.showerror("Error", "No se pudieron guardar las UVs")
@@ -868,7 +926,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
 
     def mark_as_modified(self):
         """Marca que hay cambios sin guardar (llamado desde canvas)"""
-        self.has_unsaved_changes = True
+        pass
     
     def get_modified_pmdl_data(self):
         """Devuelve el bytearray del PMDL modificado (para guardar al cerrar)"""

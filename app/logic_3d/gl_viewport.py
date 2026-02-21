@@ -49,14 +49,14 @@ try:
             # Hacer el widget focusable para detectar teclas
             self.focus_set()
             
-            # Referencia al label de información (se asigna desde fuera)
+            # Referencia al label de información
             self.info_label = None
-            # Referencia a la app principal para poder cambiar de vista
+            # Referencia a la app principal
             self.parent_app = None
             
             self.animate = 1
             
-            # Trigger inicial para evitar parpadeo
+            # Trigger inicial
             self.after(100, self._initial_camera_nudge)
         
         def _initial_camera_nudge(self):
@@ -66,7 +66,6 @@ try:
                 self.redraw()
                 self.after(50, lambda: setattr(self, 'rotation_y', 180) or self.redraw())
             except:
-                # Si falla, reintentar después
                 self.after(100, self._initial_camera_nudge)
         
         def initgl(self):
@@ -87,6 +86,13 @@ try:
             # Habilitar blending para transparencias
             glEnable(GL_BLEND)
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        
+        def trigger_mini_rotation(self):
+            """Aplica una mini rotación imperceptible para refrescar el viewport"""
+            self.rotation_y += 0.01
+            if self.rotation_y > 360:
+                self.rotation_y -= 360
+            self.redraw()
         
         def redraw(self):
             """Redibuja la escena"""
