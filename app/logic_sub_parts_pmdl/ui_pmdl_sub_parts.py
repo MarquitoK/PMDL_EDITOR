@@ -670,7 +670,16 @@ class MultiSelectTable(ctk.CTkFrame):
             part_idx
         )
 
-        messagebox.showinfo("Insertado", f"SubParte insertada desde la posicion {row_idx[0] + 1:02}\n{paths_subpart}", parent=self.master.master)
+        self.select_row(row_idx[0]+1)
+
+        # acortar rutas a mostrar
+        def last_parts(path, n=2):
+            p = Path(path)
+            return "/".join(p.parts[-n:])
+
+        short = [last_parts(p, 2) for p in paths_subpart]
+
+        messagebox.showinfo("Insertado", f"SubParte insertada desde la posicion {row_idx[0] + 1:02}\n{short}", parent=self.master.master)
 
     @error_window_ui
     def _add_subparts(self):
