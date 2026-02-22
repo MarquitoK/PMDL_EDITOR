@@ -5,14 +5,16 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 
 from app.logic_sub_parts_pmdl.operations import calc_subpart_size
+from app.utils.ui_error_window import error_window_ui
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
 
 class VertexEditor(ctk.CTkToplevel):
-    def __init__(self, parent, vertices:list, idsubpart:str, namepmdl:str, path:str, **kwargs):
+    def __init__(self, parent, data_subpart:dict, idsubpart:str, namepmdl:str, path:str, **kwargs):
         super().__init__(parent)
+        self.escala = 0.00051875
 
         self.title(f"Pmdl Editor - Subpart N°: ** {idsubpart} ** - {namepmdl}")
         self.geometry("920x520")
@@ -45,7 +47,9 @@ class VertexEditor(ctk.CTkToplevel):
         self.table = ctk.CTkFrame(self.scroll)
         self.table.pack(anchor="nw")
 
-        self.load_vertices(vertices)
+        self.grosor = data_subpart['grosor']
+        self._procesar_vertices(data_subpart['vertices'])
+        self.load_vertices(data_subpart['vertices'])
 
         # ----- FRAME DE BOTONES -----
         self.btn_frame = ctk.CTkFrame(self)
@@ -249,14 +253,15 @@ class VertexEditor(ctk.CTkToplevel):
         self.grab_release()
         self.destroy()
 
+    @error_window_ui
     def on_export_data(self):
         result = []
 
         for row in self.entries:
             try:
-                # row[0] es ID, se ignora
+                id_v = row[0].get()
                 x, y, z = float(row[1].get()), float(row[2].get()), float(row[3].get())
-                u, v = float(row[4].get()), float(row[5].get())
+                u, v = int(row[4].get()), int(row[5].get())
 
                 weights = []
                 for w in row[6:10]:
@@ -266,6 +271,7 @@ class VertexEditor(ctk.CTkToplevel):
                             weights.append(float(val))
 
                 result.append({
+                    "id_v": id_v,
                     "pos": (x, y, z),
                     "uv": (u, v),
                     "weights": weights
@@ -287,8 +293,13 @@ class VertexEditor(ctk.CTkToplevel):
         if not ruta:
             return
 
+        data = {
+            "grosor": list(self.grosor),
+            "vertices": result
+        }
+
         with open(ruta, "w", encoding="utf-8") as f:
-            json.dump(result, f, indent=4)
+            json.dump(data, f, indent=4)
 
         messagebox.showinfo("Guardado", "Se guardaron los datos", parent=self)
 
@@ -311,3 +322,23 @@ class VertexEditor(ctk.CTkToplevel):
 
         self.load_vertices(data)
         messagebox.showinfo("Cargado", "Datos cargados", parent=self)
+
+    def _procesar_vertices(self, vertices:list):
+        GROSOR_MAXIMO = 68.0
+
+        grosor_x = self.grosor[0] if self.grosor[0] > 0 else GROSOR_MAXIMO
+        grosor_y = self.grosor[1] if self.grosor[1] > 0 else GROSOR_MAXIMO
+        grosor_z = self.grosor[2] if self.grosor[2] > 0 else GROSOR_MAXIMO
+
+        factor_x = grosor_x / GROSOR_MAXIMO
+        factor_y = grosor_y / GROSOR_MAXIMO
+        factor_z = grosor_z / GROSOR_MAXIMO
+
+        for v in vertices:
+            x = v['pos'][0] * self.escala * factor_x * -1
+            y = v['pos'][1] * self.escala * factor_y * -1
+            z = v['pos'][2] * self.escala * factor_z
+
+            v['pos'] = (x, y, z)
+
+

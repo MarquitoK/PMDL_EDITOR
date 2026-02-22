@@ -1459,6 +1459,8 @@ class UiSubparts(ctk.CTkToplevel):
         if not row_idx:
             return
 
+        grosor = leer_grosor(self.master._blob)
+
         subpart = self._sub_parts[part_id][row_idx[0]]
         part_data = self._blobs.get(f"{part_id}", None)
         part_data = bytearray(part_data)
@@ -1494,8 +1496,12 @@ class UiSubparts(ctk.CTkToplevel):
 
             vertices.append(dat)
 
+        data_subpart = {
+            'grosor': grosor,
+            'vertices': vertices
+        }
 
         path = self.tab_left.parent_app._path
         name_pmdl = os.path.basename(path)
         path = self.master.tooltip_path2_entry._user_hide(path)
-        self.editor = VertexEditor(self, vertices, f"{row_idx[0]:02}", name_pmdl, path)
+        self.editor = VertexEditor(self, data_subpart, f"{row_idx[0]:02}", name_pmdl, path)
