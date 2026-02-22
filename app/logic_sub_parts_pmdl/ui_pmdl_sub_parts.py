@@ -821,7 +821,7 @@ class MultiSelectTable(ctk.CTkFrame):
             part_idx
         )
 
-        self.select_row(row_idx[0])
+        self.master.master.tab_left.select_row(row_idx[0] + 1)
 
         messagebox.showinfo("Agruegada", f"SubParte agruegada desde la posicion {row_idx[0] + 1:02}",
                             parent=self.master.master)
@@ -892,7 +892,7 @@ class MultiSelectTable(ctk.CTkFrame):
         messagebox.showinfo("Elimanado", f"SubPartes {row_idx_old} eliminadas correctamente", parent=self.master.master)
 
     def _uddate_blobs_ui(self):
-        blob = self._get_blob()
+        blob = self.master.master._blobs
         self.master.master.ids_old = []
         # Actualizar los bytes de las parts desde _blob ya normalizado para que las
         # operaciones de subpartes trabajen con los vértices corregidos
