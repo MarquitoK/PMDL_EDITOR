@@ -892,7 +892,6 @@ class MultiSelectTable(ctk.CTkFrame):
         messagebox.showinfo("Elimanado", f"SubPartes {row_idx_old} eliminadas correctamente", parent=self.master.master)
 
     def _uddate_blobs_ui(self):
-        print("bytes reemplazados")
         blob = self.master.master._blobs
         self.master.master.ids_old = []
         # Actualizar los bytes de las parts desde _blob ya normalizado para que las
