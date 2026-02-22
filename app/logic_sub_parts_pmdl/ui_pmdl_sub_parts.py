@@ -8,6 +8,7 @@ from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
 from app.core.operations import export_part, replace_part
+from app.logic_sub_parts_pmdl.header_subpart import SpartHeader, comprobar_header_spart
 from app.logic_sub_parts_pmdl.scrollable_option_menu import ScrollableOptionMenu
 from app.logic_sub_parts_pmdl.sub_parts_index import parse_subparts_index, SubPartIndexEntry
 from app.logic_sub_parts_pmdl.operations import calc_subpart_size, export_sub_part, import_sub_part, align_16, \
@@ -15,6 +16,8 @@ from app.logic_sub_parts_pmdl.operations import calc_subpart_size, export_sub_pa
 from app.logic_sub_parts_pmdl.ui_edit_vertex import VertexEditor
 from app.ui import ToolTip
 from app.utils import center_window
+from app.utils.thickness_normalizer import normalizar_pmdl_completo, preparar_parte_externa_para_insercion, leer_grosor, \
+    normalizar_subparte
 from app.utils.ui_error_window import error_window_ui
 
 APP_TITLE = "Pmdl Editor - SubParts"
@@ -293,7 +296,7 @@ class MultiSelectTable(ctk.CTkFrame):
                 title="Exportar Subparte",
                 defaultextension=".tttsubpart",
                 initialfile=filename,
-                filetypes=[("TTT SubPart", "*.tttsubpart")]
+                filetypes=[("TTT SubPart", "*.tttsubpart"), ("Todos los archivos", "*.*")]
             )
 
             if not out_path:
@@ -306,12 +309,17 @@ class MultiSelectTable(ctk.CTkFrame):
                 part_idx,
                 subpart_dat
             )
-            dat = bytearray(b'\x00' * 0x10)
+            dat = bytearray(b'\x00' * 12)
             struct.pack_into("<H", dat, 0, subpart_dat.num_vertices)
             struct.pack_into("<H", dat, 2, subpart_dat.num_bones)
             struct.pack_into("<4B", dat, 4, *subpart_dat.id_bones)
             struct.pack_into("<I", dat, 8, subpart_dat.unk)
-            chunk = dat + chunk
+            # chunk = dat + chunk
+
+            grosor = self.parent_app._blob if self.path == 0 else self.parent_app._blob2
+            grosor = struct.unpack_from("<fff", grosor, 0x40)
+            x, y , z = grosor
+            chunk = SpartHeader(x, y , z, dat, chunk).build()
 
             with open(out_path, "wb") as f:
                 f.write(chunk)
@@ -340,12 +348,17 @@ class MultiSelectTable(ctk.CTkFrame):
                 subpart_dat
             )
 
-            dat = bytearray(b'\x00' * 0x10)
+            dat = bytearray(b'\x00' * 12)
             struct.pack_into("<H", dat, 0, subpart_dat.num_vertices)
             struct.pack_into("<H", dat, 2, subpart_dat.num_bones)
             struct.pack_into("<4B", dat, 4, *subpart_dat.id_bones)
             struct.pack_into("<I", dat, 8, subpart_dat.unk)
-            chunk = dat + chunk
+            # chunk = dat + chunk
+
+            grosor = self.parent_app._blob if self.path == 0 else self.parent_app._blob2
+            grosor = struct.unpack_from("<fff", grosor, 0x40)
+            x, y, z = grosor
+            chunk = SpartHeader(x, y, z, dat, chunk).build()
 
             with open(Path(out_path, filename), "wb") as f:
                 f.write(chunk)
@@ -362,7 +375,7 @@ class MultiSelectTable(ctk.CTkFrame):
             return
 
         path_subpart = filedialog.askopenfilename(
-            title="Importar Subparte",
+            title="Reemplazar Subparte",
             initialdir=".",
             filetypes=[("Archivos SubPart", "*.tttsubpart"),
                        ("Todos los archivos", "*.*")]
@@ -375,16 +388,42 @@ class MultiSelectTable(ctk.CTkFrame):
             chunk = f.read()
             chunk =  bytearray(chunk)
 
-            # datos de la subparte
-            dat_chunk = chunk[:0x10]
-            chunk = chunk[0x10:]
-            chunk = bytearray(chunk)
+            # chunk = chunk[0x10:]
+            # chunk = bytearray(chunk)
+
+        # datos de la subparte
+        dat_chunk = chunk[0x20:0x2c]
+        grosor_2, num_vertices, num_bones, id_bones, unk, chunk = comprobar_header_spart(chunk)
 
         if len(chunk) == 0:
             raise ValueError("La subpart importada esta vacia")
 
         # blob de las partes en bytes
         blob = self._get_blob()
+
+        # 1. Verificar estado del toggle de normalización
+        normalize_enabled = self.parent_app.normalize_toggle_var.get() if self.parent_app.normalize_toggle_var else True
+
+        if normalize_enabled:
+
+            # 2. Normalizar PMDL principal a grosor máximo si es necesario porque si ya trae valores máximos (0x44) no lo hace
+            was_normalized = normalizar_pmdl_completo(
+                self.parent_app._blob,
+                self.parent_app._hdr.parts_index_offset,
+                self.parent_app._parts
+            )
+            if was_normalized:
+                print("✓ PMDL principal normalizado a grosor máximo")
+                self._uddate_blobs_ui()
+
+        # 3. Normalizar los vértices de la subparte
+        chunk = normalizar_subparte(
+            chunk,
+            num_vertices,
+            num_bones,
+            grosor_2
+        ) if normalize_enabled else chunk
+
         part_dat = self._get_subparts()[part_idx][row_idx[0]]
         data_part, cant = import_sub_part(
             blob,
@@ -392,21 +431,20 @@ class MultiSelectTable(ctk.CTkFrame):
             part_dat,
             chunk
         )
+
         # actualizar offset de las subparts
         parts = self._get_subparts()[part_idx]
-        for i in range(part_idx + 1, len(parts)):
+        for i in range(row_idx[0] + 1, len(parts)):
             parts[i].sub_part_offset+=cant
 
-        # actualizar valores de la subparte
-        num_vertices, = struct.unpack_from("<H", dat_chunk,0)
-        num_bones, = struct.unpack_from("<H", dat_chunk,2)
-        id_bones = list(struct.unpack_from("<4B", dat_chunk, 4))
-        unk, = struct.unpack_from("<I", dat_chunk, 8)
-
+        # actualizar datos de subpart
         part_dat.num_vertices = num_vertices
         part_dat.num_bones = num_bones
-        part_dat.id_bones = id_bones
+        part_dat.id_bones = list(id_bones)
         part_dat.unk = unk
+
+        # actualizar los parametros en la part
+        data_part[(row_idx[0] * 0x10) + 4:(row_idx[0] * 0x10) + 0x10] = dat_chunk
 
         # obtener el tamaño de la subparte final
         size_part_end = calc_subpart_size(parts[-1].num_vertices, parts[-1].num_bones)
@@ -420,6 +458,15 @@ class MultiSelectTable(ctk.CTkFrame):
 
         # añadir los cambios al modelo
         replace_part(self.parent_app._blob, self.parent_app._hdr, self.parent_app._parts, data_part, part_idx)
+
+        # ---- Refrescar tabla UI ----
+        self.master.master.tab_left.set_table(
+            len(self.master.master._sub_parts[part_idx]),
+            self.master.master._sub_parts,
+            part_idx
+        )
+
+        self.select_row(row_idx[0])
 
         messagebox.showinfo("Importado", f"SubParte importada", parent=self.master.master)
 
@@ -497,7 +544,7 @@ class MultiSelectTable(ctk.CTkFrame):
         part_idx = self.master.master._index_opt_left
         row_idx = self.get_selected_row_indices()
 
-        if row_idx is None:
+        if not row_idx:
             return
         if len(row_idx) > 1:
             raise ValueError("No se puede insertar si tienes seleccionada mas de una subparte.")
@@ -522,6 +569,21 @@ class MultiSelectTable(ctk.CTkFrame):
         if not paths_subpart:
             return
 
+        # 1. Verificar estado del toggle de normalización
+        normalize_enabled = self.parent_app.normalize_toggle_var.get() if self.parent_app.normalize_toggle_var else True
+
+        if normalize_enabled:
+
+            # 2. Normalizar PMDL principal a grosor máximo si es necesario porque si ya trae valores máximos (0x44) no lo hace
+            was_normalized = normalizar_pmdl_completo(
+                self.parent_app._blob,
+                self.parent_app._hdr.parts_index_offset,
+                self.parent_app._parts
+            )
+            if was_normalized:
+                print("✓ PMDL principal normalizado a grosor máximo")
+                self._uddate_blobs_ui()
+
         for path_subpart in paths_subpart:
             with open(path_subpart, "rb") as f:
                 raw = f.read()
@@ -529,14 +591,23 @@ class MultiSelectTable(ctk.CTkFrame):
                     raise ValueError(f"El archivo \"{path_subpart}\" esta vacio")
 
             raw = bytearray(raw)
-            dat_chunk = raw[:0x10]
-            chunk = raw[0x10:]  # ya es bytearray por el slice
+            # chunk = raw[0x10:]  # ya es bytearray por el slice
+            grosor_2, num_vertices, num_bones, id_bones, unk, chunk = comprobar_header_spart(raw)
+            dat_chunk = raw[0x20:0x30]
+
+            # 3. Normalizar los vértices de la subparte
+            chunk = normalizar_subparte(
+                chunk,
+                num_vertices,
+                num_bones,
+                grosor_2
+            ) if normalize_enabled else chunk
 
             # ---- Header de la subparte ----
-            num_vertices, = struct.unpack_from("<H", dat_chunk, 0)
-            num_bones, = struct.unpack_from("<H", dat_chunk, 2)
-            id_bones = list(struct.unpack_from("<4B", dat_chunk, 4))
-            unk, = struct.unpack_from("<I", dat_chunk, 8)
+            # num_vertices, = struct.unpack_from("<H", dat_chunk, 0)
+            # num_bones, = struct.unpack_from("<H", dat_chunk, 2)
+            # id_bones = list(struct.unpack_from("<4B", dat_chunk, 4))
+            # unk, = struct.unpack_from("<I", dat_chunk, 8)
 
             # ---- Inserción binaria ----
             blob = self._get_blob()
@@ -559,7 +630,7 @@ class MultiSelectTable(ctk.CTkFrame):
                 offset_insert,
                 num_vertices,
                 num_bones,
-                id_bones,
+                list(id_bones),
                 unk
             )
             sub_parts.insert(insert_at + 1, new_entry)
@@ -620,7 +691,7 @@ class MultiSelectTable(ctk.CTkFrame):
         insert_at = row_idx[0]
 
         # datos del pmdl 1
-        subparts_by_part =  self.master.master._sub_parts
+        subparts_by_part = self.master.master._sub_parts
         blob = self.master.master._blobs
 
         # datos del pmdl 2
@@ -629,33 +700,61 @@ class MultiSelectTable(ctk.CTkFrame):
 
         if not messagebox.askokcancel(
                 "Confirmar Agruegar",
-                f"Vas a agruegar las siguientes subpartes: {row_idx_2}\n\n¿Deseas continuar?"
+                f"Vas a agruegar las siguientes subpartes: {row_idx_2}\n\n¿Deseas continuar?",
+                parent=self.master.master
         ):
             return
 
+        # Verificar estado del toggle de normalización
+        normalize_enabled = self.parent_app.normalize_toggle_var.get() if self.parent_app.normalize_toggle_var else True
+
+        grosor_2 = tuple
+        if normalize_enabled:
+            # 1. Obtener grosor del PMDL secundario
+            grosor_2 = leer_grosor(self.parent_app._blob2)
+
+            # 2. Normalizar PMDL principal a grosor máximo si es necesario porque si ya trae valores máximos (0x44) no lo hace
+            was_normalized = normalizar_pmdl_completo(
+                self.parent_app._blob,
+                self.parent_app._hdr.parts_index_offset,
+                self.parent_app._parts
+            )
+            if was_normalized:
+                print("✓ PMDL principal normalizado a grosor máximo")
+                self._uddate_blobs_ui()
+
         for subpart_2 in row_idx_2:
-            # obtener la subparte del pmdl 2
+            # Extraer los vertices de la subparte del PMDL secundario
             part_dat_2 = subparts_by_part_2[part_idx_2][subpart_2]
             raw = export_sub_part(
                 blob_2,
                 part_idx_2,
                 part_dat_2
-                )
+            )
             raw = bytearray(raw)
 
-            # data chunk y chunk de la subparte a add
+
+            # 3. Normalizar los vértices de la subparte
+            raw_normalizado = normalizar_subparte(
+                raw,
+                part_dat_2.num_vertices,
+                part_dat_2.num_bones,
+                grosor_2
+            ) if normalize_enabled else raw
+
+            # data chunk y chunk de la subparte normalizada
             dat_chunk = bytearray(b'\x00' * 0x10)
             struct.pack_into("<H", dat_chunk, 0, part_dat_2.num_vertices)
             struct.pack_into("<H", dat_chunk, 2, part_dat_2.num_bones)
             struct.pack_into("<4B", dat_chunk, 4, *part_dat_2.id_bones)
             struct.pack_into("<I", dat_chunk, 8, part_dat_2.unk)
-            chunk = raw
 
+            chunk = raw_normalizado
             # ---- Header de la subparte ----
-            num_vertices, = struct.unpack_from("<H", dat_chunk, 0)
-            num_bones, = struct.unpack_from("<H", dat_chunk, 2)
-            id_bones = list(struct.unpack_from("<4B", dat_chunk, 4))
-            unk, = struct.unpack_from("<I", dat_chunk, 8)
+            num_vertices = part_dat_2.num_vertices
+            num_bones = part_dat_2.num_bones
+            id_bones = part_dat_2.id_bones
+            unk = part_dat_2.unk
 
             # ---- Inserción binaria ----
             part_dat = subparts_by_part[part_idx][insert_at]
@@ -689,13 +788,11 @@ class MultiSelectTable(ctk.CTkFrame):
             for i in range(insert_at + 2, len(sub_parts)):
                 sub_parts[i].sub_part_offset += cant
 
-
             # ---- Alinear y actualizar blob ----
-            del data_part[sub_parts[-1].sub_part_offset + calc_subpart_size(sub_parts[-1].num_vertices, sub_parts[-1].num_bones):]
+            del data_part[
+                sub_parts[-1].sub_part_offset + calc_subpart_size(sub_parts[-1].num_vertices, sub_parts[-1].num_bones):]
             align_16(data_part)
             blob[str(part_idx)] = data_part
-
-            # print(len(data_part))
 
             # ---- Reemplazar parte completa en el modelo ----
             replace_part(
@@ -706,7 +803,7 @@ class MultiSelectTable(ctk.CTkFrame):
                 part_idx
             )
 
-            insert_at+=1
+            insert_at += 1
 
         # ---- Refrescar tabla UI ----
         self.master.master.tab_left.set_table(
@@ -717,7 +814,8 @@ class MultiSelectTable(ctk.CTkFrame):
 
         self.select_row(row_idx[0])
 
-        messagebox.showinfo("Agruegada", f"SubParte agruegada desde la posicion {row_idx[0] + 1:02}", parent=self.master.master)
+        messagebox.showinfo("Agruegada", f"SubParte agruegada desde la posicion {row_idx[0] + 1:02}",
+                            parent=self.master.master)
 
     @error_window_ui
     def _delete_subparts(self):
@@ -784,6 +882,19 @@ class MultiSelectTable(ctk.CTkFrame):
 
         messagebox.showinfo("Elimanado", f"SubPartes {row_idx_old} eliminadas correctamente", parent=self.master.master)
 
+    def _uddate_blobs_ui(self):
+        blob = self._get_blob()
+        self.master.master.ids_old = []
+        # Actualizar los bytes de las parts desde _blob ya normalizado para que las
+        # operaciones de subpartes trabajen con los vértices corregidos
+        for i, part in enumerate(self.parent_app._parts):
+            off = part.part_offset
+            ln = part.part_length
+            # reemplazar las id 0xFF
+            data_parte = bytearray(self.parent_app._blob[off:off + ln])
+            replace_id_ff(parent=self.master.master, part=data_parte)
+            blob[str(i)] = bytes(data_parte)
+
     # =========================
     # PANEL UPDATE
     # =========================
@@ -823,7 +934,7 @@ class UiSubparts(ctk.CTkToplevel):
         self.geometry("1200x600")
         center_window(self, 1200, 600)
 
-        self.protocol("WM_DELETE_WINDOW", self._disable_close)
+        # self.protocol("WM_DELETE_WINDOW", self._disable_close)
 
         self.grid_columnconfigure((0, 2), weight=1)
         self.grid_columnconfigure(1, weight=0, minsize=220)
@@ -1226,7 +1337,9 @@ class UiSubparts(ctk.CTkToplevel):
 
         # mostrar la ui pmdl editor
         self.master.on_open_pmdl_editor()
-        # actualizar el tamaño de la parte en la ui pmdl editor
+        # Refrescar UI pmdl editor
+        self.master.parts_table.populate(self.master._parts)
+        self.master.parts_table.update_part_count(self.master._hdr.part_count)
 
         # destruir esta ui para evitar resetear variables
         self.withdraw()

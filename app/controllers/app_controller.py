@@ -234,7 +234,8 @@ class PmdlPartsApp(ctk.CTk):
     def _return_from_subparts(self):
         # Cierra subparts y regresa a la ventana principal
         if self.window_subparts and self.window_subparts.winfo_exists():
-            self.window_subparts.destroy()
+            # necesario usar al regresar a la ventana principal
+            self.window_subparts.on_back()
         self.window_subparts = None
         
         # Mostrar ventana principal
