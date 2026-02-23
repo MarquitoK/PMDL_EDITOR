@@ -1476,9 +1476,9 @@ class UiSubparts(ctk.CTkToplevel):
         for vertex in list_vertices:
             dat = {}
 
-            pos_x, = struct.unpack_from("<H", vertex, (subpart.num_bones * 2) + 2)
-            pos_y, = struct.unpack_from("<H", vertex, (subpart.num_bones * 2) + 4)
-            pos_z, = struct.unpack_from("<H", vertex, (subpart.num_bones * 2) + 6)
+            pos_x, = struct.unpack_from("<h", vertex, (subpart.num_bones * 2) + 2)
+            pos_y, = struct.unpack_from("<h", vertex, (subpart.num_bones * 2) + 4)
+            pos_z, = struct.unpack_from("<h", vertex, (subpart.num_bones * 2) + 6)
 
             dat["pos"] = (pos_x, pos_y, pos_z)
 
