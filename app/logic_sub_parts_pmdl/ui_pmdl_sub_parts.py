@@ -1489,7 +1489,7 @@ class UiSubparts(ctk.CTkToplevel):
 
             bones = []
             for i in range(subpart.num_bones):
-                bone, = struct.unpack_from("<H", vertex, i * 2)
+                bone, = struct.unpack_from(">H", vertex, i * 2)
                 bones.append(bone)
 
             dat["weights"] = bones

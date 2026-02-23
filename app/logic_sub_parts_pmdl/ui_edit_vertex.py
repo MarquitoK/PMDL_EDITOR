@@ -5,6 +5,7 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 
 from app.logic_sub_parts_pmdl.operations import calc_subpart_size
+from app.logic_sub_parts_pmdl.quant16_converter import game16_to_float
 from app.utils.ui_error_window import error_window_ui
 
 ctk.set_appearance_mode("dark")
@@ -49,6 +50,7 @@ class VertexEditor(ctk.CTkToplevel):
 
         self.grosor = data_subpart['grosor']
         self._procesar_vertices(data_subpart['vertices'])
+        self._procesar_pesos(data_subpart['vertices'])
         self.load_vertices(data_subpart['vertices'])
 
         # ----- FRAME DE BOTONES -----
@@ -268,7 +270,7 @@ class VertexEditor(ctk.CTkToplevel):
                     if w.cget("state") == "normal":
                         val = w.get().strip()
                         if val:
-                            weights.append(float(val))
+                            weights.append("N/A" if not val or str(val).lower() == "n/a" else float(val))
 
                 result.append({
                     "id_v": id_v,
@@ -341,4 +343,10 @@ class VertexEditor(ctk.CTkToplevel):
 
             v['pos'] = (x, y, z)
 
+    def _procesar_pesos(self, vertices:list):
+        for v in vertices:
+            bones = []
+            for w in v['weights']:
+                bones.append(game16_to_float(w) if w != 0 else "N/A")
+            v["weights"] = bones
 
