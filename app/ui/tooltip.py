@@ -2,7 +2,7 @@ import customtkinter as ctk
 from pathlib import Path
 
 class ToolTip:
-    def __init__(self, widget, text: str, timeout: int = 3000):
+    def __init__(self, widget, text: str, timeout: int = 5000):
         self.widget = widget
         self.text = text
         self.tip = None
@@ -54,7 +54,7 @@ class ToolTip:
         self.tip.geometry(f"+{x}+{y}")
 
         # ⏱️ autocierre normal
-        if self.timeout > 0:
+        if self.timeout > 0 and not self._after_id:
             root = self.widget.winfo_toplevel()
             self._after_id = root.after(self.timeout, self.hide)
 
@@ -121,6 +121,10 @@ class ToolTip:
                 self.hide()
                 return
         except:
+            self.hide()
+            return
+
+        if not self._after_id:
             self.hide()
             return
 

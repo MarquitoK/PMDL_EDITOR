@@ -1459,9 +1459,12 @@ class UiSubparts(ctk.CTkToplevel):
         if not row_idx:
             return
 
-        grosor = leer_grosor(self.master._blob)
-
+        # datos de la subpart
         subpart = self._sub_parts[part_id][row_idx[0]]
+        grosor = leer_grosor(self.master._blob)
+        id_bones = subpart.id_bones[:subpart.num_bones]
+        unk = subpart.unk
+
         part_data = self._blobs.get(f"{part_id}", None)
         part_data = bytearray(part_data)
 
@@ -1480,12 +1483,12 @@ class UiSubparts(ctk.CTkToplevel):
             pos_y, = struct.unpack_from("<h", vertex, (subpart.num_bones * 2) + 4)
             pos_z, = struct.unpack_from("<h", vertex, (subpart.num_bones * 2) + 6)
 
-            dat["pos"] = (pos_x, pos_y, pos_z)
+            dat["pos"] = [pos_x, pos_y, pos_z]
 
             uv, = struct.unpack_from("<B", vertex, subpart.num_bones * 2)
             uv_1, = struct.unpack_from("<B", vertex, (subpart.num_bones * 2) + 1)
 
-            dat["uv"] = (uv, uv_1)
+            dat["uv"] = [uv, uv_1]
 
             bones = []
             for i in range(subpart.num_bones):
@@ -1498,6 +1501,8 @@ class UiSubparts(ctk.CTkToplevel):
 
         data_subpart = {
             'grosor': grosor,
+            'id_bones': id_bones,
+            'unk': unk,
             'vertices': vertices
         }
 

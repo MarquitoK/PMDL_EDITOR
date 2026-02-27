@@ -1,11 +1,10 @@
 import json
 import struct
-from tkinter import filedialog, messagebox
-
 import customtkinter as ctk
-
+from tkinter import filedialog, messagebox
+from app.logic_3d.main_window import ESCALA
 from app.logic_sub_parts_pmdl.operations import calc_subpart_size
-from app.logic_sub_parts_pmdl.quant16_converter import game16_to_float
+from app.logic_sub_parts_pmdl.quant16_converter import game16_to_float, float_to_game16
 from app.utils.ui_error_window import error_window_ui
 
 ctk.set_appearance_mode("dark")
@@ -15,7 +14,7 @@ ctk.set_default_color_theme("blue")
 class VertexEditor(ctk.CTkToplevel):
     def __init__(self, parent, data_subpart:dict, idsubpart:str, namepmdl:str, path:str, **kwargs):
         super().__init__(parent)
-        self.escala = 0.00051875
+        self.escala = ESCALA
 
         self.title(f"Pmdl Editor - Subpart N°: ** {idsubpart} ** - {namepmdl}")
         self.geometry("920x520")
@@ -49,6 +48,8 @@ class VertexEditor(ctk.CTkToplevel):
         self.table.pack(anchor="nw")
 
         self.grosor = data_subpart['grosor']
+        self.id_bones = data_subpart['id_bones']
+        self.unk = data_subpart['unk']
         self._procesar_vertices(data_subpart['vertices'])
         self._procesar_pesos(data_subpart['vertices'])
         self.load_vertices(data_subpart['vertices'])
@@ -95,7 +96,7 @@ class VertexEditor(ctk.CTkToplevel):
         headers = [
             "ID",
             "X", "Y", "Z",
-            "U", "V",
+            "UV X", "UV Y",
             "Peso 1", "Peso 2", "Peso 3", "Peso 4"
         ]
 
@@ -171,18 +172,20 @@ class VertexEditor(ctk.CTkToplevel):
             try:
                 # row[0] es ID, se ignora
                 x, y, z = float(row[1].get()), float(row[2].get()), float(row[3].get())
-                u, v = float(row[4].get()), float(row[5].get())
+                u, v = int(row[4].get()), int(row[5].get())
 
                 weights = []
                 for w in row[6:10]:
                     if w.cget("state") == "normal":
                         val = w.get().strip()
                         if val:
-                            weights.append(float(val))
+                            weights.append(float(val) if val.lower() != "n/a" else "n/a")
+                        else:
+                            weights.append(0)
 
                 result.append({
-                    "pos": (x, y, z),
-                    "uv": (u, v),
+                    "pos": [x, y, z],
+                    "uv": [u, v],
                     "weights": weights
                 })
 
@@ -195,25 +198,26 @@ class VertexEditor(ctk.CTkToplevel):
 
         # formatear la lista a bytes
         out = bytearray()
+        data = {
+            'vertces': result
+        }
+        self._procesar_vertices(data['vertces'], False)
+        self._procesar_pesos(data['vertces'], False)
 
         for v in result:
 
-            # ---- weights  (<H)
-            # si vienen como float 0..1 los conviertes a entero 0..65535
+            # ---- weights  (>H)
             for w in v["weights"]:
-                w_int = int(w)
-                out += struct.pack("<H", w_int)
+                out += struct.pack(">H", w)
 
             # ---- uv (<B)
-            # conviertes float 0..1 a 0..255
             for uv in v["uv"]:
-                uv_int = int(uv)
-                out += struct.pack("<B", uv_int)
+                out += struct.pack("<B", uv)
 
-            # ---- pos (<H)
+            # ---- pos (<h)
             for p in v["pos"]:
-                p_int = int(p)
-                out += struct.pack("<H", p_int)
+                out += struct.pack("<h", p)
+
 
 
         # obtener la id de la parte y la id de la subparte
@@ -221,14 +225,16 @@ class VertexEditor(ctk.CTkToplevel):
         row_idx = self.master.tab_left.get_selected_row_indices()[0]
 
         # datos de la subparte y tamaño del vertex
-        subpart = self.master._sub_parts[part_id][row_idx]
-        size_vertex = calc_subpart_size(subpart.num_vertices, subpart.num_bones, True)
+        # subpart = self.master._sub_parts[part_id][row_idx]
+        # size_vertex = calc_subpart_size(subpart.num_vertices, subpart.num_bones, True)
+        size_vertex = 8 + (len(self.id_bones)*2)
 
         dat_chunk = []
-        dat_chunk.append(len(out)//size_vertex)
-        dat_chunk.append(subpart.num_bones)
-        dat_chunk.append(subpart.id_bones)
-        dat_chunk.append(subpart.unk)
+        dat_chunk.append(len(out)//size_vertex) # num vertices
+        dat_chunk.append(len(self.id_bones)) # num de bones
+        self.id_bones[:] = (self.id_bones + [0, 0, 0, 0])[:4]
+        dat_chunk.append(self.id_bones)
+        dat_chunk.append(self.unk)
 
         # actualizar la subpart en el pmdl
         self.master.tab_left.import_sub_part_pmdl(part_id, row_idx, out, dat_chunk)
@@ -274,18 +280,18 @@ class VertexEditor(ctk.CTkToplevel):
 
                 result.append({
                     "id_v": id_v,
-                    "pos": (x, y, z),
-                    "uv": (u, v),
+                    "pos": [x, y, z],
+                    "uv": [u, v],
                     "weights": weights
                 })
 
             except ValueError:
-                raise "Error en fila"
+                raise "Error en una fila"
 
-        # convertir tuplas a listas
-        for v in result:
-            v["pos"] = list(v["pos"])
-            v["uv"] = list(v["uv"])
+        # # convertir tuplas a listas
+        # for v in result:
+        #     v["pos"] = list(v["pos"])
+        #     v["uv"] = list(v["uv"])
 
         ruta = filedialog.asksaveasfilename(
             title="Guardar datos de los vertices",
@@ -296,7 +302,10 @@ class VertexEditor(ctk.CTkToplevel):
             return
 
         data = {
+            "type": "subpart",
             "grosor": list(self.grosor),
+            "id_bones":  [f"0x{n:02X}" for n in self.id_bones],
+            "unk": self.unk,
             "vertices": result
         }
 
@@ -305,6 +314,7 @@ class VertexEditor(ctk.CTkToplevel):
 
         messagebox.showinfo("Guardado", "Se guardaron los datos", parent=self)
 
+    @error_window_ui
     def on_import_data(self):
 
         ruta = filedialog.askopenfilename(
@@ -318,14 +328,18 @@ class VertexEditor(ctk.CTkToplevel):
         with open(ruta, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        for v in data:
-            v["pos"] = tuple(v["pos"])
-            v["uv"] = tuple(v["uv"])
+        if data["type"].strip().lower() != "subpart":
+            raise ValueError("El json no contiene una subpart")
 
-        self.load_vertices(data)
+        self.load_vertices(data["vertices"])
+
+        self.grosor = data["grosor"]
+        self.id_bones = [int(x, 16) for x in data["id_bones"]]
+        self.unk = data["unk"]
+
         messagebox.showinfo("Cargado", "Datos cargados", parent=self)
 
-    def _procesar_vertices(self, vertices:list):
+    def _procesar_vertices(self, vertices:list, to_float = True):
         GROSOR_MAXIMO = 68.0
 
         grosor_x = self.grosor[0] if self.grosor[0] > 0 else GROSOR_MAXIMO
@@ -337,16 +351,42 @@ class VertexEditor(ctk.CTkToplevel):
         factor_z = grosor_z / GROSOR_MAXIMO
 
         for v in vertices:
-            x = v['pos'][0] * self.escala * factor_x * -1
-            y = v['pos'][1] * self.escala * factor_y * -1
-            z = v['pos'][2] * self.escala * factor_z
+            if to_float:
+                x = struct.unpack('f', struct.pack('f',
+                    v['pos'][0] * self.escala * factor_x * -1.0
+                ))[0]
 
-            v['pos'] = (x, y, z)
+                y = struct.unpack('f', struct.pack('f',
+                    v['pos'][1] * self.escala * factor_y * -1.0
+                ))[0]
+                z = struct.unpack('f', struct.pack('f',
+                    v['pos'][2] * self.escala * factor_z
+                ))[0]
+            else:
+                 x = int(-v['pos'][0] / (self.escala * factor_x))
+                 y = int(-v['pos'][1] / (self.escala * factor_y))
+                 z = int(v['pos'][2] / (self.escala * factor_z))
 
-    def _procesar_pesos(self, vertices:list):
+            v['pos'] = [x, y, z]
+
+    def _procesar_pesos(self, vertices:list, to_float = True):
+        bones = []
         for v in vertices:
             bones = []
             for w in v['weights']:
-                bones.append(game16_to_float(w) if w != 0 else "N/A")
+                if to_float:
+                    bones.append(game16_to_float(w) if w != 0 else "N/A")
+                else:
+                    bones.append(0 if w == "n/a" or not str(w).strip() else float_to_game16(float(w)))
             v["weights"] = bones
+
+    def _procesar_uv(self, vertices:list, to_float = True):
+        ESCALA_UV = 1.0 / 255.0
+        for v in vertices:
+            if to_float:
+                v["uv"][0] *= ESCALA_UV
+                v["uv"][1] *= ESCALA_UV
+            else:
+                v["uv"][0] = int(v["uv"][0] * 255.0)
+                v["uv"][1] = int(v["uv"][1] * 255.0)
 
