@@ -11,6 +11,7 @@ from .gl_viewport import GLViewport
 from app.logic_uvs.canvas import UVCanvas
 from app.logic_uvs.parser import PmdlParser
 
+ESCALA: float =  0.00051875
 
 class PMDLViewerApp(ctk.CTkToplevel):
     def __init__(self, parent, pmdl_data=None, texture_path=None, is_secondary=False):
@@ -20,7 +21,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
         self.geometry("1280x720")
         
         self.pmdl_data = None
-        self.escala = 0.00051875
+        self.escala = ESCALA
         self.texture_loaded = False
         self.temp_pmdl_path = None
         self.temp_texture_path = texture_path

@@ -1459,7 +1459,12 @@ class UiSubparts(ctk.CTkToplevel):
         if not row_idx:
             return
 
+        # datos de la subpart
         subpart = self._sub_parts[part_id][row_idx[0]]
+        grosor = leer_grosor(self.master._blob)
+        id_bones = subpart.id_bones[:subpart.num_bones]
+        unk = subpart.unk
+
         part_data = self._blobs.get(f"{part_id}", None)
         part_data = bytearray(part_data)
 
@@ -1474,28 +1479,34 @@ class UiSubparts(ctk.CTkToplevel):
         for vertex in list_vertices:
             dat = {}
 
-            pos_x, = struct.unpack_from("<H", vertex, (subpart.num_bones * 2) + 2)
-            pos_y, = struct.unpack_from("<H", vertex, (subpart.num_bones * 2) + 4)
-            pos_z, = struct.unpack_from("<H", vertex, (subpart.num_bones * 2) + 6)
+            pos_x, = struct.unpack_from("<h", vertex, (subpart.num_bones * 2) + 2)
+            pos_y, = struct.unpack_from("<h", vertex, (subpart.num_bones * 2) + 4)
+            pos_z, = struct.unpack_from("<h", vertex, (subpart.num_bones * 2) + 6)
 
-            dat["pos"] = (pos_x, pos_y, pos_z)
+            dat["pos"] = [pos_x, pos_y, pos_z]
 
             uv, = struct.unpack_from("<B", vertex, subpart.num_bones * 2)
             uv_1, = struct.unpack_from("<B", vertex, (subpart.num_bones * 2) + 1)
 
-            dat["uv"] = (uv, uv_1)
+            dat["uv"] = [uv, uv_1]
 
             bones = []
             for i in range(subpart.num_bones):
-                bone, = struct.unpack_from("<H", vertex, i * 2)
+                bone, = struct.unpack_from(">H", vertex, i * 2)
                 bones.append(bone)
 
             dat["weights"] = bones
 
             vertices.append(dat)
 
+        data_subpart = {
+            'grosor': grosor,
+            'id_bones': id_bones,
+            'unk': unk,
+            'vertices': vertices
+        }
 
         path = self.tab_left.parent_app._path
         name_pmdl = os.path.basename(path)
         path = self.master.tooltip_path2_entry._user_hide(path)
-        self.editor = VertexEditor(self, vertices, f"{row_idx[0]:02}", name_pmdl, path)
+        self.editor = VertexEditor(self, data_subpart, f"{row_idx[0]:02}", name_pmdl, path)
