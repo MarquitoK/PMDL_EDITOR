@@ -165,6 +165,7 @@ class VertexEditor(ctk.CTkToplevel):
             self.entries.append(row_entries)
 
     # ----------------------------
+    @error_window_ui
     def on_save_change(self):
         result = []
 
@@ -294,6 +295,7 @@ class VertexEditor(ctk.CTkToplevel):
         #     v["uv"] = list(v["uv"])
 
         ruta = filedialog.asksaveasfilename(
+            parent=self,
             title="Guardar datos de los vertices",
             defaultextension=".json",
             filetypes=[("Archivos de json", "*.json"), ("Todos", "*.*")]
@@ -318,6 +320,7 @@ class VertexEditor(ctk.CTkToplevel):
     def on_import_data(self):
 
         ruta = filedialog.askopenfilename(
+            parent=self,
             title="Seleccionar JSON",
             filetypes=[("JSON", "*.json"), ("Todos", "*.*")]
         )
