@@ -90,7 +90,7 @@ python "main.py"
 
 	- Se eliminan residuos al final del archivo si existen
 
-- El PMDL no se modifica hasta que el usuario selecciona **Guardar
+- El PMDL no se modifica hasta que el usuario selecciona **Guardar**
 
 ---
 

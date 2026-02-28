@@ -3,6 +3,7 @@ import struct
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 from app.logic_3d.main_window import ESCALA
+from app.logic_sub_parts_pmdl.header_subpart import SpartHeader
 from app.logic_sub_parts_pmdl.operations import calc_subpart_size
 from app.logic_sub_parts_pmdl.quant16_converter import game16_to_float, float_to_game16
 from app.utils.ui_error_window import error_window_ui
@@ -222,25 +223,36 @@ class VertexEditor(ctk.CTkToplevel):
 
 
         # obtener la id de la parte y la id de la subparte
-        part_id = self.master._index_opt_left
-        row_idx = self.master.tab_left.get_selected_row_indices()[0]
+        # part_id = self.master._index_opt_left
+        # row_idx = self.master.tab_left.get_selected_row_indices()[0]
 
         # datos de la subparte y tamaño del vertex
         # subpart = self.master._sub_parts[part_id][row_idx]
         # size_vertex = calc_subpart_size(subpart.num_vertices, subpart.num_bones, True)
         size_vertex = 8 + (len(self.id_bones)*2)
 
-        dat_chunk = []
-        dat_chunk.append(len(out)//size_vertex) # num vertices
-        dat_chunk.append(len(self.id_bones)) # num de bones
-        self.id_bones[:] = (self.id_bones + [0, 0, 0, 0])[:4]
-        dat_chunk.append(self.id_bones)
-        dat_chunk.append(self.unk)
+        # dat_chunk = []
+        # dat_chunk.append() # num vertices
+        # dat_chunk.append() # num de bones
+        # self.id_bones[:] = (self.id_bones + [0, 0, 0, 0])[:4]
+        # dat_chunk.append(self.id_bones)
+        # dat_chunk.append(self.unk)
+
+        dat = bytearray(b'\x00' * 12)
+        struct.pack_into("<H", dat, 0, len(out)//size_vertex)
+        struct.pack_into("<H", dat, 2, len(self.id_bones))
+        struct.pack_into("<4B", dat, 4, *(self.id_bones + [0, 0, 0, 0])[:4])
+        struct.pack_into("<I", dat, 8, self.unk)
+
+        # usar el metodo import subpart con header para evitar cualquier inconveniente
+        chunk = SpartHeader(self.grosor[0], self.grosor[1], self.grosor[2], dat, out).build()
 
         # actualizar la subpart en el pmdl
-        self.master.tab_left.import_sub_part_pmdl(part_id, row_idx, out, dat_chunk)
+        # self.master.tab_left.import_sub_part_pmdl(part_id, row_idx, out, dat_chunk)
 
-        messagebox.showinfo("Guardado", "Se guardaron los datos", parent=self)
+        self.master.tab_left._import_subparts(chunk=chunk)
+
+        # messagebox.showinfo("Guardado", "Se guardaron los datos", parent=self)
 
     def center(self, parent):
         self.update_idletasks()
