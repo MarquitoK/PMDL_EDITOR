@@ -5,10 +5,11 @@ from collections import defaultdict, deque
 from pathlib import Path
 from app.binary_builder.triangle_strip import find_strip
 from app.logic_3d.main_window import ESCALA
-from app.logic_sub_parts_pmdl.operations import align_16
+from app.logic_sub_parts_pmdl.operations import align_16, replace_id_ff
 from app.logic_sub_parts_pmdl.quant16_converter import game16_to_float, float_to_game16
+from app.utils.part_header import exportar_parte_con_encabezado
 
-DEBUG=True
+DEBUG=False
 
 
 class MeshBinaryBuilder:
@@ -207,6 +208,13 @@ class MeshBinaryBuilder:
             if DEBUG:
                 print(f"vertices ordenados subparte: {i + 1}")
 
+    def sort_subparts(self, lista):
+        def sort_key(item):
+            bones = [int(b, 16) for b in item["id_bones"]]
+            padded = bones + [-1] * (4 - len(bones))
+            return tuple(padded)
+
+        return sorted(lista, key=sort_key)
 
     def build_part(self, subparts: list[dict]) -> bytearray:
         num_subparts = len(subparts)
@@ -288,12 +296,13 @@ class MeshBinaryBuilder:
                 if to_float:
                     bones.append(game16_to_float(w) if w != 0 else "N/A")
                 else:
-                    bones.append(0 if w == "n/a" or not str(w).strip() else float_to_game16(float(w)))
+                    bones.append(0 if str(w).strip().lower() == "n/a" or not str(w).strip() else float_to_game16(float(w)))
             v["weights"] = bones
 
     def make_part(self, path: Path | str, max_tris: int):
         self.path = path if type(path) == Path else Path(path)
         self.build_subpartes(self.path, max_tris)
+        self.subpartes_v_ordenado = self.sort_subparts(self.subpartes_v_ordenado)
 
         parte_ttt = self.build_part(self.subpartes_v_ordenado)
         # padding
@@ -301,7 +310,10 @@ class MeshBinaryBuilder:
         parte_ttt += bytearray(0x10)
 
         with open(self.path.with_suffix(".tttpart"), "wb") as f:
-            f.write(parte_ttt)
+            # guardar con id ff y header con grosor max
+            replace_id_ff(part=parte_ttt, reemp=False)
+            part_header = exportar_parte_con_encabezado(parte_ttt, self.grosor[0], self.grosor[1], self.grosor[2], 1,  65535, 0)
+            f.write(part_header)
             if DEBUG:
                 print("parte ttt generada")
 

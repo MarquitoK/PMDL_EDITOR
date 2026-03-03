@@ -1,11 +1,11 @@
+import time
 import traceback
-
 import customtkinter as ctk
+import os
+import winsound
 from tkinter import filedialog
 from threading import Thread, Event
 from queue import Queue
-import os
-
 from app.binary_builder.mesh_binary_builder import MeshBinaryBuilder
 from app.utils.ui_error_window import error_window_ui
 from app.utils.window import center_to_window
@@ -33,8 +33,9 @@ class ProcesadorPartes:
             self.queue.put(("PROCESANDO", nombre))
 
             try:
+                time.sleep(1)
                 mesh = MeshBinaryBuilder()
-                mesh.make_part(ruta, 22)
+                mesh.make_part(ruta, 23)
 
                 self.queue.put(("FINALIZADO", nombre))
 
@@ -66,8 +67,8 @@ class AppPortador:
         self.queue = Queue()
         self.stop_event = Event()
 
-        ctk.set_appearance_mode("dark")
-        ctk.set_default_color_theme("blue")
+        # ctk.set_appearance_mode("dark")
+        # ctk.set_default_color_theme("blue")
 
         self.root = ctk.CTkToplevel(self.parent)
         self.root.geometry("450x180")
@@ -145,6 +146,9 @@ class AppPortador:
                     )
                     self.label_estado.configure(text="")
                     self.btn_cancelar.configure(state="disabled")
+                    winsound.MessageBeep(-1)
+                    self.parent.status_var.set("Archivos JSON convertidos al formato TTTPART correctamente")
+                    self.root.destroy()
                     return
 
                 elif tipo == "CANCELADO":
@@ -152,6 +156,8 @@ class AppPortador:
                         text="Proceso cancelado"
                     )
                     self.label_estado.configure(text="")
+                    self.parent.status_var.set("Se cancelo el proceso de JSON a TTTPART")
+                    self.root.destroy()
                     return
 
                 elif tipo == "ERROR":
@@ -164,6 +170,8 @@ class AppPortador:
                     )
                     print(mensaje)
                     self.btn_cancelar.configure(state="disabled")
+                    winsound.MessageBeep(-1)
+                    self.parent.status_var.set("Error durante el proceso de JSON a TTTPART")
                     return
 
 
