@@ -1,4 +1,5 @@
 import customtkinter as ctk
+import tkinter as tk
 from tkinter import filedialog, messagebox
 import numpy as np
 import colorsys
@@ -96,6 +97,18 @@ class PMDLViewerApp(ctk.CTkToplevel):
         self.render_mode_frame = ctk.CTkFrame(top_frame, fg_color="transparent")
         self.render_mode_frame.grid(row=0, column=2, padx=10)
         
+        self.btn_bones = ctk.CTkButton(
+            self.render_mode_frame, text="Huesos",
+            command=self.toggle_bones,
+            width=80, height=35,
+            font=ctk.CTkFont(size=11),
+            fg_color=("#9C27B0", "#7B1FA2"),
+            hover_color=("#7B1FA2", "#6A1B9A")
+        )
+        self.btn_bones.grid(row=0, column=0, padx=2)
+        
+        ctk.CTkLabel(self.render_mode_frame, text="", width=10).grid(row=0, column=1)
+        
         self.btn_solid = ctk.CTkButton(
             self.render_mode_frame, text="Sólido",
             command=lambda: self.set_render_mode("solid"),
@@ -104,7 +117,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
             fg_color=("gray75", "gray25"),
             hover_color=("gray65", "gray30")
         )
-        self.btn_solid.grid(row=0, column=0, padx=2)
+        self.btn_solid.grid(row=0, column=2, padx=2)
         
         self.btn_texture = ctk.CTkButton(
             self.render_mode_frame, text="Textura",
@@ -113,7 +126,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
             font=ctk.CTkFont(size=11),
             fg_color=("#3B8ED0", "#1F6AA5")
         )
-        self.btn_texture.grid(row=0, column=1, padx=2)
+        self.btn_texture.grid(row=0, column=3, padx=2)
         
         self.btn_wireframe = ctk.CTkButton(
             self.render_mode_frame, text="Wireframe",
@@ -123,9 +136,8 @@ class PMDLViewerApp(ctk.CTkToplevel):
             fg_color=("gray75", "gray25"),
             hover_color=("gray65", "gray30")
         )
-        self.btn_wireframe.grid(row=0, column=2, padx=2)
+        self.btn_wireframe.grid(row=0, column=4, padx=2)
         
-        # Variable para trackear el modo actual
         self.current_render_mode = "texture"
         
         self.btn_textura = ctk.CTkButton(
@@ -194,20 +206,25 @@ class PMDLViewerApp(ctk.CTkToplevel):
             self.gl_viewport = GLViewport(right_frame, width=800, height=600)
             self.gl_viewport.grid(row=0, column=0, sticky="nsew", padx=15, pady=15)
             
-            # Label de información de selección
-            self.info_label = ctk.CTkLabel(
+            # Widget de info
+            self.info_label = tk.Text(
                 right_frame,
-                text="",
-                font=ctk.CTkFont(size=12, weight="bold"),
-                text_color=("gray20", "gray90"),
-                fg_color=("gray90", "gray20"),
-                corner_radius=8,
-                justify="left",
-                padx=12,
-                pady=8
+                bg="#1e1e1e", fg="white",
+                font=("Segoe UI", 11),
+                relief="flat", bd=0,
+                highlightthickness=1,
+                highlightbackground="#444",
+                padx=10, pady=8,
+                state="disabled",
+                cursor="arrow",
+                wrap="none",
+                width=26, height=7
             )
-            self.info_label.place(relx=1.0, rely=0.0, x=-30, y=30, anchor="ne")
-            
+            self.info_label.tag_configure("bold_white",   font=("Segoe UI", 11, "bold"),   foreground="white")
+            self.info_label.tag_configure("normal_white", font=("Segoe UI", 11),            foreground="white")
+            self.info_label.tag_configure("yellow",       font=("Segoe UI", 11),            foreground="#FFD700")
+            self.info_label.tag_configure("bold_yellow",  font=("Segoe UI", 11, "bold"),    foreground="#FFD700")
+            self.info_label.tag_configure("light_gray",   font=("Segoe UI", 11),            foreground="#aaaaaa")
             self.gl_viewport.info_label = self.info_label
             self.gl_viewport.parent_app = self
             
@@ -255,22 +272,44 @@ class PMDLViewerApp(ctk.CTkToplevel):
     
     def importar_textura(self):
         filepath = filedialog.askopenfilename(
-            title="Seleccionar textura PNG",
-            filetypes=[("Imágenes PNG", "*.png"), ("Todas las imágenes", "*.png *.jpg *.jpeg")]
+            title="Seleccionar textura",
+            filetypes=[
+                ("Imágenes PNG", "*.png"),
+                ("Texturas RAW", "*.atex *.unk"),
+                ("Todas", "*.png *.atex *.unk *.jpg *.jpeg")
+            ]
         )
-        
-        if filepath:
-            if GLViewport and hasattr(self, 'gl_viewport'):
-                if self.gl_viewport.load_texture(filepath):
-                    texture_name = os.path.basename(filepath)
-                    self.lbl_textura.configure(
-                        text=f"🖼️ {texture_name}",
-                        text_color=("green", "lightgreen")
-                    )
-                    if self.pmdl_data:
-                        self.seleccionar_parte(-1)
-                else:
-                    messagebox.showerror("Error", "No se pudo cargar la textura")
+        if not filepath:
+            return
+
+        ext = os.path.splitext(filepath)[1].lower()
+        if ext in (".atex", ".unk"):
+            try:
+                import tempfile
+                from app.utils.atex_reader import atex_to_pil
+                with open(filepath, 'rb') as f:
+                    raw = f.read()
+                img = atex_to_pil(raw)
+                with tempfile.NamedTemporaryFile(mode='wb', suffix='.png', delete=False) as tmp:
+                    img.save(tmp.name)
+                    png_path = tmp.name
+                self.temp_texture_path = png_path
+                filepath = png_path
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo leer la textura RAW:\n{e}")
+                return
+
+        if GLViewport and hasattr(self, 'gl_viewport'):
+            if self.gl_viewport.load_texture(filepath):
+                texture_name = os.path.basename(filepath)
+                self.lbl_textura.configure(
+                    text=f"🖼️ {texture_name}",
+                    text_color=("green", "lightgreen")
+                )
+                if self.pmdl_data:
+                    self.seleccionar_parte(-1)
+            else:
+                messagebox.showerror("Error", "No se pudo cargar la textura")
     
     def cargar_archivo(self):
         filepath = filedialog.askopenfilename(
@@ -307,6 +346,11 @@ class PMDLViewerApp(ctk.CTkToplevel):
         self.lbl_stats.configure(
             text=f"{info['cantidad_partes']} partes • {total_verts} vértices"
         )
+        
+        # Cargar huesos desde los bytes crudos del archivo
+        with open(filepath, 'rb') as f:
+            raw = bytearray(f.read())
+        self._load_bones(raw)
     
     def _load_from_data(self, pmdl_data, texture_path=None):
         """Carga PMDL desde bytearray (usado cuando se lanza desde el editor)"""
@@ -349,9 +393,10 @@ class PMDLViewerApp(ctk.CTkToplevel):
                             text_color=("green", "lightgreen")
                         )
             
-            # Habilitar botón Editar UVs si no es secundario
             if not self.is_secondary_pmdl and hasattr(self, 'btn_edit_uvs'):
                 self.btn_edit_uvs.configure(state="normal")
+            
+            self._load_bones(pmdl_data)
         
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo cargar el modelo: {e}")
@@ -971,4 +1016,72 @@ class PMDLViewerApp(ctk.CTkToplevel):
         except Exception as e:
             print(f"Error en auto_save_preview: {e}")
             import traceback
+            traceback.print_exc()    
+    def _load_bones(self, pmdl_data):
+        try:
+            from app.logic_3d.bones.bones_reader import leer_armature_pmdl, cargar_nombres_huesos
+            
+            bones_data = leer_armature_pmdl(pmdl_data)
+            bones_names = cargar_nombres_huesos()
+            
+            if bones_data and hasattr(self, 'gl_viewport') and self.gl_viewport:
+                self.gl_viewport.set_bones_data(bones_data, bones_names)
+        except Exception as e:
+            print(f"Error cargando huesos: {e}")
+            import traceback
             traceback.print_exc()
+    
+    def toggle_bones(self):
+        if hasattr(self, 'gl_viewport') and self.gl_viewport:
+            visible = self.gl_viewport.toggle_bones()
+            
+            if visible:
+                self.btn_bones.configure(fg_color=("#9C27B0", "#7B1FA2"), hover_color=("#7B1FA2", "#6A1B9A"))
+            else:
+                self.btn_bones.configure(fg_color=("gray75", "gray25"), hover_color=("gray65", "gray30"))
+
+    def _write_info(self, segments):
+        if not hasattr(self, 'info_label') or not isinstance(self.info_label, tk.Text):
+            return
+        self.info_label.configure(state="normal")
+        self.info_label.delete("1.0", "end")
+        if not segments:
+            self.info_label.place_forget()
+            self.info_label.configure(state="disabled")
+            return
+        for text, tag in segments:
+            self.info_label.insert("end", text, tag)
+        self.info_label.configure(state="disabled")
+        content_str = "".join(t for t, _ in segments)
+        nlines = content_str.count(chr(10)) + 1
+        max_w = max((len(l) for l in content_str.split(chr(10))), default=10)
+        self.info_label.configure(height=nlines, width=max(18, max_w + 2))
+        self.info_label.place(relx=1.0, rely=0.0, x=-30, y=30, anchor="ne")
+
+    def update_bone_info(self, bone):
+        bone_id = bone["bone_id"]
+        sk_name = f"sk_{bone_id:02X}"
+        renamed = self.gl_viewport.bones_names.get(sk_name, "") if hasattr(self.gl_viewport, "bones_names") else ""
+        is_root = bone["padre_idx"] is None
+        pos     = bone["pos_visor"]
+        nl = chr(10)
+        segs = [(f"Hueso {bone_id:02X}", "bold_white"), (nl, "normal_white")]
+        if renamed:
+            segs += [(renamed, "bold_yellow"), (nl, "normal_white")]
+        if is_root:
+            segs += [("Hueso Padre", "bold_white"), (" - (Raiz)", "light_gray"), (nl, "normal_white")]
+        else:
+            padre = self.gl_viewport.bones_data[bone["padre_idx"]]
+            pid   = padre["bone_id"]
+            psk   = f"sk_{pid:02X}"
+            pname = self.gl_viewport.bones_names.get(psk, "") if hasattr(self.gl_viewport, "bones_names") else ""
+            segs += [("Hijo de: ", "bold_white"), (f"Hueso {pid:02X}", "normal_white"), (nl, "normal_white")]
+            if pname:
+                segs += [(pname, "yellow"), (nl, "normal_white")]
+        segs += [("X:", "bold_white"), (f" {pos[0]:.3f}" + nl, "normal_white")]
+        segs += [("Y:", "bold_white"), (f" {pos[1]:.3f}" + nl, "normal_white")]
+        segs += [("Z:", "bold_white"), (f" {pos[2]:.3f}", "normal_white")]
+        self._write_info(segs)
+
+    def clear_bone_info(self):
+        self._write_info([])

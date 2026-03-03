@@ -1,6 +1,5 @@
 import struct
 import os
-from PIL import Image
 
 
 class CharacterAnalyzer:
@@ -27,10 +26,6 @@ class CharacterAnalyzer:
             return False
     
     def validate_and_fix_index(self):
-        """
-        Valida que el índice del personaje termine correctamente en 0x7CC.
-        Si los bytes 0x7CC-0x7CF no son 00 00 00 00, los corrige.
-        """
         if len(self.file_data) < 0x7D0:
             return
         
@@ -52,11 +47,6 @@ class CharacterAnalyzer:
             self.file_data[position:position+4] = struct.pack('>I', value)
     
     def find_pmdl_and_texture(self):
-        """
-        Lee el índice al inicio del archivo para encontrar pMdl y textura.
-        - pMdl: offset 0xC (inicio) y 0x10 (fin)
-        - Textura: offset 0x30 (inicio) y 0x34 (fin)
-        """
         if not self.file_data or len(self.file_data) < 0x40:
             return False
         
@@ -85,7 +75,6 @@ class CharacterAnalyzer:
         texture_end = self.read_offset(0x34)
         
         if texture_start < texture_end and texture_end <= len(self.file_data):
-            # La textura tiene un header de 0x80 bytes que se ignora
             texture_header_size = 0x80
             texture_indices_start = texture_start + texture_header_size
             texture_indices_size = 0x10000
@@ -120,10 +109,6 @@ class CharacterAnalyzer:
         return bytearray(self.file_data[start:end])
     
     def set_pmdl_data(self, pmdl_data):
-        """
-        Actualiza el PMDL en el parche con nuevos datos.
-        Ajusta dinámicamente el tamaño del archivo.
-        """
         if not self.pmdl_info:
             return False
         
@@ -191,10 +176,6 @@ class CharacterAnalyzer:
             return False
     
     def _update_index_offsets(self, old_pmdl_end, size_diff):
-        """
-        Actualiza todos los offsets del índice que apuntan a datos después del pMdl.
-        El índice va desde 0x10 hasta 0x7CB (pares de offsets cada 4 bytes).
-        """
         # Recorrer el índice de 0x10 a 0x7CB
         for offset_pos in range(0x10, 0x7CC, 4):
             current_offset = self.read_offset(offset_pos)
@@ -208,92 +189,14 @@ class CharacterAnalyzer:
         if not self.texture_info:
             return None
         
-        texture_offset = self.texture_info['indices_offset']
-        palette_offset = self.texture_info['palette_offset']
-        
-        # Crear imagen RGB de 256x256
-        img = Image.new('RGB', (256, 256))
-        pixels = img.load()
-        
-        # Leer paleta de colores
-        palette = []
-        for i in range(256):
-            pal_offset = palette_offset + (i * 4)
-            if pal_offset + 3 < len(self.file_data):
-                r = self.file_data[pal_offset]
-                g = self.file_data[pal_offset + 1]
-                b = self.file_data[pal_offset + 2]
-                # a = self.file_data[pal_offset + 3]
-                palette.append((r, g, b))
-            else:
-                palette.append((0, 0, 0))
-        
-        num = 0      # uint num = 0u;
-        num2 = 0     # uint num2 = 0u;
-        num3 = 0     # uint num3 = 0u;
-        num4 = 32    # uint num4 = 32u;
-        
-        # do { ... } while (num4 != 0);
-        while num4 != 0:
-            num5 = 16  # uint num5 = 16u;
-            
-            # do { ... } while (num5 != 0);
-            while num5 != 0:
-                num6 = 0  # uint num6 = 0u;
-                
-                # do { ... } while (num6 < 8);
-                while num6 < 8:
-                    num7 = 0  # uint num7 = 0u;
-                    
-                    # do { ... } while (num7 < 16);
-                    while num7 < 16:
-                        # if (num3 < 65536)
-                        if num3 < 65536:
-                            # Leer índice de paleta desde la textura
-                            idx = texture_offset + num3
-                            if idx < len(self.file_data):
-                                color_index = self.file_data[idx]
-                                
-                                # Obtener color RGB de la paleta
-                                if color_index < len(palette):
-                                    color = palette[color_index]
-                                else:
-                                    color = (0, 0, 0)
-                                
-                                # bitmap.SetPixel((int)(num7 + num), (int)(num6 + num2), color);
-                                x = int(num7 + num)
-                                y = int(num6 + num2)
-                                
-                                if x < 256 and y < 256:
-                                    pixels[x, y] = color
-                            
-                            # num3++;
-                            num3 += 1
-                        
-                        # num7++;
-                        num7 += 1
-                    
-                    # num6++;
-                    num6 += 1
-                
-                # if (num + 2 < 256) { num += 16; }
-                if num + 2 < 256:
-                    num += 16
-                
-                # num5--;
-                num5 -= 1
-            
-            # if (num2 + 2 < 256) { num2 += 8; }
-            if num2 + 2 < 256:
-                num2 += 8
-            
-            # num = 0u;
-            num = 0
-            
-            # num4--;
-            num4 -= 1
-        
-        return img
+        try:
+            from app.utils.atex_reader import atex_to_pil
+            texture_start = self.texture_info['start']
+            texture_end   = self.texture_info['end']
+            return atex_to_pil(bytes(self.file_data[texture_start:texture_end]))
+        except Exception as e:
+            print(f"Error al generar imagen de textura: {e}")
+            return None
     
     def export_texture(self, output_path):
         """Exporta la textura a un archivo de imagen."""
@@ -323,10 +226,6 @@ class CharacterAnalyzer:
         return None
     
     def import_texture(self, input_path):
-        """
-        Importa una textura desde un archivo de imagen.
-        Ajusta dinámicamente el tamaño del archivo.
-        """
         if not self.texture_info:
             return False
         
@@ -377,6 +276,34 @@ class CharacterAnalyzer:
             print(f"Error al importar textura: {e}")
             return False
     
+    def import_texture_raw(self, raw_data: bytes) -> bool:
+        if not self.texture_info:
+            return False
+        try:
+            new_size  = len(raw_data)
+            old_size  = self.texture_info['size']
+            old_start = self.texture_info['start']
+            old_end   = self.texture_info['end']
+            size_diff = new_size - old_size
+
+            if size_diff == 0:
+                self.file_data[old_start:old_end] = raw_data
+            else:
+                new_file = bytearray(len(self.file_data) + size_diff)
+                new_file[0:old_start] = self.file_data[0:old_start]
+                new_file[old_start:old_start + new_size] = raw_data
+                new_file[old_start + new_size:] = self.file_data[old_end:]
+                self.file_data = new_file
+                self._update_texture_offsets(old_end, size_diff)
+
+            self.texture_info['size'] = new_size
+            self.texture_info['end']  = old_start + new_size
+            self.write_offset(0x34, self.texture_info['end'])
+            return True
+        except Exception as e:
+            print(f"Error al importar textura RAW: {e}")
+            return False
+
     def _update_texture_offsets(self, old_texture_end, size_diff):
         """Actualiza offsets que apuntan después de la textura."""
         for offset_pos in range(0x34, 0x7CC, 4):
@@ -443,11 +370,16 @@ class CharacterAnalyzer:
             return {}
         
         faces = {}
+        # CARAS_PMDF
         face_definitions = [
-            ("Cara de daño", 0x10, 0x14),
-            ("Cara 1", 0x20, 0x24),
-            ("Cara 2", 0x24, 0x28),
-            ("Cara 3", 0x28, 0x2C),
+            ("Cara_damage",   0x10, 0x14),
+            ("Cara_hablar_1", 0x14, 0x18),
+            ("Cara_hablar_2", 0x18, 0x1C),
+            ("Cara_hablar_3", 0x1C, 0x20),
+            ("Cara_1",        0x20, 0x24),
+            ("Cara_2",        0x24, 0x28),
+            ("Cara_3",        0x28, 0x2C),
+            ("Cara_no_usada", 0x2C, 0x30),
         ]
         
         for name, start_offset, end_offset in face_definitions:
