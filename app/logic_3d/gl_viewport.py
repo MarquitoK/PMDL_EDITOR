@@ -32,7 +32,16 @@ try:
             self.viewing_mode = 'all'
             self.current_part_index = -1
             
-            # Cache para colores pre-iluminados en modo sólido
+            self.bones_data = []
+            self.bones_visible = True
+            self.selected_bone = None
+            self.bones_names = {}
+            
+            # Matrices GL cacheadas al final de cada redraw para raycast preciso
+            self._gl_modelview  = None
+            self._gl_projection = None
+            self._gl_viewport   = None
+            
             self.solid_colors_cache = None
             
             # Bindings de mouse
@@ -123,10 +132,20 @@ try:
                 # Trasladar al pivote
                 glTranslatef(-self.pivot_x, -self.pivot_y, -self.pivot_z)
                 
-                # Dibujar grid y modelo solo si hay datos
                 if self.mesh_data:
                     self.draw_grid()
                     self.draw_mesh()
+                
+                if self.bones_visible and self.bones_data:
+                    self.draw_bones()
+                
+                # Cachear matrices GL para raycast preciso en handle_bone_selection
+                try:
+                    self._gl_modelview  = glGetDoublev(GL_MODELVIEW_MATRIX)
+                    self._gl_projection = glGetDoublev(GL_PROJECTION_MATRIX)
+                    self._gl_viewport   = glGetIntegerv(GL_VIEWPORT)
+                except:
+                    pass
                 
                 try:
                     self.tkSwapBuffers()
@@ -320,14 +339,36 @@ try:
             glEnable(GL_DEPTH_TEST)
             glEnable(GL_LIGHTING)
         
+        def _write_info(self, segments):
+            import tkinter as tk
+            if not self.info_label or not isinstance(self.info_label, tk.Text):
+                return
+            self.info_label.configure(state="normal")
+            self.info_label.delete("1.0", "end")
+            if not segments:
+                self.info_label.place_forget()
+                self.info_label.configure(state="disabled")
+                return
+            for text, tag in segments:
+                self.info_label.insert("end", text, tag)
+            self.info_label.configure(state="disabled")
+            # Ajustar alto al número de líneas reales
+            content_text = "".join(t for t, _ in segments)
+            lines = content_text.count("\n") + 1
+            max_line_len = max((len(l) for l in content_text.split("\n")), default=10)
+            self.info_label.configure(height=lines, width=max(18, max_line_len + 2))
+            self.info_label.place(relx=1.0, rely=0.0, x=-30, y=30, anchor="ne")
+
         def draw_selection_info(self):
             """Actualiza la información de la parte/subparte seleccionada en el label"""
             if not self.info_label:
                 return
-            
+
+            if self.selected_bone is not None:
+                return
+
             if not self.selected_parts or not self.mesh_data:
-                self.info_label.configure(text="")
-                # Restaurar colores de botones cuando no hay selección en modo TODO
+                self._write_info([])
                 if self.viewing_mode == 'all' and self.parent_app and hasattr(self.parent_app, 'parte_buttons'):
                     for idx, btn in self.parent_app.parte_buttons.items():
                         if idx == -1:
@@ -335,16 +376,12 @@ try:
                         else:
                             btn.configure(fg_color=("gray75", "gray20"))
                 return
-            
-            # En modo 'all', pueden estar seleccionadas múltiples subpartes de UNA parte
+
             if self.viewing_mode == 'all':
-                # Obtener el part_index de cualquier subparte seleccionada
                 first_idx = list(self.selected_parts)[0]
                 if first_idx < len(self.mesh_data):
                     part_index = self.mesh_data[first_idx].get('part_index', first_idx)
-                    label_text = f"Parte {part_index:02d}"
-                    
-                    # Actualizar colores de botones
+
                     if self.parent_app and hasattr(self.parent_app, 'parte_buttons'):
                         for idx, btn in self.parent_app.parte_buttons.items():
                             if idx == -1:
@@ -353,48 +390,54 @@ try:
                                 btn.configure(fg_color=("#FFD700", "#DAA520"))
                             else:
                                 btn.configure(fg_color=("gray75", "gray20"))
-                    
-                    # Calcular totales de TODA la parte
+
                     total_vertices = 0
                     total_triangulos = 0
                     total_edges = set()
                     num_subpartes = 0
-                    
+
                     for idx in self.selected_parts:
                         if idx < len(self.mesh_data):
-                            mesh_data = self.mesh_data[idx]
-                            total_vertices += len(mesh_data['vertices'])
-                            total_triangulos += len(mesh_data['triangulos'])
+                            md = self.mesh_data[idx]
+                            total_vertices += len(md['vertices'])
+                            total_triangulos += len(md['triangulos'])
                             num_subpartes += 1
-                            for tri in mesh_data['triangulos']:
+                            for tri in md['triangulos']:
                                 total_edges.add(tuple(sorted([tri[0], tri[1]])))
                                 total_edges.add(tuple(sorted([tri[1], tri[2]])))
                                 total_edges.add(tuple(sorted([tri[2], tri[0]])))
-                    
-                    info_text = f"{label_text}\n{total_vertices} Vértices\n{total_triangulos} Caras\n{len(total_edges)} Edges\n{num_subpartes} SubPartes"
-                    self.info_label.configure(text=info_text)
+
+                    segs = [
+                        (f"Parte_{part_index:02d}", "bold_yellow"), ("\n", "normal_white"),
+                        ("Vértices:", "bold_white"), (f" {total_vertices}\n", "normal_white"),
+                        ("Caras:", "bold_white"), (f" {total_triangulos}\n", "normal_white"),
+                        ("Aristas:", "bold_white"), (f" {len(total_edges)}\n", "normal_white"),
+                        ("SubPartes:", "bold_white"), (f" {num_subpartes}", "normal_white"),
+                    ]
+                    self._write_info(segs)
             else:
-                # Modo 'single': solo se selecciona UNA subparte
                 if len(self.selected_parts) == 1:
                     idx = list(self.selected_parts)[0]
                     if idx < len(self.mesh_data):
                         parte_data = self.mesh_data[idx]
                         num_vertices = len(parte_data['vertices'])
                         num_triangulos = len(parte_data['triangulos'])
-                        
-                        # Calcular número de edges
                         edges = set()
                         for tri in parte_data['triangulos']:
                             edges.add(tuple(sorted([tri[0], tri[1]])))
                             edges.add(tuple(sorted([tri[1], tri[2]])))
                             edges.add(tuple(sorted([tri[2], tri[0]])))
                         num_edges = len(edges)
-                        
-                        label_text = f"Subparte {idx:02d}"
-                        info_text = f"{label_text}\n{num_vertices} Vértices\n{num_triangulos} Caras\n{num_edges} Edges"
-                        self.info_label.configure(text=info_text)
+
+                        segs = [
+                            (f"SubParte {idx:02d}/{len(self.mesh_data):02d}", "bold_yellow"), ("\n", "normal_white"),
+                            ("Vértices:", "bold_white"), (f" {num_vertices}\n", "normal_white"),
+                            ("Caras:", "bold_white"), (f" {num_triangulos}\n", "normal_white"),
+                            ("Aristas:", "bold_white"), (f" {num_edges}", "normal_white"),
+                        ]
+                        self._write_info(segs)
                 else:
-                    self.info_label.configure(text="")
+                    self._write_info([])
         
         def handle_selection(self, mouse_x, mouse_y, shift_pressed):
             """Maneja la selección de partes/subpartes con raycast 3D"""
@@ -453,6 +496,8 @@ try:
             else:
                 if not shift_pressed:
                     self.selected_parts.clear()
+            
+            self.selected_bone = None
             self.redraw()
         
         def get_view_matrix(self):
@@ -573,14 +618,18 @@ try:
             self.dragging = True
             self.drag_button = event.num
             
-            # Click izquierdo - selección
             if event.num == 1:
                 shift_pressed = (event.state & 0x1) != 0
                 self.handle_selection(event.x, event.y, shift_pressed)
                 self.dragging = False
                 return
             
-            # Si es click medio (rotar), actualizar pivote al centro del modelo
+            if event.num == 3:
+                if self.bones_visible and self.bones_data:
+                    self.handle_bone_selection(event.x, event.y)
+                self.dragging = False
+                return
+            
             if event.num == 2 and self.mesh_data:
                 self.update_pivot_from_mesh()
         
@@ -775,6 +824,145 @@ try:
             except Exception as e:
                 print(f"Error cargando textura: {e}")
                 return False
+        
+        def draw_bones(self):
+            """Dibuja todos los huesos como pirámides estilo Blender"""
+            if not self.bones_data:
+                return
+            
+            glDisable(GL_TEXTURE_2D)
+            glDisable(GL_DEPTH_TEST)
+            glEnable(GL_BLEND)
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+            
+            for bone in self.bones_data:
+                self._draw_single_bone(bone)
+            
+            glEnable(GL_DEPTH_TEST)
+            glDisable(GL_BLEND)
+        
+        def _draw_single_bone(self, bone):
+            from app.logic_3d.bones.bone_draw import draw_bone_pyramid
+            head = bone['pos_visor']
+            tail = bone['tail_visor']
+            is_selected = self.selected_bone == bone['idx']
+            draw_bone_pyramid(head, tail, bone['bone_id'], is_selected)
+        
+        def handle_bone_selection(self, x, y):
+            if not self.bones_data:
+                return
+
+            width  = self.winfo_width()
+            height = self.winfo_height()
+            if width == 0 or height == 0:
+                return
+
+            glClearColor(0.0, 0.0, 0.0, 1.0)
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+
+            glMatrixMode(GL_PROJECTION)
+            glLoadIdentity()
+            gluPerspective(45, width / max(height, 1), 0.1, 100.0)
+
+            glMatrixMode(GL_MODELVIEW)
+            glLoadIdentity()
+            glTranslatef(self.pan_x, self.pan_y, -self.zoom)
+            glRotatef(self.rotation_x, 1, 0, 0)
+            glRotatef(self.rotation_y, 0, 1, 0)
+            glTranslatef(-self.pivot_x, -self.pivot_y, -self.pivot_z)
+
+            glDisable(GL_LIGHTING)
+            glDisable(GL_TEXTURE_2D)
+            glDisable(GL_BLEND)
+            glDisable(GL_DITHER)
+            glEnable(GL_DEPTH_TEST)
+
+            for bone in self.bones_data:
+                color_id = bone['idx'] + 1
+                glColor3f((color_id & 0xFF) / 255.0, ((color_id >> 8) & 0xFF) / 255.0, 0.0)
+                self._draw_bone_solid(bone)
+
+            gl_y = height - 1 - y
+            pixel = glReadPixels(x, gl_y, 1, 1, GL_RGB, GL_UNSIGNED_BYTE)
+
+            glClearColor(0.15, 0.15, 0.18, 1.0)
+            glEnable(GL_BLEND)
+
+            if isinstance(pixel, (bytes, bytearray)):
+                r_read, g_read = pixel[0], pixel[1]
+            elif isinstance(pixel, int):
+                r_read, g_read = pixel & 0xFF, (pixel >> 8) & 0xFF
+            else:
+                try:
+                    flat = list(pixel.flatten()) if hasattr(pixel, 'flatten') else list(pixel)
+                    r_read, g_read = int(flat[0]), int(flat[1])
+                except Exception:
+                    r_read, g_read = 0, 0
+
+            picked_idx = (r_read | (g_read << 8)) - 1
+
+            if 0 <= picked_idx < len(self.bones_data):
+                self.selected_bone = picked_idx
+                self.selected_parts.clear()
+                if hasattr(self.parent_app, 'update_bone_info'):
+                    self.parent_app.update_bone_info(self.bones_data[picked_idx])
+            else:
+                self.selected_bone = None
+                if hasattr(self.parent_app, 'clear_bone_info'):
+                    self.parent_app.clear_bone_info()
+
+            self.redraw()
+
+        def _draw_bone_solid(self, bone):
+            head = np.array(bone['pos_visor'], dtype=np.float64)
+            tail = np.array(bone['tail_visor'], dtype=np.float64)
+
+            direction = tail - head
+            length    = np.linalg.norm(direction)
+
+            if length < 0.001:
+                length    = 0.05
+                direction = np.array([0.0, length, 0.0])
+            else:
+                direction = direction / length
+
+            width = length * 0.10
+
+            perp = np.cross(direction, np.array([0.0, 1.0, 0.0]))
+            if np.linalg.norm(perp) < 0.001:
+                perp = np.cross(direction, np.array([1.0, 0.0, 0.0]))
+            perp  = perp / np.linalg.norm(perp) * width
+
+            perp2 = np.cross(direction, perp)
+            perp2 = perp2 / np.linalg.norm(perp2) * width
+
+            base_center = head + direction * (length * 0.1)
+            b1 = base_center + perp
+            b2 = base_center + perp2
+            b3 = base_center - perp
+            b4 = base_center - perp2
+
+            glBegin(GL_TRIANGLES)
+            glVertex3fv(tail); glVertex3fv(b1); glVertex3fv(b2)
+            glVertex3fv(tail); glVertex3fv(b2); glVertex3fv(b3)
+            glVertex3fv(tail); glVertex3fv(b3); glVertex3fv(b4)
+            glVertex3fv(tail); glVertex3fv(b4); glVertex3fv(b1)
+            glVertex3fv(b1);   glVertex3fv(b3); glVertex3fv(b2)
+            glVertex3fv(b1);   glVertex3fv(b4); glVertex3fv(b3)
+            glEnd()
+
+        def set_bones_data(self, bones_data, bones_names):
+            """Establece datos de huesos."""
+            self.bones_data  = bones_data
+            self.bones_names = bones_names
+            self.selected_bone = None
+            self.redraw()
+
+        def toggle_bones(self):
+            """Alterna visibilidad de huesos"""
+            self.bones_visible = not self.bones_visible
+            self.redraw()
+            return self.bones_visible
 
 except ImportError:
     GLViewport = None

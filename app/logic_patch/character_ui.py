@@ -175,11 +175,19 @@ class CharacterEditorUI(ctk.CTkToplevel):
             label="📤 Exportar Textura",
             command=self.export_texture_dialog
         )
+        self.texture_menu.add_command(
+            label="📦 Exportar Raw (.atex)",
+            command=self.export_texture_raw_dialog
+        )
         
         if not self.is_secondary:
             self.texture_menu.add_command(
                 label="📥 Importar Textura",
                 command=self.import_texture_dialog
+            )
+            self.texture_menu.add_command(
+                label="📂 Importar Raw (.atex/.unk)",
+                command=self.import_texture_raw_dialog
             )
         
         self.texture_label.bind("<Button-3>", self.show_texture_menu)
@@ -376,6 +384,50 @@ class CharacterEditorUI(ctk.CTkToplevel):
             else:
                 messagebox.showerror("Error", "No se pudo importar la textura")
     
+    def export_texture_raw_dialog(self):
+        if not self.analyzer.texture_info:
+            messagebox.showwarning("Advertencia", "No hay textura cargada")
+            return
+        file_path = filedialog.asksaveasfilename(
+            title="Exportar textura RAW",
+            initialfile="011_textures.atex",
+            defaultextension=".atex",
+            filetypes=[("Textura RAW", "*.atex"), ("Todos", "*.*")]
+        )
+        if file_path:
+            try:
+                start = self.analyzer.texture_info['start']
+                end   = self.analyzer.texture_info['end']
+                with open(file_path, 'wb') as f:
+                    f.write(self.analyzer.file_data[start:end])
+                messagebox.showinfo("Éxito", f"Textura RAW exportada:\n{file_path}")
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo exportar:\n{e}")
+
+    def import_texture_raw_dialog(self):
+        if not self.analyzer.texture_info:
+            messagebox.showwarning("Advertencia", "Primero carga un personaje")
+            return
+        file_path = filedialog.askopenfilename(
+            title="Importar textura RAW",
+            filetypes=[("Textura RAW", "*.atex *.unk"), ("Todos", "*.*")]
+        )
+        if not file_path:
+            return
+        try:
+            with open(file_path, 'rb') as f:
+                raw_data = f.read()
+            from app.utils.atex_reader import atex_to_pil
+            atex_to_pil(raw_data)  # validar que sea legible
+        except Exception as e:
+            messagebox.showerror("Error", f"Archivo RAW inválido:\n{e}")
+            return
+        if self.analyzer.import_texture_raw(raw_data):
+            self.display_texture()
+            messagebox.showinfo("Éxito", "Textura RAW importada correctamente")
+        else:
+            messagebox.showerror("Error", "No se pudo importar la textura RAW")
+
     def export_pmdl_dialog(self):
         """Exporta el pMdl a un archivo."""
         if not self.analyzer.pmdl_info:
