@@ -332,6 +332,7 @@ class MultiSelectTable(ctk.CTkFrame):
         # ==============================
 
         out_path = filedialog.askdirectory(
+            parent=self.master.master,
             title="Exportar Subpartes en directorio",
         )
 
@@ -367,26 +368,28 @@ class MultiSelectTable(ctk.CTkFrame):
         # self.parent_app.status_var.set(f"SubParte {row_idx:02} exportada.")
 
     @error_window_ui
-    def _import_subparts(self):
+    def _import_subparts(self, chunk=None):
         part_idx = self.master.master._index_opt_left
 
         row_idx = self.get_selected_row_indices()
         if row_idx is None or len(row_idx) > 1:
             return
 
-        path_subpart = filedialog.askopenfilename(
-            title="Reemplazar Subparte",
-            initialdir=".",
-            filetypes=[("Archivos SubPart", "*.tttsubpart"),
-                       ("Todos los archivos", "*.*")]
-        )
+        if not chunk:
+            path_subpart = filedialog.askopenfilename(
+                parent=self.master.master,
+                title="Reemplazar Subparte",
+                initialdir=".",
+                filetypes=[("Archivos SubPart", "*.tttsubpart"),
+                           ("Todos los archivos", "*.*")]
+            )
 
-        if not path_subpart:
-            return
+            if not path_subpart:
+                return
 
-        with open(path_subpart, "rb") as f:
-            chunk = f.read()
-            chunk =  bytearray(chunk)
+            with open(path_subpart, "rb") as f:
+                chunk = f.read()
+                chunk =  bytearray(chunk)
 
             # chunk = chunk[0x10:]
             # chunk = bytearray(chunk)
@@ -480,7 +483,7 @@ class MultiSelectTable(ctk.CTkFrame):
         """
 
         # blob de las partes en bytes
-        blob = self._get_blob()
+        blob = self.master.master._blobs
         part_dat = self._get_subparts()[part_idx][row_idx]
         data_part, cant = import_sub_part(
             blob,
@@ -557,6 +560,7 @@ class MultiSelectTable(ctk.CTkFrame):
 
         paths_subpart = sorted(
             filedialog.askopenfilenames(
+                parent=self.master.master,
                 title="Importar Subparte",
                 filetypes=[
                     ("Archivos SubPart", "*.tttsubpart"),
