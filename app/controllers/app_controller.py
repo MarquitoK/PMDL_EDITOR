@@ -21,6 +21,7 @@ from app.utils.part_header import exportar_parte_con_encabezado, importar_parte_
 from app.logic_sub_parts_pmdl.ui_pmdl_sub_parts import UiSubparts
 from app.logic_patch import PatchBridge, CharacterEditorUI
 from app.logic_3d.main_window import PMDLViewerApp
+from app.logic_bones import BoneEditor
 from app.utils.ui_error_window import error_window_ui
 
 APP_TITLE = "Pmdl Editor (TTT) · By Los ijue30s · v1.4.2"
@@ -96,6 +97,9 @@ class PmdlPartsApp(ctk.CTk):
         # Referencia para la ventana de vista 3D
         self.window_viewer_3d = None
         
+        # Referencia para el editor de huesos
+        self.window_bone_editor = None
+        
         # Puente para manejo de parches
         self.patch_bridge = PatchBridge()
         
@@ -123,6 +127,8 @@ class PmdlPartsApp(ctk.CTk):
         menu_tools.add_command("Character Editor", self.on_open_character_editor, "Ctrl+R")
         menu_tools.add_command("SubParts Editor", self.on_open_subparts_editor, "Ctrl+T")
         menu_tools.add_command("Vista 3D", self.on_open_3d_viewer, "Ctrl+D")
+        menu_tools.add_separator()
+        menu_tools.add_command("Editor de Huesos", self.on_open_bone_editor, "Ctrl+H")
         
         # Menú Opciones
         menu_opciones = self.menubar.add_menu("Opciones")
@@ -174,6 +180,9 @@ class PmdlPartsApp(ctk.CTk):
         
         self.bind("<Control-d>", lambda e: self.on_open_3d_viewer())
         self.bind("<Control-D>", lambda e: self.on_open_3d_viewer())
+        
+        self.bind("<Control-h>", lambda e: self.on_open_bone_editor())
+        self.bind("<Control-H>", lambda e: self.on_open_bone_editor())
         
         self.bind("<Control-r>", lambda e: self.on_open_character_editor())
         self.bind("<Control-R>", lambda e: self.on_open_character_editor())
@@ -301,6 +310,114 @@ class PmdlPartsApp(ctk.CTk):
             self.window_viewer_3d.focus()
             self.window_viewer_3d.lift()
     
+    def on_open_bone_editor(self):
+        """Abre el Editor de Huesos con intercambio de ventanas."""
+        if self.window_bone_editor is None or not self.window_bone_editor.winfo_exists():
+            # Recoger bytes del PMDL activo
+            pmdl_bytes  = None
+            bones_data  = None
+            bones_names = {}
+
+            if self.window_viewer_3d and self.window_viewer_3d.winfo_exists():
+                viewer = self.window_viewer_3d
+                try:
+                    if viewer.temp_pmdl_path and os.path.exists(viewer.temp_pmdl_path):
+                        with open(viewer.temp_pmdl_path, 'rb') as f:
+                            pmdl_bytes = bytearray(f.read())
+                except Exception:
+                    pass
+                try:
+                    if hasattr(viewer, 'gl_viewport') and viewer.gl_viewport:
+                        bones_data  = viewer.gl_viewport.bones_data
+                        bones_names = viewer.gl_viewport.bones_names or {}
+                except Exception:
+                    pass
+            elif self._blob:
+                pmdl_bytes = bytearray(self._blob)
+
+            self.withdraw()
+
+            self.window_bone_editor = BoneEditor(self, pmdl_bytes=pmdl_bytes,
+                                                  bones_names=bones_names)
+            center_window(self.window_bone_editor, 1100, 680)
+
+            # Pasar huesos ya cargados si vienen del visor
+            if bones_data:
+                self.window_bone_editor.after(
+                    150,
+                    lambda: self.window_bone_editor.receive_bones(
+                        bones_data, pmdl_bytes, bones_names
+                    )
+                )
+
+            self.window_bone_editor.on_close_requested = self._return_from_bone_editor
+        else:
+            self.window_bone_editor.focus()
+            self.window_bone_editor.lift()
+
+    def _return_from_bone_editor(self):
+        if self.window_bone_editor and self.window_bone_editor.winfo_exists():
+            # Recuperar PMDL con los cambios de huesos
+            modified = self.window_bone_editor.get_modified_pmdl()
+            if modified:
+                self._blob = modified
+                # Re-parsear header y partes
+                try:
+                    self._hdr = parse_header(self._blob)
+                    self._parts = parse_parts_index(self._blob, self._hdr)
+                    if hasattr(self, 'parts_table'):
+                        self.parts_table.populate(self._parts)
+                        self.parts_table.update_part_count(self._hdr.part_count)
+                except Exception as e:
+                    print(f"Error re-parseando PMDL tras editor de huesos: {e}")
+
+                # Si viene de parche, actualizar el parche también
+                if self.patch_bridge.is_from_patch():
+                    try:
+                        self.patch_bridge.update_pmdl_in_patch(self._blob)
+                        # Refrescar texture_info porque el tamaño del PMDL cambió
+                        analyzer = self.patch_bridge.get_patch_analyzer()
+                        if analyzer:
+                            analyzer.find_pmdl_and_texture()
+                    except Exception as e:
+                        print(f"Error actualizando parche con huesos: {e}")
+
+                # Si hay visor 3D abierto, recargar huesos y re-extraer textura
+                if self.window_viewer_3d and self.window_viewer_3d.winfo_exists():
+                    try:
+                        viewer = self.window_viewer_3d
+                        if viewer.temp_pmdl_path:
+                            with open(viewer.temp_pmdl_path, 'wb') as f:
+                                f.write(self._blob)
+                            viewer._load_bones(self._blob)
+                        # Re-extraer textura desde el parche porque el tamaño del PMDL cambió
+                        if self.patch_bridge.is_from_patch():
+                            analyzer = self.patch_bridge.get_patch_analyzer()
+                            if analyzer and analyzer.texture_info:
+                                try:
+                                    import tempfile
+                                    img = analyzer.generate_texture_image()
+                                    if img:
+                                        if viewer.temp_texture_path and os.path.exists(viewer.temp_texture_path):
+                                            try:
+                                                os.unlink(viewer.temp_texture_path)
+                                            except Exception:
+                                                pass
+                                        with tempfile.NamedTemporaryFile(mode='wb', suffix='.png', delete=False) as tmp:
+                                            img.save(tmp.name)
+                                            viewer.temp_texture_path = tmp.name
+                                        if hasattr(viewer, 'gl_viewport') and viewer.gl_viewport:
+                                            viewer.gl_viewport.load_texture(viewer.temp_texture_path)
+                                except Exception as e:
+                                    print(f"Error re-extrayendo textura tras bone editor: {e}")
+                    except Exception as e:
+                        print(f"Error recargando huesos en visor 3D: {e}")
+
+            self.window_bone_editor.destroy()
+        self.window_bone_editor = None
+        self.deiconify()
+        self.focus_force()
+
     def _return_from_3d_viewer(self):
         # Cierra el visor 3D y regresa a la ventana principal
         if self.window_viewer_3d and self.window_viewer_3d.winfo_exists():
