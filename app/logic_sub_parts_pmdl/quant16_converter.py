@@ -12,6 +12,8 @@ TABLE = [
     (1.0, 0x8000),
 ]
 
+ESCALA = 1/64
+
 def float_to_game16(value: float) -> int:
     value = max(0.0, min(1.0, value))
 
@@ -31,20 +33,73 @@ def float_to_game16(value: float) -> int:
 
     return TABLE[-1][1]
 
-def game16_to_float(value: int) -> float:
-    # clamp por seguridad
-    if value <= TABLE[0][1]:
-        return TABLE[0][0]
-    if value >= TABLE[-1][1]:
-        return TABLE[-1][0]
+import struct
 
-    # buscar tramo
+def game16_to_float(value: int) -> float:
+    if value <= TABLE[0][1]:
+        return struct.unpack('f', struct.pack('f', TABLE[0][0]))[0]
+
+    if value >= TABLE[-1][1]:
+        return struct.unpack('f', struct.pack('f', TABLE[-1][0]))[0]
+
     for i in range(len(TABLE) - 1):
         f0, h0 = TABLE[i]
         f1, h1 = TABLE[i+1]
 
         if h0 <= value <= h1:
             t = (value - h0) / (h1 - h0)
-            return f0 + (f1 - f0) * t
+            result = f0 + (f1 - f0) * t
+            return struct.unpack('f', struct.pack('f', result))[0]
 
-    return 1.0
+    return struct.unpack('f', struct.pack('f', 1.0))[0]
+
+def procesar_uv(vertices:list, to_float = True):
+    ESCALA_UV = 1.0 / 255.0
+    for v in vertices:
+        if to_float:
+            v["uv"][0] *= ESCALA_UV
+            v["uv"][1] *= ESCALA_UV
+        else:
+            v["uv"][0] = int(v["uv"][0] * 255.0)
+            v["uv"][1] = int(v["uv"][1] * 255.0)
+
+def procesar_vertices(grosor, escala:float, vertices:list, to_float = True):
+    GROSOR_MAXIMO: float = 512.0
+
+    grosor_x = grosor[0] if grosor[0] > 0 else GROSOR_MAXIMO
+    grosor_y = grosor[1] if grosor[1] > 0 else GROSOR_MAXIMO
+    grosor_z = grosor[2] if grosor[2] > 0 else GROSOR_MAXIMO
+
+    factor_x = grosor_x / GROSOR_MAXIMO
+    factor_y = grosor_y / GROSOR_MAXIMO
+    factor_z = grosor_z / GROSOR_MAXIMO
+
+    for v in vertices:
+        if to_float:
+            x = struct.unpack('f', struct.pack('f',
+                v['pos'][0] * escala * factor_x
+            ))[0]
+
+            z = struct.unpack('f', struct.pack('f',
+                -v['pos'][1] * escala * factor_y
+            ))[0]
+            y = struct.unpack('f', struct.pack('f',
+                v['pos'][2] * escala * factor_z
+            ))[0]
+        else:
+             x = int(v['pos'][0] / (escala * factor_x))
+             z = int(v['pos'][1] / (escala * factor_y))
+             y = int(-v['pos'][2] / (escala * factor_z))
+
+        v['pos'] = [x, y, z]
+
+def procesar_pesos(vertices:list, to_float = True):
+    bones = []
+    for v in vertices:
+        bones = []
+        for w in v['weights']:
+            if to_float:
+                bones.append(game16_to_float(w) if w != 0 else "N/A")
+            else:
+                bones.append(0 if str(w).strip().lower() == "n/a" or not str(w).strip() else float_to_game16(float(w)))
+        v["weights"] = bones

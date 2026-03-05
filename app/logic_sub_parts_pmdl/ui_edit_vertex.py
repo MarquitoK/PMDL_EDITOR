@@ -2,10 +2,10 @@ import json
 import struct
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
-from app.logic_3d.main_window import ESCALA
 from app.logic_sub_parts_pmdl.header_subpart import SpartHeader
 from app.logic_sub_parts_pmdl.operations import calc_subpart_size
-from app.logic_sub_parts_pmdl.quant16_converter import game16_to_float, float_to_game16
+from app.logic_sub_parts_pmdl.quant16_converter import game16_to_float, float_to_game16, procesar_vertices, \
+    procesar_pesos, ESCALA
 from app.utils.ui_error_window import error_window_ui
 
 ctk.set_appearance_mode("dark")
@@ -51,8 +51,8 @@ class VertexEditor(ctk.CTkToplevel):
         self.grosor = data_subpart['grosor']
         self.id_bones = data_subpart['id_bones']
         self.unk = data_subpart['unk']
-        self._procesar_vertices(data_subpart['vertices'])
-        self._procesar_pesos(data_subpart['vertices'])
+        procesar_vertices(self.grosor, self.escala, data_subpart['vertices'])
+        procesar_pesos(data_subpart['vertices'])
         self.load_vertices(data_subpart['vertices'])
 
         # ----- FRAME DE BOTONES -----
@@ -203,8 +203,8 @@ class VertexEditor(ctk.CTkToplevel):
         data = {
             'vertces': result
         }
-        self._procesar_vertices(data['vertces'], False)
-        self._procesar_pesos(data['vertces'], False)
+        procesar_vertices(self.grosor, self.escala, data['vertces'], False)
+        procesar_pesos(data['vertces'], False)
 
         for v in result:
 
@@ -354,54 +354,54 @@ class VertexEditor(ctk.CTkToplevel):
 
         messagebox.showinfo("Cargado", "Datos cargados", parent=self)
 
-    def _procesar_vertices(self, vertices:list, to_float = True):
-        GROSOR_MAXIMO = 68.0
+    # def _procesar_vertices(self, vertices:list, to_float = True):
+    #     GROSOR_MAXIMO: float = 512.0
+    #
+    #     grosor_x = self.grosor[0] if self.grosor[0] > 0 else GROSOR_MAXIMO
+    #     grosor_y = self.grosor[1] if self.grosor[1] > 0 else GROSOR_MAXIMO
+    #     grosor_z = self.grosor[2] if self.grosor[2] > 0 else GROSOR_MAXIMO
+    #
+    #     factor_x = grosor_x / GROSOR_MAXIMO
+    #     factor_y = grosor_y / GROSOR_MAXIMO
+    #     factor_z = grosor_z / GROSOR_MAXIMO
+    #
+    #     for v in vertices:
+    #         if to_float:
+    #             x = struct.unpack('f', struct.pack('f',
+    #                 v['pos'][0] * self.escala * factor_x
+    #             ))[0]
+    #
+    #             z = struct.unpack('f', struct.pack('f',
+    #                 -v['pos'][1] * self.escala * factor_y
+    #             ))[0]
+    #             y = struct.unpack('f', struct.pack('f',
+    #                 v['pos'][2] * self.escala * factor_z
+    #             ))[0]
+    #         else:
+    #              x = int(v['pos'][0] / (self.escala * factor_x))
+    #              z = int(-v['pos'][1] / (self.escala * factor_y))
+    #              y = int(v['pos'][2] / (self.escala * factor_z))
+    #
+    #         v['pos'] = [x, y, z]
+    #
+    # def _procesar_pesos(self, vertices:list, to_float = True):
+    #     bones = []
+    #     for v in vertices:
+    #         bones = []
+    #         for w in v['weights']:
+    #             if to_float:
+    #                 bones.append(game16_to_float(w) if w != 0 else "N/A")
+    #             else:
+    #                 bones.append(0 if w == "n/a" or not str(w).strip() else float_to_game16(float(w)))
+    #         v["weights"] = bones
 
-        grosor_x = self.grosor[0] if self.grosor[0] > 0 else GROSOR_MAXIMO
-        grosor_y = self.grosor[1] if self.grosor[1] > 0 else GROSOR_MAXIMO
-        grosor_z = self.grosor[2] if self.grosor[2] > 0 else GROSOR_MAXIMO
-
-        factor_x = grosor_x / GROSOR_MAXIMO
-        factor_y = grosor_y / GROSOR_MAXIMO
-        factor_z = grosor_z / GROSOR_MAXIMO
-
-        for v in vertices:
-            if to_float:
-                x = struct.unpack('f', struct.pack('f',
-                    v['pos'][0] * self.escala * factor_x * -1.0
-                ))[0]
-
-                y = struct.unpack('f', struct.pack('f',
-                    v['pos'][1] * self.escala * factor_y * -1.0
-                ))[0]
-                z = struct.unpack('f', struct.pack('f',
-                    v['pos'][2] * self.escala * factor_z
-                ))[0]
-            else:
-                 x = int(-v['pos'][0] / (self.escala * factor_x))
-                 y = int(-v['pos'][1] / (self.escala * factor_y))
-                 z = int(v['pos'][2] / (self.escala * factor_z))
-
-            v['pos'] = [x, y, z]
-
-    def _procesar_pesos(self, vertices:list, to_float = True):
-        bones = []
-        for v in vertices:
-            bones = []
-            for w in v['weights']:
-                if to_float:
-                    bones.append(game16_to_float(w) if w != 0 else "N/A")
-                else:
-                    bones.append(0 if w == "n/a" or not str(w).strip() else float_to_game16(float(w)))
-            v["weights"] = bones
-
-    def _procesar_uv(self, vertices:list, to_float = True):
-        ESCALA_UV = 1.0 / 255.0
-        for v in vertices:
-            if to_float:
-                v["uv"][0] *= ESCALA_UV
-                v["uv"][1] *= ESCALA_UV
-            else:
-                v["uv"][0] = int(v["uv"][0] * 255.0)
-                v["uv"][1] = int(v["uv"][1] * 255.0)
+    # def _procesar_uv(self, vertices:list, to_float = True):
+    #     ESCALA_UV = 1.0 / 255.0
+    #     for v in vertices:
+    #         if to_float:
+    #             v["uv"][0] *= ESCALA_UV
+    #             v["uv"][1] *= ESCALA_UV
+    #         else:
+    #             v["uv"][0] = int(v["uv"][0] * 255.0)
+    #             v["uv"][1] = int(v["uv"][1] * 255.0)
 

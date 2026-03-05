@@ -4,9 +4,9 @@ import copy
 from collections import defaultdict, deque
 from pathlib import Path
 from app.binary_builder.triangle_strip import find_strip
-from app.logic_3d.main_window import ESCALA
 from app.logic_sub_parts_pmdl.operations import align_16, replace_id_ff
-from app.logic_sub_parts_pmdl.quant16_converter import game16_to_float, float_to_game16
+from app.logic_sub_parts_pmdl.quant16_converter import game16_to_float, float_to_game16, procesar_pesos, \
+    procesar_vertices, ESCALA
 from app.utils.part_header import exportar_parte_con_encabezado
 
 DEBUG=False
@@ -202,8 +202,8 @@ class MeshBinaryBuilder:
                 pos_vertex.append(copy.deepcopy(subpart["vertices"][st]))
 
             data["vertices"] = pos_vertex
-            self._procesar_vertices(data["vertices"], False)
-            self._procesar_pesos(data["vertices"], False)
+            procesar_vertices(self.grosor, self.escala, data["vertices"], False)
+            procesar_pesos(data["vertices"], False)
             self.subpartes_v_ordenado.append(copy.deepcopy(data))
             if DEBUG:
                 print(f"vertices ordenados subparte: {i + 1}")
@@ -258,46 +258,46 @@ class MeshBinaryBuilder:
 
         return data_part
 
-    def _procesar_vertices(self, vertices: list, to_float=True):
-        GROSOR_MAXIMO = 68.0
-
-        grosor_x = self.grosor[0] if self.grosor[0] > 0 else GROSOR_MAXIMO
-        grosor_y = self.grosor[1] if self.grosor[1] > 0 else GROSOR_MAXIMO
-        grosor_z = self.grosor[2] if self.grosor[2] > 0 else GROSOR_MAXIMO
-
-        factor_x = grosor_x / GROSOR_MAXIMO
-        factor_y = grosor_y / GROSOR_MAXIMO
-        factor_z = grosor_z / GROSOR_MAXIMO
-
-        for v in vertices:
-            if to_float:
-                x = struct.unpack('f', struct.pack('f',
-                                                   v['pos'][0] * self.escala * factor_x * -1.0
-                                                   ))[0]
-
-                y = struct.unpack('f', struct.pack('f',
-                                                   v['pos'][1] * self.escala * factor_y * -1.0
-                                                   ))[0]
-                z = struct.unpack('f', struct.pack('f',
-                                                   v['pos'][2] * self.escala * factor_z
-                                                   ))[0]
-            else:
-                x = int(-v['pos'][0] / (self.escala * factor_x))
-                y = int(-v['pos'][1] / (self.escala * factor_y))
-                z = int(v['pos'][2] / (self.escala * factor_z))
-
-            v['pos'] = [x, y, z]
-
-    def _procesar_pesos(self, vertices: list, to_float=True):
-        bones = []
-        for v in vertices:
-            bones = []
-            for w in v['weights']:
-                if to_float:
-                    bones.append(game16_to_float(w) if w != 0 else "N/A")
-                else:
-                    bones.append(0 if str(w).strip().lower() == "n/a" or not str(w).strip() else float_to_game16(float(w)))
-            v["weights"] = bones
+    # def _procesar_vertices(self, vertices: list, to_float=True):
+    #     GROSOR_MAXIMO = 68.0
+    #
+    #     grosor_x = self.grosor[0] if self.grosor[0] > 0 else GROSOR_MAXIMO
+    #     grosor_y = self.grosor[1] if self.grosor[1] > 0 else GROSOR_MAXIMO
+    #     grosor_z = self.grosor[2] if self.grosor[2] > 0 else GROSOR_MAXIMO
+    #
+    #     factor_x = grosor_x / GROSOR_MAXIMO
+    #     factor_y = grosor_y / GROSOR_MAXIMO
+    #     factor_z = grosor_z / GROSOR_MAXIMO
+    #
+    #     for v in vertices:
+    #         if to_float:
+    #             x = struct.unpack('f', struct.pack('f',
+    #                                                v['pos'][0] * self.escala * factor_x * -1.0
+    #                                                ))[0]
+    #
+    #             y = struct.unpack('f', struct.pack('f',
+    #                                                v['pos'][1] * self.escala * factor_y * -1.0
+    #                                                ))[0]
+    #             z = struct.unpack('f', struct.pack('f',
+    #                                                v['pos'][2] * self.escala * factor_z
+    #                                                ))[0]
+    #         else:
+    #             x = int(-v['pos'][0] / (self.escala * factor_x))
+    #             y = int(-v['pos'][1] / (self.escala * factor_y))
+    #             z = int(v['pos'][2] / (self.escala * factor_z))
+    #
+    #         v['pos'] = [x, y, z]
+    #
+    # def _procesar_pesos(self, vertices: list, to_float=True):
+    #     bones = []
+    #     for v in vertices:
+    #         bones = []
+    #         for w in v['weights']:
+    #             if to_float:
+    #                 bones.append(game16_to_float(w) if w != 0 else "N/A")
+    #             else:
+    #                 bones.append(0 if str(w).strip().lower() == "n/a" or not str(w).strip() else float_to_game16(float(w)))
+    #         v["weights"] = bones
 
     def make_part(self, path: Path | str, max_tris: int):
         self.path = path if type(path) == Path else Path(path)
