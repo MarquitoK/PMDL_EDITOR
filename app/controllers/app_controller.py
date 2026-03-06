@@ -3,6 +3,8 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 import customtkinter as ctk
 from typing import Optional, List
+
+from app.binary_builder.pross_data import AppPortador
 from app.core import (
     PmdlHeader, parse_header,
     PartIndexEntry, parse_parts_index,
@@ -131,6 +133,7 @@ class PmdlPartsApp(ctk.CTk):
         # Menú Opciones
         menu_opciones = self.menubar.add_menu("Opciones")
         # Aquí pondré algunos ajustes a futuro pero aun no quiero entrar en eso xD
+        menu_opciones.add_command("Convertir JSON a TTTPART", self.on_convert_json_to_tttpart)
         
         # Botón Acerca De
         acerca_btn = ctk.CTkButton(
@@ -250,7 +253,11 @@ class PmdlPartsApp(ctk.CTk):
         # Mostrar ventana principal
         self.deiconify()
         self.focus_force()
-    
+
+    @error_window_ui
+    def on_convert_json_to_tttpart(self):
+        AppPortador(self)
+
     def on_open_3d_viewer(self):
         """Abre el visor 3D con intercambio de ventanas."""
         if self.window_viewer_3d is None or not self.window_viewer_3d.winfo_exists():
