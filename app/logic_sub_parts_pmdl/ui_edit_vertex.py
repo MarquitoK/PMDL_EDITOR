@@ -91,6 +91,10 @@ class VertexEditor(ctk.CTkToplevel):
         )
         self.path_label.pack(side="left", fill="x", expand=True)
 
+        if self.grosor != (512.0, 512.0, 512.0):
+            messagebox.showinfo("Advertencia", "El modelo debe estar normalizado para usar esto", parent=self)
+            return
+
 
     # ----------------------------
     def create_header(self, parent):
@@ -168,6 +172,10 @@ class VertexEditor(ctk.CTkToplevel):
     # ----------------------------
     @error_window_ui
     def on_save_change(self):
+        if self.grosor != (512.0, 512.0, 512.0):
+            messagebox.showinfo("Advertencia", "El modelo debe estar normalizado para usar esto", parent=self)
+            return
+
         result = []
 
         for row in self.entries:
@@ -201,10 +209,10 @@ class VertexEditor(ctk.CTkToplevel):
         # formatear la lista a bytes
         out = bytearray()
         data = {
-            'vertces': result
+            'vertices': result
         }
-        procesar_vertices(self.grosor, self.escala, data['vertces'], False)
-        procesar_pesos(data['vertces'], False)
+        procesar_vertices(self.grosor, self.escala, data['vertices'], False)
+        procesar_pesos(data['vertices'], False)
 
         for v in result:
 
@@ -330,6 +338,9 @@ class VertexEditor(ctk.CTkToplevel):
 
     @error_window_ui
     def on_import_data(self):
+        if self.grosor != (512.0, 512.0, 512.0):
+            messagebox.showinfo("Advertencia", "El modelo debe estar normalizado para usar esto", parent=self)
+            return
 
         ruta = filedialog.askopenfilename(
             parent=self,

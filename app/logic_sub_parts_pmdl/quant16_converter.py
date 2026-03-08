@@ -37,10 +37,10 @@ import struct
 
 def game16_to_float(value: int) -> float:
     if value <= TABLE[0][1]:
-        return struct.unpack('f', struct.pack('f', TABLE[0][0]))[0]
+        return round(struct.unpack('f', struct.pack('f', TABLE[0][0]))[0], 2)
 
     if value >= TABLE[-1][1]:
-        return struct.unpack('f', struct.pack('f', TABLE[-1][0]))[0]
+        return round(struct.unpack('f', struct.pack('f', TABLE[-1][0]))[0], 2)
 
     for i in range(len(TABLE) - 1):
         f0, h0 = TABLE[i]
@@ -49,7 +49,7 @@ def game16_to_float(value: int) -> float:
         if h0 <= value <= h1:
             t = (value - h0) / (h1 - h0)
             result = f0 + (f1 - f0) * t
-            return struct.unpack('f', struct.pack('f', result))[0]
+            return round(struct.unpack('f', struct.pack('f', result))[0], 2)
 
     return struct.unpack('f', struct.pack('f', 1.0))[0]
 
@@ -98,8 +98,10 @@ def procesar_pesos(vertices:list, to_float = True):
     for v in vertices:
         bones = []
         for w in v['weights']:
+            # print(w)
             if to_float:
                 bones.append(game16_to_float(w) if w != 0 else "N/A")
             else:
                 bones.append(0 if str(w).strip().lower() == "n/a" or not str(w).strip() else float_to_game16(float(w)))
+        # print(bones)
         v["weights"] = bones
