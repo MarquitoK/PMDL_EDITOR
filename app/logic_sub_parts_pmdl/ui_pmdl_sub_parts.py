@@ -939,6 +939,14 @@ class MultiSelectTable(ctk.CTkFrame):
         ui.entry_unk.delete(0, "end")
         ui.entry_unk.insert(0, str(entry.unk))
 
+        # desactivar/activar botones/entry
+        ui.btn_save_part.configure(state="normal" if self.path == 0 else "disabled")
+        ui.entry_unk.configure(state="normal" if self.path == 0 else "disabled")
+        ui.opt_huesos.configure(state="normal" if self.path == 0 else "disabled")
+        ui.btn_vertex_ed.configure(state="normal" if self.path == 0 else "disabled")
+        ui.btn_mov_up.configure(state="normal" if self.path == 0 else "disabled")
+        ui.btn_mov_down.configure(state="normal" if self.path == 0 else "disabled")
+
 class UiSubparts(ctk.CTkToplevel):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
