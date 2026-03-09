@@ -8,43 +8,43 @@ try:
     class GLViewport(OpenGLFrame):
         def __init__(self, parent, **kwargs):
             super().__init__(parent, **kwargs)
-            
+
             self.rotation_x = 0
             self.rotation_y = 180
             self.zoom = 10.0
             self.pan_x = 0
             self.pan_y = -0.8
-            
-            # Centro de rotación (punto pivote)
+
             self.pivot_x = 0
             self.pivot_y = 0
             self.pivot_z = 0
-            
+
             self.last_x = 0
             self.last_y = 0
+            self.drag_start_x = 0
+            self.drag_start_y = 0
             self.dragging = False
             self.drag_button = None
-            
+            self._rb_dragged = False
+
             self.mesh_data = None
             self.render_mode = "texture"
             self.texture_id = None
             self.selected_parts = set()
             self.viewing_mode = 'all'
             self.current_part_index = -1
-            
+
             self.bones_data = []
             self.bones_visible = True
             self.selected_bone = None
             self.bones_names = {}
-            
-            # Matrices GL cacheadas al final de cada redraw para raycast preciso
+
             self._gl_modelview  = None
             self._gl_projection = None
             self._gl_viewport   = None
-            
+
             self.solid_colors_cache = None
-            
-            # Bindings de mouse
+
             self.bind("<ButtonPress-1>", self.on_mouse_down)
             self.bind("<ButtonPress-2>", self.on_mouse_down)
             self.bind("<ButtonPress-3>", self.on_mouse_down)
@@ -54,24 +54,17 @@ try:
             self.bind("<Motion>", self.on_mouse_move)
             self.bind("<MouseWheel>", self.on_mouse_wheel)
             self.bind("<Key>", self.on_key_press)
-            
-            # Hacer el widget focusable para detectar teclas
-            self.focus_set()
-            
-            # Referencia al label de información
-            self.info_label = None
-            # Referencia a la app principal
-            self.parent_app = None
 
+            self.focus_set()
+            self.info_label = None
+            self.parent_app = None
             self.animate = 1
 
             self.after(100, self._initial_camera_nudge)
 
         def _initial_camera_nudge(self):
             try:
-                self.rotation_y = 180.1
                 self.redraw()
-                self.after(50, lambda: setattr(self, 'rotation_y', 180) or self.redraw())
             except Exception:
                 self.after(100, self._initial_camera_nudge)
 
@@ -570,69 +563,68 @@ try:
             return False, float('inf')
         
         def on_mouse_down(self, event):
-            """Maneja click del mouse"""
             self.focus_set()
-            
+            self.drag_start_x = event.x
+            self.drag_start_y = event.y
             self.last_x = event.x
             self.last_y = event.y
             self.dragging = True
             self.drag_button = event.num
-            
+            self._rb_dragged = False  # flag para distinguir clic vs drag en botón derecho
+
             if event.num == 1:
                 shift_pressed = (event.state & 0x1) != 0
                 self.handle_selection(event.x, event.y, shift_pressed)
                 self.dragging = False
-                return
-            
-            if event.num == 3:
-                if self.bones_visible and self.bones_data:
-                    self.handle_bone_selection(event.x, event.y)
-                self.dragging = False
-                return
-            
+
             if event.num == 2 and self.mesh_data:
                 self.update_pivot_from_mesh()
-        
+
         def on_mouse_up(self, event):
-            """Maneja soltar del mouse"""
+            if event.num == 3:
+                if not self._rb_dragged and self.bones_visible and self.bones_data:
+                    self.handle_bone_selection(event.x, event.y)
             self.dragging = False
-        
+            self._rb_dragged = False
+
         def on_mouse_move(self, event):
-            """Maneja movimiento del mouse"""
             if not self.dragging:
                 return
-            
+
             dx = event.x - self.last_x
             dy = event.y - self.last_y
-            
-            # Detectar si Shift está presionado
+
+            total_dx = event.x - self.drag_start_x
+            total_dy = event.y - self.drag_start_y
+            if abs(total_dx) > 3 or abs(total_dy) > 3:
+                self._rb_dragged = True
+
             shift_pressed = (event.state & 0x1) != 0
-            
+
             if self.drag_button == 2:
                 if shift_pressed:
                     self.pan_x += dx * 0.001 * self.zoom
                     self.pan_y -= dy * 0.001 * self.zoom
                 else:
-                    self.rotation_y += dx * 0.5
-                    self.rotation_x += dy * 0.5
+                    w = max(self.winfo_width(),  1)
+                    h = max(self.winfo_height(), 1)
+                    self.rotation_y += dx / w * 500.0
+                    self.rotation_x += dy / h * 500.0
                     self.rotation_x = max(-90, min(90, self.rotation_x))
-                
-            elif self.drag_button == 3:
+
+            elif self.drag_button == 3 and self._rb_dragged:
                 self.pan_x += dx * 0.001 * self.zoom
                 self.pan_y -= dy * 0.001 * self.zoom
-            
+
             self.last_x = event.x
             self.last_y = event.y
             self.redraw()
-        
+
         def on_mouse_wheel(self, event):
-            """Maneja scroll del mouse"""
-            if event.delta > 0:
-                self.zoom *= 0.85
-            else:
-                self.zoom *= 1.15
-            
-            self.zoom = max(0.5, min(20.0, self.zoom))
+            # Zoom hacia el pivote del modelo, igual que Blender
+            factor = 0.85 if (event.delta > 0 or event.num == 4) else 1.15
+            self.zoom *= factor
+            self.zoom = max(0.1, min(50.0, self.zoom))
             self.redraw()
         
         def on_key_press(self, event):
