@@ -11,6 +11,7 @@ from .mesh_processor import merge_vertices_by_distance
 from .gl_viewport import GLViewport
 from app.logic_uvs.canvas import UVCanvas
 from app.logic_uvs.parser import PmdlParser
+from app.utils.icon import set_app_icon
 
 ESCALA: float =  0.00051875
 
@@ -21,12 +22,20 @@ class PMDLViewerApp(ctk.CTkToplevel):
         self.title("Vista 3D - PMDL Viewer" + (" (Secundario)" if is_secondary else ""))
         self.geometry("1280x720")
         
+        set_app_icon(self)
+        
         self.pmdl_data = None
         self.escala = ESCALA
         self.texture_loaded = False
         self.temp_pmdl_path = None
         self.temp_texture_path = texture_path
+        # True solo si la app creó ese archivo temporal y debe borrarlo al cerrar
+        # False si apunta a un archivo del usuario (PNG del escritorio, etc.)
+        self._temp_texture_owned = False  # texture_path viene del editor — se gestiona allá
         self.has_unsaved_changes = False
+        # 'inherited' = vino del editor principal | 'explicit' = abierto desde aquí
+        self.pmdl_origin = 'inherited' if pmdl_data else None
+        self.pmdl_explicit_path = None
         
         # Editor de UVs
         self.uv_editor_window = None
@@ -73,7 +82,9 @@ class PMDLViewerApp(ctk.CTkToplevel):
             width=150, height=40,
             font=ctk.CTkFont(size=14, weight="bold")
         )
-        self.btn_cargar.grid(row=0, column=0, padx=20, pady=10)
+        # Solo mostrar en visor principal, no en secundario
+        if not self.is_secondary_pmdl:
+            self.btn_cargar.grid(row=0, column=0, padx=20, pady=10)
         
         # Frame para los labels de archivo y textura
         labels_frame = ctk.CTkFrame(top_frame, fg_color="transparent")
@@ -206,7 +217,8 @@ class PMDLViewerApp(ctk.CTkToplevel):
             self.gl_viewport = GLViewport(right_frame, width=800, height=600)
             self.gl_viewport.grid(row=0, column=0, sticky="nsew", padx=15, pady=15)
             
-            # Widget de info
+            # Widget de info con texto enriquecido
+            # Widget de info con texto enriquecido (oculto hasta que haya selección)
             self.info_label = tk.Text(
                 right_frame,
                 bg="#1e1e1e", fg="white",
@@ -220,6 +232,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
                 wrap="none",
                 width=26, height=7
             )
+            # NO se coloca con .place() aquí — se muestra dinámicamente
             self.info_label.tag_configure("bold_white",   font=("Segoe UI", 11, "bold"),   foreground="white")
             self.info_label.tag_configure("normal_white", font=("Segoe UI", 11),            foreground="white")
             self.info_label.tag_configure("yellow",       font=("Segoe UI", 11),            foreground="#FFD700")
@@ -293,7 +306,12 @@ class PMDLViewerApp(ctk.CTkToplevel):
                 with tempfile.NamedTemporaryFile(mode='wb', suffix='.png', delete=False) as tmp:
                     img.save(tmp.name)
                     png_path = tmp.name
+                # Borrar el temporal previo si era nuestro
+                if self._temp_texture_owned and self.temp_texture_path and os.path.exists(self.temp_texture_path):
+                    try: os.unlink(self.temp_texture_path)
+                    except: pass
                 self.temp_texture_path = png_path
+                self._temp_texture_owned = True  # este PNG lo creamos nosotros
                 filepath = png_path
             except Exception as e:
                 messagebox.showerror("Error", f"No se pudo leer la textura RAW:\n{e}")
@@ -301,6 +319,15 @@ class PMDLViewerApp(ctk.CTkToplevel):
 
         if GLViewport and hasattr(self, 'gl_viewport'):
             if self.gl_viewport.load_texture(filepath):
+                # Guardar ruta para que el canvas UV pueda accederla después
+                # Solo actualizar si no fue ya seteado por la rama RAW arriba
+                if not (os.path.splitext(filepath)[1].lower() in (".atex", ".unk")):
+                    # Es un PNG/imagen directa del usuario — NO es nuestro temporal
+                    if self._temp_texture_owned and self.temp_texture_path and os.path.exists(self.temp_texture_path):
+                        try: os.unlink(self.temp_texture_path)
+                        except: pass
+                    self.temp_texture_path = filepath
+                    self._temp_texture_owned = False  # archivo del usuario, no tocar
                 texture_name = os.path.basename(filepath)
                 self.lbl_textura.configure(
                     text=f"🖼️ {texture_name}",
@@ -308,6 +335,13 @@ class PMDLViewerApp(ctk.CTkToplevel):
                 )
                 if self.pmdl_data:
                     self.seleccionar_parte(-1)
+                # Habilitar editor UVs si ya hay PMDL cargado
+                if self.pmdl_data and not self.is_secondary_pmdl and hasattr(self, 'btn_edit_uvs'):
+                    self.btn_edit_uvs.configure(state="normal")
+                # Si el panel UV está abierto, actualizar textura en canvas
+                if self.uv_panel_visible and self.uv_canvas:
+                    self.uv_canvas.load_texture(filepath)
+                    self.load_uvs_for_selected_part()
             else:
                 messagebox.showerror("Error", "No se pudo cargar la textura")
     
@@ -332,6 +366,10 @@ class PMDLViewerApp(ctk.CTkToplevel):
             return
         
         self.pmdl_data = info
+        # Abierto explícitamente desde el visor — no hereda del editor principal
+        self.pmdl_origin = 'explicit'
+        self.pmdl_explicit_path = filepath
+        self.temp_pmdl_path = filepath  # UV editor también necesita esta ruta
         self.lbl_archivo.configure(
             text=f"✅ {info['nombre']} ({info['tipo']})",
             text_color=("green", "lightgreen")
@@ -351,6 +389,11 @@ class PMDLViewerApp(ctk.CTkToplevel):
         with open(filepath, 'rb') as f:
             raw = bytearray(f.read())
         self._load_bones(raw)
+        # Habilitar editor UVs si ya hay textura cargada
+        if (hasattr(self, 'gl_viewport') and self.gl_viewport and
+                self.gl_viewport.texture_id and
+                not self.is_secondary_pmdl and hasattr(self, 'btn_edit_uvs')):
+            self.btn_edit_uvs.configure(state="normal")
     
     def _load_from_data(self, pmdl_data, texture_path=None):
         """Carga PMDL desde bytearray (usado cuando se lanza desde el editor)"""
@@ -563,7 +606,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
             except:
                 pass
         
-        if self.temp_texture_path and os.path.exists(self.temp_texture_path):
+        if self._temp_texture_owned and self.temp_texture_path and os.path.exists(self.temp_texture_path):
             try:
                 os.unlink(self.temp_texture_path)
             except:
@@ -772,10 +815,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
                 fg_color=("#FFA500", "#FF8C00"),
                 hover_color=("#FFB520", "#FFA000")
             )
-            
-            # Cargar UVs de la parte seleccionada (si hay)
-            if self.temp_pmdl_path and hasattr(self, 'parte_seleccionada'):
-                self.load_uvs_for_selected_part()
+            # NO cargar UVs automáticamente — solo se cargan al clicar parte o botón TODO
 
     def create_uv_panel(self):
         """Crea el panel lateral de UVs con splitter redimensionable"""
@@ -799,17 +839,26 @@ class PMDLViewerApp(ctk.CTkToplevel):
         # Header
         header = ctk.CTkFrame(self.uv_panel, height=50, corner_radius=0, fg_color=("gray85", "gray20"))
         header.grid(row=0, column=0, sticky="ew", padx=0, pady=0)
-        header.grid_columnconfigure(0, weight=1)
+        header.grid_columnconfigure(0, weight=0)  # título fijo
+        header.grid_columnconfigure(1, weight=1)  # coord_label expande
         
         title = ctk.CTkLabel(
             header, text="Editor de UVs",
             font=ctk.CTkFont(size=16, weight="bold")
         )
-        title.grid(row=0, column=0, padx=15, pady=12, sticky="w")
+        title.grid(row=0, column=0, padx=(15, 8), pady=12, sticky="w")
+        
+        # Coord label al lado del título — más grande y visible
+        self.coord_label = ctk.CTkLabel(
+            header, text="By - Los ijue30s",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color=("#FF8C00", "#FFB347")
+        )
+        self.coord_label.grid(row=0, column=1, padx=4, pady=12, sticky="w")
         
         # Botones V, I, F
         mode_frame = ctk.CTkFrame(header, fg_color="transparent")
-        mode_frame.grid(row=0, column=1, padx=10, pady=8)
+        mode_frame.grid(row=0, column=2, padx=10, pady=8)
         
         self.btn_vertex_mode = ctk.CTkButton(
             mode_frame, text="V", width=35, height=30,
@@ -859,7 +908,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
         self.uv_canvas.editor = self
         
         # Footer
-        footer = ctk.CTkFrame(self.uv_panel, height=60, corner_radius=0)
+        footer = ctk.CTkFrame(self.uv_panel, height=55, corner_radius=0)
         footer.grid(row=2, column=0, sticky="ew", padx=0, pady=0)
         
         self.btn_save_uvs = ctk.CTkButton(
@@ -870,13 +919,9 @@ class PMDLViewerApp(ctk.CTkToplevel):
             fg_color=("#28a745", "#1e7e34"),
             hover_color=("#218838", "#155724")
         )
-        self.btn_save_uvs.pack(padx=15, pady=10, fill="x")
+        self.btn_save_uvs.pack(padx=15, pady=8, fill="x")
         
-        self.coord_label = ctk.CTkLabel(
-            footer, text="",
-            font=ctk.CTkFont(size=10), text_color="gray"
-        )
-        self.coord_label.pack(pady=(0, 5))
+        # coord_label ahora está en el header — conectar referencia al canvas
         self.uv_canvas.coord_label = self.coord_label
         
         # Cargar textura inmediatamente si existe
@@ -975,7 +1020,9 @@ class PMDLViewerApp(ctk.CTkToplevel):
         pass
     
     def get_modified_pmdl_data(self):
-        """Devuelve el bytearray del PMDL modificado (para guardar al cerrar)"""
+        """Devuelve el bytearray del PMDL modificado solo si fue heredado del editor principal."""
+        if getattr(self, 'pmdl_origin', 'inherited') == 'explicit':
+            return None
         if self.temp_pmdl_path and os.path.exists(self.temp_pmdl_path):
             try:
                 with open(self.temp_pmdl_path, 'rb') as f:

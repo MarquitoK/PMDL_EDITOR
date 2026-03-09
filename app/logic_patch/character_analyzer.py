@@ -26,6 +26,10 @@ class CharacterAnalyzer:
             return False
     
     def validate_and_fix_index(self):
+        """
+        Valida que el índice del personaje termine correctamente en 0x7CC.
+        Si los bytes 0x7CC-0x7CF no son 00 00 00 00, los corrige.
+        """
         if len(self.file_data) < 0x7D0:
             return
         
@@ -47,6 +51,11 @@ class CharacterAnalyzer:
             self.file_data[position:position+4] = struct.pack('>I', value)
     
     def find_pmdl_and_texture(self):
+        """
+        Lee el índice al inicio del archivo para encontrar pMdl y textura.
+        - pMdl: offset 0xC (inicio) y 0x10 (fin)
+        - Textura: offset 0x30 (inicio) y 0x34 (fin)
+        """
         if not self.file_data or len(self.file_data) < 0x40:
             return False
         
@@ -75,6 +84,7 @@ class CharacterAnalyzer:
         texture_end = self.read_offset(0x34)
         
         if texture_start < texture_end and texture_end <= len(self.file_data):
+            # La textura tiene un header de 0x80 bytes que se ignora
             texture_header_size = 0x80
             texture_indices_start = texture_start + texture_header_size
             texture_indices_size = 0x10000
@@ -109,6 +119,10 @@ class CharacterAnalyzer:
         return bytearray(self.file_data[start:end])
     
     def set_pmdl_data(self, pmdl_data):
+        """
+        Actualiza el PMDL en el parche con nuevos datos.
+        Ajusta dinámicamente el tamaño del archivo.
+        """
         if not self.pmdl_info:
             return False
         
@@ -176,6 +190,10 @@ class CharacterAnalyzer:
             return False
     
     def _update_index_offsets(self, old_pmdl_end, size_diff):
+        """
+        Actualiza todos los offsets del índice que apuntan a datos después del pMdl.
+        El índice va desde 0x10 hasta 0x7CB (pares de offsets cada 4 bytes).
+        """
         # Recorrer el índice de 0x10 a 0x7CB
         for offset_pos in range(0x10, 0x7CC, 4):
             current_offset = self.read_offset(offset_pos)
@@ -226,6 +244,10 @@ class CharacterAnalyzer:
         return None
     
     def import_texture(self, input_path):
+        """
+        Importa una textura desde un archivo de imagen.
+        Ajusta dinámicamente el tamaño del archivo.
+        """
         if not self.texture_info:
             return False
         
@@ -276,34 +298,6 @@ class CharacterAnalyzer:
             print(f"Error al importar textura: {e}")
             return False
     
-    def import_texture_raw(self, raw_data: bytes) -> bool:
-        if not self.texture_info:
-            return False
-        try:
-            new_size  = len(raw_data)
-            old_size  = self.texture_info['size']
-            old_start = self.texture_info['start']
-            old_end   = self.texture_info['end']
-            size_diff = new_size - old_size
-
-            if size_diff == 0:
-                self.file_data[old_start:old_end] = raw_data
-            else:
-                new_file = bytearray(len(self.file_data) + size_diff)
-                new_file[0:old_start] = self.file_data[0:old_start]
-                new_file[old_start:old_start + new_size] = raw_data
-                new_file[old_start + new_size:] = self.file_data[old_end:]
-                self.file_data = new_file
-                self._update_texture_offsets(old_end, size_diff)
-
-            self.texture_info['size'] = new_size
-            self.texture_info['end']  = old_start + new_size
-            self.write_offset(0x34, self.texture_info['end'])
-            return True
-        except Exception as e:
-            print(f"Error al importar textura RAW: {e}")
-            return False
-
     def _update_texture_offsets(self, old_texture_end, size_diff):
         """Actualiza offsets que apuntan después de la textura."""
         for offset_pos in range(0x34, 0x7CC, 4):
@@ -364,25 +358,161 @@ class CharacterAnalyzer:
             print(f"Error al guardar archivo: {e}")
             return False
     
+    # Definición canónica de los 8 slots conocidos de caras extra
+    FACE_SLOTS = [
+        ("Cara_damage",   0x10, 0x14),
+        ("Cara_hablar_1", 0x14, 0x18),
+        ("Cara_hablar_2", 0x18, 0x1C),
+        ("Cara_hablar_3", 0x1C, 0x20),
+        ("Cara_1",        0x20, 0x24),
+        ("Cara_2",        0x24, 0x28),
+        ("Cara_3",        0x28, 0x2C),
+        ("Cara_no_usada", 0x2C, 0x30),
+    ]
+
+    def get_all_face_slots(self):
+        """
+        Retorna todos los slots conocidos con su estado:
+        - Si tiene datos válidos: {'name', 'start', 'end', 'size', 'empty': False}
+        - Si está vacío (offsets en 0 o inválidos): {'name', 'empty': True}
+        """
+        if not self.file_data or len(self.file_data) < 0x40:
+            return []
+
+        result = []
+        for name, start_off, end_off in self.FACE_SLOTS:
+            face_start = self.read_offset(start_off)
+            face_end   = self.read_offset(end_off)
+
+            if (face_start > 0 and face_end > face_start
+                    and face_end <= len(self.file_data)):
+                sig = self.file_data[face_start:face_start + 4]
+                if sig in (b'pMdl', b'pMdF'):
+                    result.append({
+                        'name':             name,
+                        'empty':            False,
+                        'start':            face_start,
+                        'end':              face_end,
+                        'size':             face_end - face_start,
+                        'start_offset_pos': start_off,
+                        'end_offset_pos':   end_off,
+                    })
+                    continue
+
+            # Slot vacío
+            result.append({
+                'name':             name,
+                'empty':            True,
+                'start_offset_pos': start_off,
+                'end_offset_pos':   end_off,
+            })
+
+        return result
+
+    def insert_face_data(self, face_name, face_data):
+        """
+        Inserta o reemplaza un PMDF en el slot indicado por nombre.
+        - Si el slot ya tiene datos: los reemplaza (como set_face_data).
+        - Si el slot está vacío: inserta al final del archivo y escribe los offsets.
+        Retorna True en éxito, False en error.
+        """
+        slots = {s['name']: s for s in self.get_all_face_slots()}
+        if face_name not in slots:
+            print(f"Slot desconocido: {face_name}")
+            return False
+
+        slot = slots[face_name]
+        face_data = bytearray(face_data)
+
+        try:
+            if not slot['empty']:
+                # ── Caso 1: slot ocupado → reemplazar ────────────────────────
+                old_start = slot['start']
+                old_end   = slot['end']
+                old_size  = slot['size']
+                new_size  = len(face_data)
+                delta     = new_size - old_size
+
+                if delta == 0:
+                    self.file_data[old_start:old_end] = face_data
+                else:
+                    new_file = bytearray(len(self.file_data) + delta)
+                    new_file[:old_start]              = self.file_data[:old_start]
+                    new_file[old_start:old_start + new_size] = face_data
+                    new_file[old_start + new_size:]   = self.file_data[old_end:]
+                    self.file_data = new_file
+
+                    # Ajustar todos los offsets que apuntan después del bloque viejo
+                    self._adjust_offsets_after(old_end - 1, delta)
+
+                # Actualizar offset de fin del slot
+                new_end = old_start + len(face_data)
+                self.write_offset(slot['end_offset_pos'], new_end)
+
+            else:
+                # ── Caso 2: slot vacío → insertar al final del archivo ───────
+                insert_pos = len(self.file_data)
+                new_size   = len(face_data)
+
+                self.file_data += face_data
+
+                # Escribir offsets de inicio y fin en el índice
+                self.write_offset(slot['start_offset_pos'], insert_pos)
+                self.write_offset(slot['end_offset_pos'],   insert_pos + new_size)
+
+            return True
+
+        except Exception as e:
+            print(f"Error en insert_face_data: {e}")
+            return False
+
+    def delete_face_data(self, face_name):
+        """
+        Elimina el PMDF del slot indicado: borra los bytes del archivo
+        y pone los offsets de inicio y fin a 0 en el índice.
+        Retorna True en éxito, False si el slot está vacío o no existe.
+        """
+        slots = {s['name']: s for s in self.get_all_face_slots()}
+        if face_name not in slots:
+            print(f"Slot desconocido: {face_name}")
+            return False
+
+        slot = slots[face_name]
+        if slot['empty']:
+            print(f"Slot '{face_name}' ya está vacío")
+            return False
+
+        try:
+            old_start = slot['start']
+            old_end   = slot['end']
+            old_size  = slot['size']
+
+            # Eliminar los bytes del archivo
+            new_file = bytearray(len(self.file_data) - old_size)
+            new_file[:old_start]  = self.file_data[:old_start]
+            new_file[old_start:]  = self.file_data[old_end:]
+            self.file_data = new_file
+
+            # Ajustar todos los offsets que apuntaban después del bloque borrado
+            self._adjust_offsets_after(old_start, -old_size)
+
+            # Poner los offsets del slot a 0 (slot vacío)
+            self.write_offset(slot['start_offset_pos'], 0)
+            self.write_offset(slot['end_offset_pos'],   0)
+
+            return True
+
+        except Exception as e:
+            print(f"Error en delete_face_data: {e}")
+            return False
+
     def find_extra_faces(self):
         #Lee el índice para encontrar caras extra (PMDFs).
         if not self.file_data or len(self.file_data) < 0x40:
             return {}
         
         faces = {}
-        # CARAS_PMDF
-        face_definitions = [
-            ("Cara_damage",   0x10, 0x14),
-            ("Cara_hablar_1", 0x14, 0x18),
-            ("Cara_hablar_2", 0x18, 0x1C),
-            ("Cara_hablar_3", 0x1C, 0x20),
-            ("Cara_1",        0x20, 0x24),
-            ("Cara_2",        0x24, 0x28),
-            ("Cara_3",        0x28, 0x2C),
-            ("Cara_no_usada", 0x2C, 0x30),
-        ]
-        
-        for name, start_offset, end_offset in face_definitions:
+        for name, start_offset, end_offset in self.FACE_SLOTS:
             face_start = self.read_offset(start_offset)
             face_end = self.read_offset(end_offset)
             
@@ -444,6 +574,5 @@ class CharacterAnalyzer:
         # Recorrer todo el índice (hasta 0x7CC)
         for offset_pos in range(0, 0x7CC, 4):
             current_offset = self.read_offset(offset_pos)
-            if current_offset > position:
+            if current_offset > position and current_offset != 0:
                 self.write_offset(offset_pos, current_offset + delta)
-            return False

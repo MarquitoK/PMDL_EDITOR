@@ -1,8 +1,14 @@
+"""
+Editor de Huesos - Sub-herramienta del PMDL Editor
+"""
+
 import struct
 import tkinter as tk
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 import os
+
+from app.utils.icon import set_app_icon
 
 try:
     import numpy as np
@@ -14,7 +20,9 @@ except ImportError:
     _GL_OK = False
 
 
-# Diálogo para elegir ID de hueso
+# ──────────────────────────────────────────────────────────────────────────────
+# Diálogo para elegir ID de hueso  (#3 centrado)
+# ──────────────────────────────────────────────────────────────────────────────
 class BonePickerDialog(ctk.CTkToplevel):
     def __init__(self, parent, used_ids: set, names: dict):
         super().__init__(parent)
@@ -22,6 +30,7 @@ class BonePickerDialog(ctk.CTkToplevel):
         self.resizable(False, True)
         self.result = None
         self.grab_set()
+        set_app_icon(self)
 
         ctk.CTkLabel(self, text="Selecciona el ID del nuevo hueso:",
                      font=ctk.CTkFont(size=12, weight="bold")
@@ -69,7 +78,9 @@ class BonePickerDialog(ctk.CTkToplevel):
         self.destroy()
 
 
+# ──────────────────────────────────────────────────────────────────────────────
 # Viewport 3D
+# ──────────────────────────────────────────────────────────────────────────────
 if _GL_OK:
     class BoneViewport(OpenGLFrame):
         def __init__(self, master, on_bone_picked=None, **kwargs):
@@ -100,7 +111,7 @@ if _GL_OK:
             glClearColor(0.13, 0.13, 0.16, 1.0)
             glEnable(GL_DEPTH_TEST); glEnable(GL_BLEND)
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-            self._gl_ready = True
+            self._gl_ready = True  # señal real de que OpenGL está listo
             # Notificar al editor para que haga el primer redraw
             if self.on_bone_picked is not None:
                 # Reutilizamos el after del master para disparar micro_rotate
@@ -110,6 +121,7 @@ if _GL_OK:
                     pass
 
         def _do_first_draw(self):
+            """Primer draw después de que GL inicializó — llamado desde initgl."""
             try:
                 self.redraw()
             except Exception:
@@ -196,7 +208,7 @@ if _GL_OK:
                 glLineWidth(1.0)
 
         def _pick(self, event):
-            self.focus_set()
+            self.focus_set()  # asegurar que el viewport tiene foco
             if not self.bones_data:
                 # sin huesos: iniciar drag de todas formas
                 self.last_x, self.last_y = event.x, event.y
@@ -204,7 +216,7 @@ if _GL_OK:
                 return "break"
             x, y = event.x, event.y
             h = self.winfo_height() or 1
-            # Render de picking en color ID
+            # Render de picking en color ID (back buffer, sin swap)
             glClearColor(0., 0., 0., 1.)
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
             self._apply_camera()
@@ -215,7 +227,7 @@ if _GL_OK:
                 self._draw_pyramid(bone, picking=True)
             glFlush()
             try:
-                glReadBuffer(GL_BACK)
+                glReadBuffer(GL_BACK)  # leer explícitamente del back buffer
             except Exception:
                 pass
             pixel = glReadPixels(x, h - 1 - y, 1, 1, GL_RGB, GL_UNSIGNED_BYTE)
@@ -232,10 +244,11 @@ if _GL_OK:
                 self.selected_idx = picked
                 if self.on_bone_picked: self.on_bone_picked(picked)
             else:
+                # clic en vacío: iniciar drag de rotación
                 self.last_x, self.last_y = event.x, event.y
                 self.dragging = True; self.drag_button = 1
             self.redraw()
-            return "break"
+            return "break"  # evitar que el evento suba al PanedWindow
 
         def _mouse_down(self, e):
             self.focus_set(); self.last_x,self.last_y=e.x,e.y
@@ -254,7 +267,7 @@ if _GL_OK:
             self.zoom*=0.85 if e.delta>0 else 1.15
             self.zoom=max(0.1,min(100.,self.zoom)); self.redraw()
 
-        # #1: set_bones resetea cámara
+        # #1: set_bones resetea cámara (solo al cargar); update_bones solo cambia datos
         def set_bones(self, bones_data):
             """Carga inicial — resetea cámara al centroide."""
             self.bones_data = bones_data; self.selected_idx = None
@@ -283,7 +296,10 @@ else:
         def highlight(self, _): pass
         def redraw(self): pass
 
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Nodo del árbol
+# ──────────────────────────────────────────────────────────────────────────────
 class BoneTreeNode(tk.Frame):
     INDENT = 14
     def __init__(self, master, bone, depth, names, on_select, on_toggle_collapse,
@@ -316,8 +332,9 @@ class BoneTreeNode(tk.Frame):
         if self.has_children: self.arrow.configure(text="▶" if collapsed else "▼")
 
 
-
-# Árbol
+# ──────────────────────────────────────────────────────────────────────────────
+# Árbol  (#2 show_subtree con reorden correcto, #5 select+expand)
+# ──────────────────────────────────────────────────────────────────────────────
 class BoneTree(ctk.CTkScrollableFrame):
     def __init__(self, master, on_bone_selected, **kwargs):
         super().__init__(master, **kwargs)
@@ -380,6 +397,10 @@ class BoneTree(ctk.CTkScrollableFrame):
             if desc in self.nodes: self.nodes[desc].pack_forget()
 
     def _show_subtree(self, parent_idx):
+        """
+        #2 fix: reposiciona cada nodo visible después de su predecesor en _display_order,
+        usando pack(after=...) solo si el predecesor está actualmente packed.
+        """
         for desc in self._subtree.get(parent_idx, []):
             if desc not in self.nodes: continue
             # ¿Debe estar visible?
@@ -496,8 +517,12 @@ class BoneTree(ctk.CTkScrollableFrame):
                 arrow.bind("<Button-1>",lambda e,n=p_node:self._on_collapse(n))
                 p_node.arrow=arrow
 
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Panel de propiedades
+# ──────────────────────────────────────────────────────────────────────────────
 class SpinEntry(tk.Frame):
+    # Entry con botones ▲▼ internos que suman/restan 1 al valor float.
     def __init__(self, master, width=80, **kwargs):
         super().__init__(master, bg="#2b2b2b", **kwargs)
         self._var = tk.StringVar(value="0.0000")
@@ -551,7 +576,7 @@ class BonePropertiesPanel(ctk.CTkFrame):
         self.on_apply=on_apply; self._bone=None
         ctk.CTkLabel(self,text="Propiedades",font=ctk.CTkFont(size=13,weight="bold")
                      ).pack(anchor="w",padx=10,pady=(10,2))
-        # Frame para info del hueso
+        # Frame para info del hueso (permite sub-labels con colores distintos)
         self._info_frame = tk.Frame(self, bg="#1e1e2e")
         self._info_frame.pack(fill="x", padx=10, pady=(0,6))
         self.after(0, self._show_placeholder)
@@ -601,7 +626,7 @@ class BonePropertiesPanel(ctk.CTkFrame):
         for w in self._info_frame.winfo_children():
             w.destroy()
 
-        # Línea 1: "Hueso:"
+        # Línea 1: "Hueso:" en negrita + ID y nombre en amarillo
         row1 = tk.Frame(self._info_frame, bg="#1e1e2e")
         row1.pack(anchor="w", fill="x")
         head = f"Hueso {bid:02X}" + (" -" if name else "")
@@ -685,11 +710,21 @@ class BonePropertiesPanel(ctk.CTkFrame):
         self.on_apply(self._bone['idx'], None, action="confirm_delete")
 
 
-
+# ──────────────────────────────────────────────────────────────────────────────
 # Lógica binaria  (#6: preservar bytes del bloque raw)
-
+# ──────────────────────────────────────────────────────────────────────────────
 def reconstruir_bloque_huesos(bones_data):
-    # Recalcular pop_level
+    """
+    Reconstruye el bloque de huesos.
+    Si un hueso tiene 'raw_block' (los 0xA0 bytes originales), lo usa como base
+    y solo sobreescribe los campos que pueden haber cambiado: pop_level, bone_id,
+    pos (0x10) y pos_padre (0x20).  Esto preserva matrices de rotación, flags, etc.
+    Para huesos nuevos (sin raw_block) genera un bloque limpio.
+    """
+    # Recalcular pop_level correctamente.
+    # pop_level del hueso i = cuántos pops hacer DESPUÉS de empujar i
+    # para que el hueso i+1 encuentre su padre en el tope de la pila.
+    # (El lector PMDL: padre=stack[-1], push_este, pop N veces)
     pila = []
     for i, bone in enumerate(bones_data):
         pila.append(bone['idx'])
@@ -712,25 +747,32 @@ def reconstruir_bloque_huesos(bones_data):
             blk = bytearray(bone['raw_block'])
         else:
             blk = bytearray(0xA0)
-            # Marker obligatorio en 0x00
+            # Marker obligatorio en 0x00 (SIEMPRE 0xA0 en el formato PMDL)
             struct.pack_into('<I', blk, 0x00, 0xA0)
+            # Heredar bytes 0x40-0x9F del padre (matrices orientación/escala/bounding)
+            # Sin estos datos el juego crashea al intentar usarlos
             p_idx = bone['padre_idx']
             if p_idx is not None and p_idx < len(bones_data):
                 padre_bone = bones_data[p_idx]
                 if 'raw_block' in padre_bone and len(padre_bone['raw_block']) == 0xA0:
                     blk[0x40:0xA0] = padre_bone['raw_block'][0x40:0xA0]
 
+        # pop_level: preservar el valor original del raw_block cuando sea funcionalmente
+        # equivalente al recalculado. El valor 0x00010000 (65536) es un flag especial
+        # del juego ("fin de armature") — sobreescribirlo con 2 causa invisibilidad.
+        # Regla: si raw_pop >= recalculado Y raw_pop >= 64 (claramente "vacía la pila"),
+        # usar raw_pop. En cualquier otro caso usar el recalculado.
         nuevo_pop = bone.get('pop_level', 0)
         if 'raw_block' in bone and len(bone['raw_block']) == 0xA0:
             raw_pop = struct.unpack_from('<I', bone['raw_block'], 0x04)[0]
             if raw_pop >= 64 and raw_pop >= nuevo_pop:
-                # raw_pop es "vaciar todo"
+                # raw_pop es "vaciar todo" — preservar (puede tener bits de flag)
                 struct.pack_into('<I', blk, 0x04, raw_pop)
             else:
                 struct.pack_into('<I', blk, 0x04, nuevo_pop)
         else:
             struct.pack_into('<I', blk, 0x04, nuevo_pop)
-        blk[0x08] = 0x01
+        blk[0x08] = 0x01  # constante obligatoria
         blk[0x0A] = bone['bone_id'] & 0xFF
         px, py, pz = bone['pos']
         struct.pack_into('<4f', blk, 0x10, px, py, pz, 1.0)
@@ -739,15 +781,23 @@ def reconstruir_bloque_huesos(bones_data):
         p = bone['padre_idx']
 
         if tiene_raw:
+            # Hueso existente: preservar 0x20 y 0x30 exactamente del raw_block.
+            # Estos campos contienen -0.0 (0x80000000) y otros bits especiales
+            # que el juego distingue de +0.0 y que Python no puede recalcular.
+            # Ya están copiados en blk desde bytearray(bone['raw_block']).
+            # Solo actualizar 0x20 (pos_padre) si la posición del padre cambió.
             if p is not None and p < len(bones_data):
                 ppx, ppy, ppz = bones_data[p]['pos']
                 # Comparar pos_padre actual del raw_block con la del padre actual
                 raw_pp = struct.unpack_from('<3f', bone['raw_block'], 0x20)
                 padre_pos_actual = bones_data[p]['pos']
                 if (abs(raw_pp[0]-ppx)>1e-6 or abs(raw_pp[1]-ppy)>1e-6 or abs(raw_pp[2]-ppz)>1e-6):
+                    # El padre se movió: recalcular 0x20 y 0x30
                     struct.pack_into('<4f', blk, 0x20, ppx, ppy, ppz, 1.0)
                     struct.pack_into('<4f', blk, 0x30, px-ppx, py-ppy, pz-ppz, 1.0)
+                # Si el padre no se movió: 0x20 y 0x30 del raw_block están perfectos ✓
         else:
+            # Hueso NUEVO (sin raw_block): calcular todo desde cero
             if p is not None and p < len(bones_data):
                 ppx, ppy, ppz = bones_data[p]['pos']
                 struct.pack_into('<4f', blk, 0x20, ppx, ppy, ppz, 1.0)
@@ -792,15 +842,22 @@ def exportar_pmdl_con_huesos(pmdl_bytes: bytearray, bones_data: list) -> bytearr
 
     return r
 
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Ventana principal
+# ──────────────────────────────────────────────────────────────────────────────
 class BoneEditor(ctk.CTkToplevel):
     def __init__(self, parent, pmdl_bytes=None, bones_names=None):
         super().__init__(parent)
         self.title("Editor de Huesos"); self.geometry("1100x680"); self.minsize(900, 560)
+        set_app_icon(self)
         self.pmdl_bytes=bytearray(pmdl_bytes) if pmdl_bytes else None
         self.bones_data=[]; self.bones_names=bones_names or {}
         self._history=[]; self._redo_stack=[]; self.has_unsaved=False
-        self.on_close_requested = None
+        self.on_close_requested = None  # El controlador externo asigna este callback
+        # 'inherited' = vino del editor principal | 'explicit' = abierto desde aquí
+        self.pmdl_origin = 'inherited' if pmdl_bytes else None
+        self.pmdl_explicit_path = None  # ruta en disco cuando origin == 'explicit'
         self._build_ui(); self._bind_keys()
         if pmdl_bytes: self.after(100, self._load_from_bytes)
 
@@ -822,7 +879,7 @@ class BoneEditor(ctk.CTkToplevel):
                      font=ctk.CTkFont(size=10),text_color=("gray55","gray55")
                      ).pack(side="left",padx=14)
 
-        # PanedWindow horizontal con sash
+        # PanedWindow horizontal con sash arrastrable oscuro
         self._paned = tk.PanedWindow(self, orient="horizontal",
                                      sashrelief="flat", sashwidth=6,
                                      bg="#1e1e2e", sashpad=1,
@@ -857,6 +914,7 @@ class BoneEditor(ctk.CTkToplevel):
         self.after(80, self._set_default_sash_positions)
         self.after(250, self._micro_rotate_viewport)
         self.bind("<Configure>", self._on_window_resize)
+        # Polling ligero para capturar maximize/restore que tkinter no siempre notifica
         self._last_win_size = (0, 0)
         self._poll_resize()
 
@@ -938,20 +996,29 @@ class BoneEditor(ctk.CTkToplevel):
         s1 = max(s0 + 250, min(s1, total - 220))
         self._paned.sash_place(0, s0, 1)
         self._paned.sash_place(1, s1, 1)
+        # Esperar un frame para que tkinter procese el resize del viewport
+        # antes de llamar a redraw (si se llama inmediatamente puede usar tamaño viejo)
         self.after(50, self._micro_rotate_viewport)
 
     def _bind_keys(self):
+        # CTkToplevel registra su propio WM_DELETE_WINDOW en __init__,
+        # por eso usamos after() para sobreescribirlo una vez que termine de inicializarse.
         self.after(0, lambda: self.protocol("WM_DELETE_WINDOW", self._on_close))
+        # bind_all para Escape garantiza que se capture aunque el foco esté en un widget hijo
         self.bind_all("<Escape>", lambda e: self._on_close())
         self.bind_all("<Control-z>", lambda e: self._undo())
         self.bind_all("<Control-y>", lambda e: self._redo())
 
-    # Carga
+    # ── Carga ─────────────────────────────────────────────────────────────
     def _open_file(self):
         path=filedialog.askopenfilename(title="Abrir PMDL",
             filetypes=[("PMDL","*.pmdl"),("PMDF","*.pmdf"),("Todos","*.*")])
         if not path: return
         with open(path,'rb') as f: self.pmdl_bytes=bytearray(f.read())
+        # Al abrir explícitamente desde aquí, ya no heredamos del editor principal
+        self.pmdl_origin = 'explicit'
+        self.pmdl_explicit_path = path
+        self.has_unsaved = False
         self._load_from_bytes()
 
     def _load_from_bytes(self):
@@ -974,6 +1041,10 @@ class BoneEditor(ctk.CTkToplevel):
         self.bones_data=[dict(b) for b in bones_data]
         self.pmdl_bytes=bytearray(pmdl_bytes) if pmdl_bytes else self.pmdl_bytes
         self.bones_names=names or {}
+        # Este PMDL viene del editor principal
+        self.pmdl_origin = 'inherited'
+        self.pmdl_explicit_path = None
+        # Adjuntar raw_block si hay pmdl_bytes y los huesos no lo tienen
         if self.pmdl_bytes:
             try:
                 cantidad = struct.unpack_from('<I', self.pmdl_bytes, 0x08)[0]
@@ -991,7 +1062,7 @@ class BoneEditor(ctk.CTkToplevel):
         self.viewport.set_bones(self.bones_data)   # resetea cámara
         self.props.clear()
 
-    # Selección
+    # ── Selección ─────────────────────────────────────────────────────────
     def _on_bone_selected(self, bone):
         self.props.load_bone(bone,self.bones_names,self.bones_data)
         self.viewport.highlight(bone['idx'])
@@ -1003,7 +1074,7 @@ class BoneEditor(ctk.CTkToplevel):
             self.props.load_bone(bone,self.bones_names,self.bones_data)
             self.tree.select_and_reveal(bone_idx)
 
-    # Acciones
+    # ── Acciones ──────────────────────────────────────────────────────────
     def _on_prop_action(self, bone_idx, value, action="move", tail_pmdl=None):
         if action=="move":
             self._push_history()
@@ -1020,7 +1091,7 @@ class BoneEditor(ctk.CTkToplevel):
             self.props.load_bone(bone,self.bones_names,self.bones_data)
 
         elif action=="move_tail":
-            pass
+            pass  # sin tail editable, acción eliminada
 
         elif action=="add_child":
             self._add_child_with_picker(bone_idx)
@@ -1060,6 +1131,8 @@ class BoneEditor(ctk.CTkToplevel):
         from app.logic_3d.bones.bones_reader import pmdl_a_visor, ESCALA_GLOBAL, OFFSET_Y_GLOBAL, _recalcular_tails
 
         # Calcular posición del nuevo hueso continuando la dirección del padre
+        # Si el padre tiene padre, usamos la dirección padre_del_padre → padre como referencia
+        # Si no, el nuevo hueso va en +Y (arriba en espacio PMDL)
         import math
         if parent['padre_idx'] is not None:
             grandparent = self.bones_data[parent['padre_idx']]
@@ -1074,6 +1147,7 @@ class BoneEditor(ctk.CTkToplevel):
             # Usar tail_visor del padre para inferir dirección
             tv = parent.get('tail_visor')
             if tv and tv != parent.get('pos_visor'):
+                # Invertir tail_visor a espacio PMDL
                 tx_p = -tv[0]/ESCALA_GLOBAL
                 ty_p = -(tv[1]-OFFSET_Y_GLOBAL)/ESCALA_GLOBAL
                 tz_p = tv[2]/ESCALA_GLOBAL
@@ -1089,6 +1163,7 @@ class BoneEditor(ctk.CTkToplevel):
 
         insert_pos=self._find_insert_position(parent_idx)
 
+        # Desfasar idx >= insert_pos
         for b in self.bones_data:
             if b['idx']>=insert_pos: b['idx']+=1
             if b['padre_idx'] is not None and b['padre_idx']>=insert_pos: b['padre_idx']+=1
@@ -1104,7 +1179,7 @@ class BoneEditor(ctk.CTkToplevel):
         }
         self.bones_data.insert(insert_pos,new_bone)
 
-        # Recalcular tails de todos los huesos
+        # Recalcular tails de todos los huesos ya que el árbol cambió
         _recalcular_tails(self.bones_data)
 
         self.viewport.update_bones(self.bones_data)
@@ -1143,7 +1218,7 @@ class BoneEditor(ctk.CTkToplevel):
             b['idx']=i
             if b['padre_idx'] is not None: b['padre_idx']=old_to_new.get(b['padre_idx'])
 
-    # Undo/Redo
+    # ── Undo/Redo ──────────────────────────────────────────────────────────
     def _push_history(self):
         import copy
         self._history.append(copy.deepcopy(self.bones_data))
@@ -1163,20 +1238,56 @@ class BoneEditor(ctk.CTkToplevel):
         self._history.append(copy.deepcopy(self.bones_data))
         self.bones_data=self._redo_stack.pop(); self._refresh()
 
-    # Guardar
+    # ── Guardar ───────────────────────────────────────────────────────────
     def _guardar(self):
         if not self.pmdl_bytes:
             messagebox.showerror("Error","No hay ningún PMDL cargado."); return
         if not self.bones_data:
             messagebox.showerror("Error","No hay huesos para guardar."); return
         try:
-            self.pmdl_bytes=exportar_pmdl_con_huesos(self.pmdl_bytes,self.bones_data)
+            self.pmdl_bytes = exportar_pmdl_con_huesos(self.pmdl_bytes, self.bones_data)
             self.has_unsaved = False
-            messagebox.showinfo("Guardado","Cambios aplicados al PMDL en memoria.")
-        except Exception as e: messagebox.showerror("Error",str(e))
+        except Exception as e:
+            messagebox.showerror("Error", str(e)); return
+
+        if self.pmdl_origin == 'explicit':
+            # Guardar directamente al archivo que abrió el usuario
+            path = self.pmdl_explicit_path
+            if not path:
+                path = filedialog.asksaveasfilename(
+                    title="Guardar PMDL",
+                    defaultextension=".pmdl",
+                    filetypes=[("PMDL","*.pmdl"),("PMDF","*.pmdf"),("Todos","*.*")]
+                )
+                if not path: return
+                self.pmdl_explicit_path = path
+            if messagebox.askyesno(
+                "Confirmar sobreescritura",
+                f"¿Reemplazar el archivo original?\n{path}"
+            ):
+                with open(path, 'wb') as f:
+                    f.write(self.pmdl_bytes)
+                messagebox.showinfo("Guardado", f"PMDL guardado en:\n{path}")
+            else:
+                # Guardar como nuevo archivo
+                new_path = filedialog.asksaveasfilename(
+                    title="Guardar PMDL como",
+                    defaultextension=".pmdl",
+                    filetypes=[("PMDL","*.pmdl"),("PMDF","*.pmdf"),("Todos","*.*")]
+                )
+                if new_path:
+                    with open(new_path, 'wb') as f:
+                        f.write(self.pmdl_bytes)
+                    self.pmdl_explicit_path = new_path
+                    messagebox.showinfo("Guardado", f"PMDL guardado en:\n{new_path}")
+        else:
+            # inherited: los cambios quedan en memoria, el app_controller los recoge al cerrar
+            messagebox.showinfo("Guardado", "Cambios aplicados al PMDL en memoria.")
 
     def get_modified_pmdl(self):
-        # Devuelve el bytearray con los cambios aplicados, o None si no hay cambios guardados.
+        # Solo devuelve el PMDL al editor principal si fue heredado (no abierto explícitamente)
+        if self.pmdl_origin == 'explicit':
+            return None
         return bytearray(self.pmdl_bytes) if self.pmdl_bytes else None
 
     def _on_close(self):
@@ -1187,6 +1298,7 @@ class BoneEditor(ctk.CTkToplevel):
                 default="no"
             ):
                 return
+        # Delegar el cierre al controlador externo (que también restaura la ventana principal)
         if callable(getattr(self, 'on_close_requested', None)):
             self.on_close_requested()
         else:
