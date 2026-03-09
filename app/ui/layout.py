@@ -62,7 +62,8 @@ def build_main_layout(parent, callbacks: dict) -> dict:
         on_opacity_change=callbacks['on_part_opacity_changed'],
         on_flag_change=callbacks['on_part_flag_changed'],
         on_export_part=callbacks['on_export_part'],
-        on_delete_part=callbacks['on_delete_part']
+        on_delete_part=callbacks['on_delete_part'],
+        on_close_pmdl=callbacks.get('on_close_pmdl_main')
     )
     parts_table.pack(fill="both", expand=True, padx=8, pady=8)
     
@@ -85,7 +86,11 @@ def build_main_layout(parent, callbacks: dict) -> dict:
     mid_right = ctk.CTkFrame(right_panel, corner_radius=8)
     mid_right.grid(row=1, column=0, sticky="nsew", padx=6, pady=(4, 6))
     
-    parts2_table = SecondaryPartsTable(mid_right, on_add_part=callbacks['on_add_part_from_secondary'])
+    parts2_table = SecondaryPartsTable(
+        mid_right,
+        on_add_part=callbacks['on_add_part_from_secondary'],
+        on_close_pmdl=callbacks.get('on_close_pmdl_secondary')
+    )
     parts2_table.pack(fill="both", expand=True, padx=8, pady=8)
     
     # Barra de estado inferior

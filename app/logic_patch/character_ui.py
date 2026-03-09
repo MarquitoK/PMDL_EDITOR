@@ -3,14 +3,17 @@ from tkinter import filedialog, messagebox, Menu
 from PIL import Image, ImageTk
 import os
 
+from app.utils.icon import set_app_icon
+
 
 class CharacterEditorUI(ctk.CTkToplevel):
     
-    def __init__(self, parent, is_secondary=False, on_open_in_editor_callback=None):
+    def __init__(self, parent, is_secondary=False, on_open_in_editor_callback=None, from_patch=False):
         super().__init__(parent)
         
         self.parent = parent
         self.is_secondary = is_secondary
+        self.from_patch = from_patch          # True = abierto con Ctrl+P (modo limitado)
         self.on_open_in_editor_callback = on_open_in_editor_callback
         
         # Importar después de crear la ventana
@@ -26,7 +29,8 @@ class CharacterEditorUI(ctk.CTkToplevel):
         self.geometry("700x700")
         self.minsize(600, 600)
         
-        # Hacer modal
+        set_app_icon(self)
+        
         self.transient(parent)
         self.grab_set()
         
@@ -48,35 +52,13 @@ class CharacterEditorUI(ctk.CTkToplevel):
         main_frame.grid_rowconfigure(2, weight=1)
         main_frame.grid_columnconfigure(0, weight=1)
         
-        # ===== HEADER =====
-        header_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        header_frame.grid(row=0, column=0, sticky="ew", padx=30, pady=(30, 20))
-        
-        title_text = "Character Editor (Secundario)" if self.is_secondary else "Character Editor"
-        title = ctk.CTkLabel(
-            header_frame,
-            text=title_text,
-            font=("Segoe UI", 24, "bold"),
-            text_color=("#DB4437", "#DB4437")
-        )
-        title.pack()
-        
-        subtitle_text = "Solo lectura - Exportar textura" if self.is_secondary else "Edita texturas y exporta PMDL"
-        subtitle = ctk.CTkLabel(
-            header_frame,
-            text=subtitle_text,
-            font=("Segoe UI", 12),
-            text_color=("gray60", "gray40")
-        )
-        subtitle.pack(pady=(5, 0))
-        
         # ===== BOTÓN DE CARGA =====
         load_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         load_frame.grid(row=1, column=0, sticky="ew", padx=30, pady=(0, 10))
         
         self.load_btn = ctk.CTkButton(
             load_frame,
-            text="Cargar Personaje",
+            text="Abrir Personaje",
             command=self.load_character,
             height=40,
             font=("Segoe UI", 14, "bold"),
@@ -142,7 +124,7 @@ class CharacterEditorUI(ctk.CTkToplevel):
         tex_title = ctk.CTkLabel(
             tex_header,
             text="Textura del Personaje",
-            font=("Segoe UI", 15, "bold")
+            font=("Segoe UI", 11, "bold")
         )
         tex_title.pack(side="left")
         
@@ -172,30 +154,90 @@ class CharacterEditorUI(ctk.CTkToplevel):
         # Menú contextual para la textura
         self.texture_menu = Menu(self, tearoff=0)
         self.texture_menu.add_command(
-            label="📤 Exportar Textura",
+            label="📤 Exportar Textura (PNG)",
             command=self.export_texture_dialog
         )
         self.texture_menu.add_command(
-            label="📦 Exportar Raw (.atex)",
+            label="📤 Exportar Textura (RAW)",
             command=self.export_texture_raw_dialog
         )
         
         if not self.is_secondary:
             self.texture_menu.add_command(
-                label="📥 Importar Textura",
+                label="📥 Importar Textura (PNG)",
                 command=self.import_texture_dialog
             )
             self.texture_menu.add_command(
-                label="📂 Importar Raw (.atex/.unk)",
+                label="📥 Importar Textura (RAW)",
                 command=self.import_texture_raw_dialog
             )
         
         self.texture_label.bind("<Button-3>", self.show_texture_menu)
         
+        # ===== SECCIÓN IMPORTAR PMDF (solo en modo Ctrl+R, no desde parche) =====
+        if not self.is_secondary and not self.from_patch:
+            pmdf_container = ctk.CTkFrame(main_frame, corner_radius=10)
+            pmdf_container.grid(row=3, column=0, sticky="ew", padx=30, pady=(0, 10))
+            pmdf_container.grid_columnconfigure(0, weight=1)
+
+            pmdf_header = ctk.CTkFrame(pmdf_container, fg_color="transparent")
+            pmdf_header.grid(row=0, column=0, sticky="ew", padx=15, pady=(12, 4))
+
+            ctk.CTkLabel(
+                pmdf_header,
+                text="Caras Extra (PMDF)",
+                font=("Segoe UI", 13, "bold"),
+            ).pack(side="left")
+
+            pmdf_row = ctk.CTkFrame(pmdf_container, fg_color="transparent")
+            pmdf_row.grid(row=1, column=0, sticky="ew", padx=15, pady=(0, 12))
+            pmdf_row.grid_columnconfigure(0, weight=1)
+
+            self.pmdf_slot_dropdown = ctk.CTkOptionMenu(
+                pmdf_row,
+                values=["— Carga un personaje primero —"],
+                height=36,
+                font=("Segoe UI", 12),
+                corner_radius=8,
+                fg_color=("#3a3a3a", "#2a2a2a"),
+                button_color=("#555555", "#444444"),
+                button_hover_color=("#666666", "#555555"),
+                state="disabled",
+            )
+            self.pmdf_slot_dropdown.grid(row=0, column=0, sticky="ew", padx=(0, 8))
+
+            self.import_pmdf_btn = ctk.CTkButton(
+                pmdf_row,
+                text="📥 Importar PMDF",
+                command=self.import_pmdf_dialog,
+                height=36,
+                width=140,
+                font=("Segoe UI", 12, "bold"),
+                state="disabled",
+                corner_radius=8,
+                fg_color=("#5C35A0", "#4A2880"),
+                hover_color=("#4A2880", "#3A1E65"),
+            )
+            self.import_pmdf_btn.grid(row=0, column=1, sticky="e", padx=(0, 6))
+
+            self.delete_pmdf_btn = ctk.CTkButton(
+                pmdf_row,
+                text="🗑 Eliminar",
+                command=self.delete_pmdf_dialog,
+                height=36,
+                width=100,
+                font=("Segoe UI", 12, "bold"),
+                state="disabled",
+                corner_radius=8,
+                fg_color=("#8B1A1A", "#6B1212"),
+                hover_color=("#6B1212", "#4A0D0D"),
+            )
+            self.delete_pmdf_btn.grid(row=0, column=2, sticky="e")
+
         # ===== BOTONES DE ACCIÓN =====
         if not self.is_secondary:
             actions_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-            actions_frame.grid(row=3, column=0, sticky="ew", padx=30, pady=(0, 30))
+            actions_frame.grid(row=4, column=0, sticky="ew", padx=30, pady=(0, 30))
             actions_frame.grid_columnconfigure((0, 1, 2, 3), weight=1)
             
             self.export_pmdl_btn = ctk.CTkButton(
@@ -253,7 +295,7 @@ class CharacterEditorUI(ctk.CTkToplevel):
     def load_character(self):
         """Carga y analiza un archivo de personaje."""
         file_path = filedialog.askopenfilename(
-            title="Seleccionar archivo de personaje",
+            title="Abrir archivo de personaje",
             filetypes=[
                 ("Archivos de personaje", "*.PCK1 *.pak"),
                 ("Todos los archivos", "*.*")
@@ -286,27 +328,30 @@ class CharacterEditorUI(ctk.CTkToplevel):
         """Muestra la textura del personaje."""
         img = self.analyzer.generate_texture_image()
         if img:
-            # Redimensionar imagen para caber en el frame
-            max_width = 600
-            max_height = 350
+            orig_w, orig_h = img.width, img.height
             
-            img.thumbnail((max_width, max_height), Image.Resampling.LANCZOS)
+            # Tamaño de visualización fijo: 280px de lado (cabe bien con o sin panel PMDF)
+            display_size = 280
+            scale = min(display_size / img.width, display_size / img.height)
+            new_w = max(1, int(img.width * scale))
+            new_h = max(1, int(img.height * scale))
+            img = img.resize((new_w, new_h), Image.Resampling.NEAREST)
             
             # Convertir a CTkImage
             self.current_ctk_image = ctk.CTkImage(
                 light_image=img,
                 dark_image=img,
-                size=(img.width, img.height)
+                size=(new_w, new_h)
             )
             
             self.texture_label.configure(image=self.current_ctk_image, text="")
             self.texture_image = img
             
-            # Actualizar info
+            # Mostrar dimensiones ORIGINALES del archivo, no las del display
             if self.analyzer.texture_info:
                 size_kb = self.analyzer.texture_info['size'] / 1024
                 self.texture_info_label.configure(
-                    text=f"{img.width}x{img.height} • {size_kb:.1f} KB"
+                    text=f"{orig_w}x{orig_h} • {size_kb:.1f} KB"
                 )
         else:
             self.texture_label.configure(image="", text="Error al cargar textura")
@@ -325,6 +370,10 @@ class CharacterEditorUI(ctk.CTkToplevel):
             self.import_pmdl_btn.configure(state="normal")
             self.save_btn.configure(state="normal")
             self.save_as_btn.configure(state="normal")
+        
+        # Actualizar dropdown de slots PMDF (solo visible si not from_patch)
+        if hasattr(self, 'pmdf_slot_dropdown'):
+            self._refresh_pmdf_dropdown()
     
     def _detect_and_show_extra_faces(self):
         """Detecta caras extra y muestra el botón + dropdown si existen."""
@@ -383,46 +432,44 @@ class CharacterEditorUI(ctk.CTkToplevel):
                 messagebox.showinfo("Éxito", "Textura importada correctamente")
             else:
                 messagebox.showerror("Error", "No se pudo importar la textura")
-    
+
     def export_texture_raw_dialog(self):
+        """Exporta la textura en formato RAW (bytes crudos del parche)."""
         if not self.analyzer.texture_info:
             messagebox.showwarning("Advertencia", "No hay textura cargada")
             return
-        file_path = filedialog.asksaveasfilename(
-            title="Exportar textura RAW",
-            initialfile="011_textures.atex",
-            defaultextension=".atex",
-            filetypes=[("Textura RAW", "*.atex"), ("Todos", "*.*")]
-        )
-        if file_path:
-            try:
-                start = self.analyzer.texture_info['start']
-                end   = self.analyzer.texture_info['end']
-                with open(file_path, 'wb') as f:
-                    f.write(self.analyzer.file_data[start:end])
-                messagebox.showinfo("Éxito", f"Textura RAW exportada:\n{file_path}")
-            except Exception as e:
-                messagebox.showerror("Error", f"No se pudo exportar:\n{e}")
 
-    def import_texture_raw_dialog(self):
-        if not self.analyzer.texture_info:
-            messagebox.showwarning("Advertencia", "Primero carga un personaje")
-            return
-        file_path = filedialog.askopenfilename(
-            title="Importar textura RAW",
-            filetypes=[("Textura RAW", "*.atex *.unk"), ("Todos", "*.*")]
+        file_path = filedialog.asksaveasfilename(
+            title="Exportar Textura RAW",
+            defaultextension=".atex",
+            filetypes=[("Textura ATEX", "*.atex"), ("Archivo UNK", "*.unk"), ("Todos", "*.*")]
         )
         if not file_path:
             return
+
         try:
-            with open(file_path, 'rb') as f:
-                raw_data = f.read()
-            from app.utils.atex_reader import atex_to_pil
-            atex_to_pil(raw_data)  # validar que sea legible
+            start = self.analyzer.texture_info['start']
+            end   = self.analyzer.texture_info['end']
+            with open(file_path, 'wb') as f:
+                f.write(self.analyzer.file_data[start:end])
+            messagebox.showinfo("Éxito", f"Textura RAW exportada:\n{file_path}")
         except Exception as e:
-            messagebox.showerror("Error", f"Archivo RAW inválido:\n{e}")
+            messagebox.showerror("Error", f"No se pudo exportar la textura RAW:\n{e}")
+
+    def import_texture_raw_dialog(self):
+        """Importa una textura en formato RAW (reemplaza bytes crudos en el parche)."""
+        if not self.analyzer.texture_info:
+            messagebox.showwarning("Advertencia", "Primero carga un personaje")
             return
-        if self.analyzer.import_texture_raw(raw_data):
+
+        file_path = filedialog.askopenfilename(
+            title="Importar Textura RAW",
+            filetypes=[("Textura ATEX", "*.atex"), ("Archivo UNK", "*.unk"), ("Todos", "*.*")]
+        )
+        if not file_path:
+            return
+
+        if self.analyzer.import_texture(file_path):
             self.display_texture()
             messagebox.showinfo("Éxito", "Textura RAW importada correctamente")
         else:
@@ -513,6 +560,125 @@ class CharacterEditorUI(ctk.CTkToplevel):
         # Llamar al callback con el wrapper
         self.on_open_in_editor_callback(face_analyzer)
     
+    def _refresh_pmdf_dropdown(self):
+        """Rellena el dropdown de slots PMDF con el estado actual (vacío o con datos)."""
+        if not hasattr(self, 'pmdf_slot_dropdown'):
+            return
+        
+        slots = self.analyzer.get_all_face_slots()
+        if not slots:
+            return
+        
+        labels = []
+        for s in slots:
+            if s['empty']:
+                labels.append(f"{s['name']} (Vacío)")
+            else:
+                labels.append(s['name'])
+        
+        self.pmdf_slot_dropdown.configure(
+            values=labels,
+            state="normal",
+            command=self._on_pmdf_slot_changed
+        )
+        self.pmdf_slot_dropdown.set(labels[0])
+        self.import_pmdf_btn.configure(state="normal")
+        # Estado del botón eliminar según el primer slot
+        self._update_delete_btn_state(labels[0])
+
+    def _on_pmdf_slot_changed(self, selected_label):
+        """Actualiza el estado del botón eliminar según el slot seleccionado."""
+        self._update_delete_btn_state(selected_label)
+
+    def _update_delete_btn_state(self, label):
+        """Habilita Eliminar solo si el slot tiene datos (no es Vacío)."""
+        if not hasattr(self, 'delete_pmdf_btn'):
+            return
+        is_empty = label.endswith("(Vacío)")
+        self.delete_pmdf_btn.configure(state="disabled" if is_empty else "normal")
+
+    def import_pmdf_dialog(self):
+        """Abre el explorador y reemplaza/inserta el PMDF en el slot seleccionado."""
+        if not self.analyzer.file_data:
+            messagebox.showwarning("Advertencia", "Primero carga un personaje")
+            return
+        
+        # Obtener el slot seleccionado — extraer el nombre antes del ' ('
+        selected_label = self.pmdf_slot_dropdown.get()
+        slot_name = selected_label.split(" (")[0]
+        
+        file_path = filedialog.askopenfilename(
+            title=f"Importar PMDF para slot: {slot_name}",
+            filetypes=[
+                ("Archivos PMDL/PMDF", "*.pmdl *.pmdf"),
+                ("Archivos Unknown", "*.unk"),
+                ("Todos", "*.*")
+            ]
+        )
+        if not file_path:
+            return
+        
+        try:
+            with open(file_path, 'rb') as f:
+                face_data = f.read()
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo leer el archivo:\n{e}")
+            return
+        
+        # Validar firma
+        if face_data[:4] not in (b'pMdl', b'pMdF'):
+            messagebox.showerror(
+                "Error",
+                "El archivo no tiene una firma válida pMdl/pMdF.\n"
+                "Asegúrate de seleccionar un archivo PMDL o PMDF correcto."
+            )
+            return
+        
+        if self.analyzer.insert_face_data(slot_name, bytearray(face_data)):
+            messagebox.showinfo(
+                "Éxito",
+                f"PMDF importado en slot '{slot_name}'.\n\n"
+                "Recuerda guardar el parche para aplicar los cambios."
+            )
+            # Refrescar dropdown de slots
+            self._refresh_pmdf_dropdown()
+            # Refrescar botón "Abrir PMDF en el Editor" y seleccionar la cara recién importada
+            if hasattr(self, 'faces_frame'):
+                self._detect_and_show_extra_faces()
+                if hasattr(self, 'face_dropdown'):
+                    # Seleccionar la cara que se acaba de importar si existe en la lista
+                    current_values = self.face_dropdown.cget("values")
+                    if slot_name in current_values:
+                        self.face_dropdown.set(slot_name)
+        else:
+            messagebox.showerror("Error", f"No se pudo insertar el PMDF en el slot '{slot_name}'")
+
+    def delete_pmdf_dialog(self):
+        """Elimina el PMDF del slot seleccionado, dejándolo vacío."""
+        if not self.analyzer.file_data:
+            messagebox.showwarning("Advertencia", "Primero carga un personaje")
+            return
+        
+        selected_label = self.pmdf_slot_dropdown.get()
+        slot_name = selected_label.split(" (")[0]
+        
+        if not messagebox.askyesno(
+            "Confirmar eliminación",
+            f"¿Eliminar el PMDF del slot '{slot_name}'?\n\n"
+            "El slot quedará vacío. Esta acción no se puede deshacer\n"
+            "hasta que guardes el parche."
+        ):
+            return
+        
+        if self.analyzer.delete_face_data(slot_name):
+            messagebox.showinfo("Éxito", f"PMDF eliminado del slot '{slot_name}'.\n\nRecuerda guardar el parche.")
+            # Refrescar dropdown de slots y botón de abrir en editor
+            self._refresh_pmdf_dropdown()
+            if hasattr(self, 'faces_frame'):
+                self._detect_and_show_extra_faces()
+        else:
+            messagebox.showerror("Error", f"No se pudo eliminar el PMDF del slot '{slot_name}'")
+
     def get_analyzer(self):
         """Retorna el analizador de personajes."""
         return self.analyzer

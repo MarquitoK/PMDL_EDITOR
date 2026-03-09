@@ -8,7 +8,8 @@ class PartsTable(ctk.CTkScrollableFrame):
     """Tabla editable para el PMDL principal."""
     
     def __init__(self, master, on_depth_change: Callable, on_opacity_change: Callable,
-                 on_flag_change: Callable, on_export_part: Callable, on_delete_part: Callable):
+                 on_flag_change: Callable, on_export_part: Callable, on_delete_part: Callable,
+                 on_close_pmdl: Callable = None):
         super().__init__(master, corner_radius=8)
         
         self.on_depth_change = on_depth_change
@@ -16,6 +17,7 @@ class PartsTable(ctk.CTkScrollableFrame):
         self.on_flag_change = on_flag_change
         self.on_export_part = on_export_part
         self.on_delete_part = on_delete_part
+        self.on_close_pmdl = on_close_pmdl
         
         # Estado UI
         self._rows_widgets = []
@@ -298,18 +300,18 @@ class PartsTable(ctk.CTkScrollableFrame):
         """Callback para cerrar el PMDL."""
         from tkinter import messagebox
         if messagebox.askyesno("Cerrar PMDL", "¿Estás seguro de que deseas cerrar el PMDL principal?\nSe perderán todos los cambios no guardados."):
-            # Llamar al método del controlador para limpiar todo
-            if hasattr(self.master, 'master') and hasattr(self.master.master, 'on_close_pmdl_main'):
-                self.master.master.on_close_pmdl_main()
+            if callable(self.on_close_pmdl):
+                self.on_close_pmdl()
 
 
 class SecondaryPartsTable(ctk.CTkScrollableFrame):
     """Tabla de solo lectura para PMDL secundario."""
     
-    def __init__(self, master, on_add_part: Callable):
+    def __init__(self, master, on_add_part: Callable, on_close_pmdl: Callable = None):
         super().__init__(master, corner_radius=8)
         
         self.on_add_part = on_add_part
+        self.on_close_pmdl = on_close_pmdl
         
         # Referencias a controles
         self._controls_frame = None
@@ -450,6 +452,5 @@ class SecondaryPartsTable(ctk.CTkScrollableFrame):
         """Callback para cerrar el PMDL secundario."""
         from tkinter import messagebox
         if messagebox.askyesno("Cerrar PMDL Secundario", "¿Estás seguro de que deseas cerrar el PMDL secundario?"):
-            # Llamar al método del controlador para limpiar todo
-            if hasattr(self.master, 'master') and hasattr(self.master.master, 'on_close_pmdl_secondary'):
-                self.master.master.on_close_pmdl_secondary()
+            if callable(self.on_close_pmdl):
+                self.on_close_pmdl()

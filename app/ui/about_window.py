@@ -2,6 +2,8 @@ import tkinter as tk
 import customtkinter as ctk
 import webbrowser
 
+from app.utils.icon import set_app_icon
+
 
 class AboutWindow(ctk.CTkToplevel):
     
@@ -12,14 +14,12 @@ class AboutWindow(ctk.CTkToplevel):
         self.geometry("550x520")
         self.resizable(False, False)
         
-        # Centrar ventana
+        set_app_icon(self)
         self._center_window()
         
-        # Frame scrolleable principal
         scroll_frame = ctk.CTkScrollableFrame(self, corner_radius=0)
         scroll_frame.pack(fill="both", expand=True, padx=15, pady=15)
         
-        # Título
         title_label = ctk.CTkLabel(
             scroll_frame,
             text="PMDL Editor",
@@ -27,7 +27,6 @@ class AboutWindow(ctk.CTkToplevel):
         )
         title_label.pack(pady=(5, 3))
         
-        # Versión
         version_label = ctk.CTkLabel(
             scroll_frame,
             text="Versión 1.4.2",
@@ -36,7 +35,6 @@ class AboutWindow(ctk.CTkToplevel):
         )
         version_label.pack(pady=(0, 15))
         
-        # Descripción
         desc_frame = ctk.CTkFrame(scroll_frame, corner_radius=8)
         desc_frame.pack(fill="x", padx=5, pady=(0, 15))
         
@@ -59,7 +57,6 @@ class AboutWindow(ctk.CTkToplevel):
         )
         desc_label.pack(padx=15, pady=15)
         
-        # Enlaces
         links_frame = ctk.CTkFrame(scroll_frame, corner_radius=8)
         links_frame.pack(fill="x", padx=5, pady=(0, 12))
         
@@ -86,7 +83,6 @@ class AboutWindow(ctk.CTkToplevel):
         )
         youtube_btn.pack(side="left", padx=4)
         
-        # Contribución
         contrib_frame = ctk.CTkFrame(scroll_frame, corner_radius=8)
         contrib_frame.pack(fill="x", padx=5, pady=(0, 12))
         
@@ -115,7 +111,6 @@ class AboutWindow(ctk.CTkToplevel):
         )
         kasto_btn.pack(pady=(0, 12))
         
-        # Agradecimientos
         thanks_frame = ctk.CTkFrame(scroll_frame, corner_radius=8)
         thanks_frame.pack(fill="x", padx=5, pady=(0, 10))
         
@@ -144,7 +139,6 @@ class AboutWindow(ctk.CTkToplevel):
         )
         migeru_btn.pack(pady=(0, 12))
         
-        # Hacer modal
         self.transient(parent)
         self.grab_set()
         self.focus_set()
@@ -158,5 +152,4 @@ class AboutWindow(ctk.CTkToplevel):
         self.geometry(f"{width}x{height}+{x}+{y}")
     
     def _open_url(self, url: str):
-        """Abre una URL en el navegador."""
         webbrowser.open(url)

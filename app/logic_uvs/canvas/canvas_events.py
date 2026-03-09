@@ -42,7 +42,7 @@ class UVCanvasEvents:
                     point_found = True
                     break
             if not point_found:
-                self._start_box_select(event)
+                self._start_box_select(event, additive=shift)
         
         elif self.selection_mode == 'face':
             face_found = False
@@ -52,7 +52,7 @@ class UVCanvasEvents:
                     face_found = True
                     break
             if not face_found:
-                self._start_box_select(event)
+                self._start_box_select(event, additive=shift)
         
         elif self.selection_mode == 'island':
             point_found = False
@@ -62,11 +62,12 @@ class UVCanvasEvents:
                     point_found = True
                     break
             if not point_found:
-                self._start_box_select(event)
+                self._start_box_select(event, additive=shift)
 
-    def _start_box_select(self, event):
+    def _start_box_select(self, event, additive=False):
         """Inicia la selección por caja"""
-        self._deselect_all()
+        if not additive:
+            self._deselect_all()
         self.is_selecting      = True
         # Usar coordenadas del canvas
         self.selection_start_x = self.canvasx(event.x)
@@ -256,13 +257,13 @@ class UVCanvasEvents:
                 self._select_all_points()
             return
 
-        if key == '1':
+        if key in ('1', 'kp_1') or char == '1':
             self._set_selection_mode('vertex')
             return
-        if key == '2':
+        if key in ('2', 'kp_2') or char == '2':
             self._set_selection_mode('island')
             return
-        if key == '3':
+        if key in ('3', 'kp_3') or char == '3':
             self._set_selection_mode('face')
             return
 
