@@ -11,7 +11,6 @@ from .mesh_processor import merge_vertices_by_distance
 from .gl_viewport import GLViewport
 from app.logic_uvs.canvas import UVCanvas
 from app.logic_uvs.parser import PmdlParser
-from app.utils.icon import set_app_icon
 
 ESCALA: float =  0.00051875
 
@@ -21,8 +20,6 @@ class PMDLViewerApp(ctk.CTkToplevel):
         
         self.title("Vista 3D - PMDL Viewer" + (" (Secundario)" if is_secondary else ""))
         self.geometry("1280x720")
-        
-        set_app_icon(self)
         
         self.pmdl_data = None
         self.escala = ESCALA
@@ -573,16 +570,18 @@ class PMDLViewerApp(ctk.CTkToplevel):
                     triangulo = [i, i + 1, i + 2]
                 else:
                     triangulo = [i, i + 2, i + 1]
-                triangulos_subparte.append(triangulo)
+                a, b, c = triangulo
+                if a != b and b != c and a != c:
+                    triangulos_subparte.append(triangulo)
             
             if len(vertices_subparte) > 0:
                 vertices_merged, uvs_merged, triangulos_merged = merge_vertices_by_distance(
                     vertices_subparte, uvs_subparte, triangulos_subparte, threshold=0.0001
                 )
                 data = {
-                    'vertices': np.array(vertices_merged),
+                    'vertices': np.array(vertices_merged, dtype=np.float32),
                     'triangulos': triangulos_merged,
-                    'uvs': np.array(uvs_merged),
+                    'uvs': np.array(uvs_merged, dtype=np.float32),
                     'color': color,
                     'opacidad': opacidad
                 }
