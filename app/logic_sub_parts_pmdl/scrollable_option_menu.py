@@ -12,7 +12,7 @@ class ScrollableOptionMenu(ctk.CTkFrame):
 
         self.button = ctk.CTkButton(
             self,
-            text="Select",
+            text="Selec",
             width=width,
             command=self._open_menu
         )

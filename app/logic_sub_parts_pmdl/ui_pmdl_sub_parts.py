@@ -20,7 +20,7 @@ from app.utils.thickness_normalizer import normalizar_pmdl_completo, preparar_pa
     normalizar_subparte
 from app.utils.ui_error_window import error_window_ui
 
-APP_TITLE = "Pmdl Editor - SubParts"
+APP_TITLE = "Pmdl Editor - SubPartes"
 UI_FONT = ("Segoe UI", 12)
 GRID_FONT = ("Consolas", 15)
 SEL_COLOR = "#1F538D"
@@ -921,7 +921,7 @@ class MultiSelectTable(ctk.CTkFrame):
         self.path_name = os.path.basename(path) if path else "--"
 
         ui = self.master.master # clase UiSubparts
-        ui.label_name_part.configure(text=f"Pmdl: {self.path_name}")
+        ui.label_name_part.configure(text=f"Pmdl {self.path + 1}: {self.path_name}")
         ui.label_name_subpart.configure(text=f"SubParte: {row_idx:02}")
         # ui.tooltip_label_namepart.change_text(path)
 
@@ -929,6 +929,8 @@ class MultiSelectTable(ctk.CTkFrame):
             ui._index_opt_left if self.path == 0 else ui._index_opt_right
         ][row_idx]
 
+        ui.opt_huesos.set("04")
+        ui.on_huesos_changed("04")
 
         for i, e in enumerate(ui.entry_huesos):
             e.delete(0, "end")
@@ -1191,6 +1193,10 @@ class UiSubparts(ctk.CTkToplevel):
 
     def get_data_subpart(self, pmdl=0):
         parts_ids = len(self.master._parts if pmdl == 0 else self.master._parts2)
+        if pmdl == 1 and parts_ids == 0:
+            self.opt_right.button.configure(state="disabled")
+            return
+
         if parts_ids == 0:
             return
 
