@@ -20,10 +20,6 @@ _FONT_SMALL  = ("Segoe UI", 11)
 
 
 class NormalizadorWindow(ctk.CTkToplevel):
-    """
-    Sub-herramienta para normalizar el grosor de un PMDL.
-    Puede recibir el PMDL heredado del editor principal o abrir uno externo.
-    """
 
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
@@ -35,9 +31,9 @@ class NormalizadorWindow(ctk.CTkToplevel):
         set_app_icon(self)
 
         # Estado interno
-        self._blob: bytearray | None = None   # datos en memoria
+        self._blob: bytearray | None = None
         self._path: str | None = None          # ruta del archivo (solo si es externo)
-        self._is_inherited = False             # True = viene del editor principal
+        self._is_inherited = False             # True = viene del editor
         self._display_name = ""
 
         self._build_ui()
@@ -45,10 +41,7 @@ class NormalizadorWindow(ctk.CTkToplevel):
         # Intentar heredar el PMDL del editor principal
         self._try_inherit_from_master()
 
-    # ─────────────────────────────────────────────
     # UI
-    # ─────────────────────────────────────────────
-
     def _build_ui(self):
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
@@ -115,12 +108,8 @@ class NormalizadorWindow(ctk.CTkToplevel):
             hover_color=("#388E3C", "#2E7D32"),
             command=self._on_guardar,
         )
-        # No se hace grid todavía; se muestra solo cuando corresponde
 
-    # ─────────────────────────────────────────────
     # HERENCIA DEL EDITOR PRINCIPAL
-    # ─────────────────────────────────────────────
-
     def _try_inherit_from_master(self):
         app = self.master
         if not hasattr(app, "_blob") or not app._blob:
@@ -140,10 +129,7 @@ class NormalizadorWindow(ctk.CTkToplevel):
 
         self._refresh_ui()
 
-    # ─────────────────────────────────────────────
     # ACCIONES
-    # ─────────────────────────────────────────────
-
     def _on_open_pmdl(self):
         path = filedialog.askopenfilename(
             title="Abrir PMDL",
@@ -178,7 +164,6 @@ class NormalizadorWindow(ctk.CTkToplevel):
             messagebox.showerror("Error", f"No se pudo normalizar:\n{e}", parent=self)
             return
 
-        # Si es heredado, propagar al editor principal
         if self._is_inherited:
             self._push_to_master()
 
@@ -205,10 +190,7 @@ class NormalizadorWindow(ctk.CTkToplevel):
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo guardar:\n{e}", parent=self)
 
-    # ─────────────────────────────────────────────
     # HELPERS
-    # ─────────────────────────────────────────────
-
     def _is_normalizado(self) -> bool:
         if not self._blob:
             return False
@@ -258,7 +240,7 @@ class NormalizadorWindow(ctk.CTkToplevel):
             )
             self.btn_normalizar.configure(state="normal")
 
-        # Botón guardar: solo si es externo (no heredado)
+        # Botón guardar
         if not self._is_inherited and self._path:
             self.btn_guardar.grid(row=4, column=0, padx=24, pady=(0, 20), sticky="ew")
             self.geometry("340x320")
