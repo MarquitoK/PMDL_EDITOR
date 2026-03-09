@@ -16,6 +16,7 @@ from app.logic_sub_parts_pmdl.operations import calc_subpart_size, export_sub_pa
 from app.logic_sub_parts_pmdl.ui_edit_vertex import VertexEditor
 from app.ui import ToolTip
 from app.utils import center_window
+from app.utils.icon import set_app_icon
 from app.utils.thickness_normalizer import normalizar_pmdl_completo, preparar_parte_externa_para_insercion, leer_grosor, \
     normalizar_subparte
 from app.utils.ui_error_window import error_window_ui
@@ -957,6 +958,7 @@ class UiSubparts(ctk.CTkToplevel):
         self.title(APP_TITLE)
         self.geometry("1200x600")
         center_window(self, 1200, 600)
+        set_app_icon(self)
 
         # self.protocol("WM_DELETE_WINDOW", self._disable_close)
 

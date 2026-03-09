@@ -13,8 +13,10 @@ class CharacterEditorUI(ctk.CTkToplevel):
         
         self.parent = parent
         self.is_secondary = is_secondary
-        self.from_patch = from_patch          # True = abierto con Ctrl+P (modo limitado)
+        self.from_patch = from_patch
         self.on_open_in_editor_callback = on_open_in_editor_callback
+        # Modo limitado: solo muestra botones de abrir en editor + exportar textura
+        self._limited_mode = is_secondary or from_patch
         
         # Importar después de crear la ventana
         from app.logic_patch import CharacterAnalyzer
@@ -41,34 +43,32 @@ class CharacterEditorUI(ctk.CTkToplevel):
         self.setup_ui()
     
     def setup_ui(self):
-        """Configura la interfaz."""
-        # Configurar grid
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
-        
-        # Frame principal
+
         main_frame = ctk.CTkFrame(self, corner_radius=0)
         main_frame.grid(row=0, column=0, sticky="nsew")
         main_frame.grid_rowconfigure(2, weight=1)
         main_frame.grid_columnconfigure(0, weight=1)
-        
-        # ===== BOTÓN DE CARGA =====
+
         load_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         load_frame.grid(row=1, column=0, sticky="ew", padx=30, pady=(0, 10))
-        
-        self.load_btn = ctk.CTkButton(
-            load_frame,
-            text="Abrir Personaje",
-            command=self.load_character,
-            height=40,
-            font=("Segoe UI", 14, "bold"),
-            corner_radius=8,
-            fg_color=("#2196F3", "#1976D2"),
-            hover_color=("#1976D2", "#1565C0")
-        )
-        self.load_btn.pack(fill="x")
-        
-        # ===== BOTÓN ABRIR PMDL EN EDITOR =====
+
+        # "Abrir Personaje" solo en modo completo
+        if not self._limited_mode:
+            self.load_btn = ctk.CTkButton(
+                load_frame,
+                text="Abrir Personaje",
+                command=self.load_character,
+                height=40,
+                font=("Segoe UI", 14, "bold"),
+                corner_radius=8,
+                fg_color=("#2196F3", "#1976D2"),
+                hover_color=("#1976D2", "#1565C0")
+            )
+            self.load_btn.pack(fill="x")
+
+        # "Abrir PMDL en el Editor" siempre que haya callback
         if self.on_open_in_editor_callback:
             self.open_in_editor_btn = ctk.CTkButton(
                 load_frame,
@@ -81,12 +81,11 @@ class CharacterEditorUI(ctk.CTkToplevel):
                 fg_color=("#FF9800", "#F57C00"),
                 hover_color=("#F57C00", "#E65100")
             )
-            self.open_in_editor_btn.pack(fill="x", pady=(10, 0))
-            
-            # ===== BOTÓN Y DROPDOWN PARA CARAS EXTRA (PMDFS) =====
+            top_pad = 0 if self._limited_mode else 10
+            self.open_in_editor_btn.pack(fill="x", pady=(top_pad, 0))
+
             self.faces_frame = ctk.CTkFrame(load_frame, fg_color="transparent")
-            # No se muestra hasta que se detecten caras
-            
+
             self.open_face_btn = ctk.CTkButton(
                 self.faces_frame,
                 text="Abrir PMDF en el Editor",
@@ -98,7 +97,7 @@ class CharacterEditorUI(ctk.CTkToplevel):
                 hover_color=("#7B1FA2", "#6A1B9A")
             )
             self.open_face_btn.pack(side="left", fill="both", expand=True, padx=(0, 8))
-            
+
             self.face_dropdown = ctk.CTkOptionMenu(
                 self.faces_frame,
                 values=["Cara de daño"],
@@ -110,24 +109,22 @@ class CharacterEditorUI(ctk.CTkToplevel):
                 button_hover_color=("#4527A0", "#311B92")
             )
             self.face_dropdown.pack(side="right", padx=0)
-        
-        # ===== ÁREA DE TEXTURA =====
+
+        # Área de textura
         texture_container = ctk.CTkFrame(main_frame, corner_radius=12)
         texture_container.grid(row=2, column=0, sticky="nsew", padx=30, pady=(10, 20))
         texture_container.grid_rowconfigure(1, weight=1)
         texture_container.grid_columnconfigure(0, weight=1)
-        
-        # Header de textura
+
         tex_header = ctk.CTkFrame(texture_container, fg_color="transparent", height=40)
         tex_header.grid(row=0, column=0, sticky="ew", padx=15, pady=(15, 5))
-        
-        tex_title = ctk.CTkLabel(
+
+        ctk.CTkLabel(
             tex_header,
             text="Textura del Personaje",
             font=("Segoe UI", 11, "bold")
-        )
-        tex_title.pack(side="left")
-        
+        ).pack(side="left")
+
         self.texture_info_label = ctk.CTkLabel(
             tex_header,
             text="",
@@ -135,14 +132,12 @@ class CharacterEditorUI(ctk.CTkToplevel):
             text_color=("gray50", "gray50")
         )
         self.texture_info_label.pack(side="right")
-        
-        # Frame para la imagen
+
         self.texture_frame = ctk.CTkFrame(texture_container, fg_color="transparent")
         self.texture_frame.grid(row=1, column=0, sticky="nsew", padx=15, pady=(5, 15))
         self.texture_frame.grid_rowconfigure(0, weight=1)
         self.texture_frame.grid_columnconfigure(0, weight=1)
-        
-        # Label para mostrar textura
+
         self.texture_label = ctk.CTkLabel(
             self.texture_frame,
             text="No hay textura cargada\n\nCarga un personaje para comenzar",
@@ -150,8 +145,8 @@ class CharacterEditorUI(ctk.CTkToplevel):
             text_color=("gray50", "gray50")
         )
         self.texture_label.grid(row=0, column=0)
-        
-        # Menú contextual para la textura
+
+        # Menú contextual: modo limitado solo exportar, modo completo todo
         self.texture_menu = Menu(self, tearoff=0)
         self.texture_menu.add_command(
             label="📤 Exportar Textura (PNG)",
@@ -161,8 +156,7 @@ class CharacterEditorUI(ctk.CTkToplevel):
             label="📤 Exportar Textura (RAW)",
             command=self.export_texture_raw_dialog
         )
-        
-        if not self.is_secondary:
+        if not self._limited_mode:
             self.texture_menu.add_command(
                 label="📥 Importar Textura (PNG)",
                 command=self.import_texture_dialog
@@ -171,11 +165,11 @@ class CharacterEditorUI(ctk.CTkToplevel):
                 label="📥 Importar Textura (RAW)",
                 command=self.import_texture_raw_dialog
             )
-        
+
         self.texture_label.bind("<Button-3>", self.show_texture_menu)
-        
-        # ===== SECCIÓN IMPORTAR PMDF (solo en modo Ctrl+R, no desde parche) =====
-        if not self.is_secondary and not self.from_patch:
+
+        # Sección PMDF y botones de acción: solo en modo completo
+        if not self._limited_mode:
             pmdf_container = ctk.CTkFrame(main_frame, corner_radius=10)
             pmdf_container.grid(row=3, column=0, sticky="ew", padx=30, pady=(0, 10))
             pmdf_container.grid_columnconfigure(0, weight=1)
@@ -234,12 +228,10 @@ class CharacterEditorUI(ctk.CTkToplevel):
             )
             self.delete_pmdf_btn.grid(row=0, column=2, sticky="e")
 
-        # ===== BOTONES DE ACCIÓN =====
-        if not self.is_secondary:
             actions_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
             actions_frame.grid(row=4, column=0, sticky="ew", padx=30, pady=(0, 30))
             actions_frame.grid_columnconfigure((0, 1, 2, 3), weight=1)
-            
+
             self.export_pmdl_btn = ctk.CTkButton(
                 actions_frame,
                 text="📤 Exportar pMdl",
@@ -252,7 +244,7 @@ class CharacterEditorUI(ctk.CTkToplevel):
                 hover_color=("#616161", "#424242")
             )
             self.export_pmdl_btn.grid(row=0, column=0, padx=4, sticky="ew")
-            
+
             self.import_pmdl_btn = ctk.CTkButton(
                 actions_frame,
                 text="📥 Importar pMdl",
@@ -265,7 +257,7 @@ class CharacterEditorUI(ctk.CTkToplevel):
                 hover_color=("#616161", "#424242")
             )
             self.import_pmdl_btn.grid(row=0, column=1, padx=4, sticky="ew")
-            
+
             self.save_btn = ctk.CTkButton(
                 actions_frame,
                 text="💾 Guardar",
@@ -278,7 +270,7 @@ class CharacterEditorUI(ctk.CTkToplevel):
                 hover_color=("#388E3C", "#2E7D32")
             )
             self.save_btn.grid(row=0, column=2, padx=4, sticky="ew")
-            
+
             self.save_as_btn = ctk.CTkButton(
                 actions_frame,
                 text="💾 Guardar Como",
@@ -325,29 +317,26 @@ class CharacterEditorUI(ctk.CTkToplevel):
         return False
     
     def display_texture(self):
-        """Muestra la textura del personaje."""
         img = self.analyzer.generate_texture_image()
         if img:
             orig_w, orig_h = img.width, img.height
-            
-            # Tamaño de visualización fijo: 280px de lado (cabe bien con o sin panel PMDF)
-            display_size = 280
+
+            # Modo limitado: imagen 40% más grande (392px vs 280px)
+            display_size = 392 if self._limited_mode else 280
             scale = min(display_size / img.width, display_size / img.height)
             new_w = max(1, int(img.width * scale))
             new_h = max(1, int(img.height * scale))
             img = img.resize((new_w, new_h), Image.Resampling.NEAREST)
-            
-            # Convertir a CTkImage
+
             self.current_ctk_image = ctk.CTkImage(
                 light_image=img,
                 dark_image=img,
                 size=(new_w, new_h)
             )
-            
+
             self.texture_label.configure(image=self.current_ctk_image, text="")
             self.texture_image = img
-            
-            # Mostrar dimensiones ORIGINALES del archivo, no las del display
+
             if self.analyzer.texture_info:
                 size_kb = self.analyzer.texture_info['size'] / 1024
                 self.texture_info_label.configure(
@@ -355,23 +344,20 @@ class CharacterEditorUI(ctk.CTkToplevel):
                 )
         else:
             self.texture_label.configure(image="", text="Error al cargar textura")
-    
+
     def enable_buttons(self):
-        """Habilita los botones después de cargar un personaje."""
         if hasattr(self, 'open_in_editor_btn'):
             self.open_in_editor_btn.configure(state="normal")
-        
-        # Detectar y mostrar caras extra
+
         if hasattr(self, 'on_open_in_editor_callback') and self.on_open_in_editor_callback:
             self._detect_and_show_extra_faces()
-        
-        if not self.is_secondary:
+
+        if not self._limited_mode:
             self.export_pmdl_btn.configure(state="normal")
             self.import_pmdl_btn.configure(state="normal")
             self.save_btn.configure(state="normal")
             self.save_as_btn.configure(state="normal")
-        
-        # Actualizar dropdown de slots PMDF (solo visible si not from_patch)
+
         if hasattr(self, 'pmdf_slot_dropdown'):
             self._refresh_pmdf_dropdown()
     
