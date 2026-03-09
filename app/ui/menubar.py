@@ -108,43 +108,65 @@ class Menu(ctk.CTkFrame):
                 sep = ctk.CTkFrame(container, height=1, fg_color=("gray70", "gray30"))
                 sep.pack(fill="x", padx=4, pady=2)
             else:
-                # Crear frame para comando con label y accelerator
-                cmd_frame = ctk.CTkFrame(container, fg_color="transparent")
-                cmd_frame.pack(fill="x", padx=0, pady=0)
-                
-                # Texto del comando
-                cmd_text = item["label"]
                 accelerator = item.get("accelerator", "")
-                
+                cmd_text    = item["label"]
+
+                # Frame de fila con grid para alinear label y shortcut
+                cmd_frame = ctk.CTkFrame(container, fg_color="transparent", corner_radius=3)
+                cmd_frame.pack(fill="x", padx=3, pady=1)
+                cmd_frame.grid_columnconfigure(0, weight=1)
+                cmd_frame.grid_columnconfigure(1, weight=0)
+
+                def _make_hover(frame, lbl, acc_lbl=None):
+                    hover = ctk.ThemeManager.theme["CTkButton"]["hover_color"]
+                    if isinstance(hover, list):
+                        hover_dark  = hover[1]
+                        hover_light = hover[0]
+                    else:
+                        hover_dark = hover_light = hover
+
+                    def on_enter(e):
+                        mode = ctk.get_appearance_mode()
+                        c = hover_dark if mode == "Dark" else hover_light
+                        frame.configure(fg_color=c)
+                    def on_leave(e):
+                        frame.configure(fg_color="transparent")
+
+                    frame.bind("<Enter>", on_enter)
+                    frame.bind("<Leave>", on_leave)
+                    lbl.bind("<Enter>", on_enter)
+                    lbl.bind("<Leave>", on_leave)
+                    if acc_lbl:
+                        acc_lbl.bind("<Enter>", on_enter)
+                        acc_lbl.bind("<Leave>", on_leave)
+
+                lbl = ctk.CTkLabel(
+                    cmd_frame,
+                    text=f"  {cmd_text}",
+                    font=("Segoe UI", 11),
+                    anchor="w",
+                    height=28,
+                )
+                lbl.grid(row=0, column=0, sticky="ew")
+
+                acc_lbl = None
                 if accelerator:
-                    # Botón con label y shortcut
-                    btn = ctk.CTkButton(
+                    acc_lbl = ctk.CTkLabel(
                         cmd_frame,
-                        text=f"{cmd_text:<25} {accelerator:>15}",
-                        width=180,
+                        text=f"{accelerator}  ",
+                        font=("Segoe UI", 10),
+                        anchor="e",
                         height=28,
-                        corner_radius=3,
-                        font=("Segoe UI", 11),
-                        fg_color="transparent",
-                        hover_color=("gray75", "gray25"),
-                        anchor="w",
-                        command=lambda cmd=item["command"]: self._execute_command(cmd)
+                        text_color=("gray50", "gray55"),
                     )
-                else:
-                    # Botón sin shortcut
-                    btn = ctk.CTkButton(
-                        cmd_frame,
-                        text=cmd_text,
-                        width=180,
-                        height=28,
-                        corner_radius=3,
-                        font=("Segoe UI", 11),
-                        fg_color="transparent",
-                        hover_color=("gray75", "gray25"),
-                        anchor="w",
-                        command=lambda cmd=item["command"]: self._execute_command(cmd)
-                    )
-                btn.pack(fill="x", padx=3, pady=1)
+                    acc_lbl.grid(row=0, column=1, sticky="e")
+
+                _make_hover(cmd_frame, lbl, acc_lbl)
+
+                # Clic en el frame o en cualquier label ejecuta el comando
+                _cmd = item["command"]
+                for widget in [cmd_frame, lbl] + ([acc_lbl] if acc_lbl else []):
+                    widget.bind("<Button-1>", lambda e, c=_cmd: self._execute_command(c))
         
         # Bind para cerrar al hacer clic fuera
         self.dropdown.bind("<FocusOut>", lambda e: self._close_dropdown())
