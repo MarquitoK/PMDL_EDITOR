@@ -65,17 +65,19 @@ class UVCanvasBase(Canvas):
         self.redo_stack = []
         self.max_undo   = 50
 
-        # Posición actual del mouse
         self._mouse_x = 0
         self._mouse_y = 0
 
-        # Modo de selección
         self.selection_mode = 'vertex'
-        
-        # Referencia al label de coordenadas
         self.coord_label = None
-        
-        # UI de modos de selección en canvas
+
+        # throttle de zoom
+        self._zoom_pending   = False
+        self._zoom_after_id  = None
+        # caché de textura: evita PIL resize si render_size no cambió
+        self._texture_cache_size  = None
+        self._texture_cache_photo = None
+
         self._create_mode_ui()
 
     # helpers
@@ -88,7 +90,10 @@ class UVCanvasBase(Canvas):
         h = self.winfo_height()
         if w <= 1: w = 512
         if h <= 1: h = 512
-        return (min(w, h) / 256.0) * self.zoom_level
+        base   = min(w, h)
+        logical = base * self.zoom_level
+        capped  = min(logical, 4096)
+        return (capped / 256.0)
 
     def _uv_to_screen(self, uv_x, uv_y):
         s = self._get_scale()
@@ -103,10 +108,19 @@ class UVCanvasBase(Canvas):
         new_zoom = self.zoom_level + step
         if new_zoom < 0.25 or new_zoom > 16.0:
             return
-        factor       = new_zoom / self.zoom_level
-        self.pan_x   = event.x - (event.x - self.pan_x) * factor
-        self.pan_y   = event.y - (event.y - self.pan_y) * factor
+        factor          = new_zoom / self.zoom_level
+        self.pan_x      = event.x - (event.x - self.pan_x) * factor
+        self.pan_y      = event.y - (event.y - self.pan_y) * factor
         self.zoom_level = new_zoom
+        self._zoom_pending = True
+        if not getattr(self, '_zoom_after_id', None):
+            self._zoom_after_id = self.after(16, self._flush_zoom)
+
+    def _flush_zoom(self):
+        self._zoom_after_id = None
+        if not getattr(self, '_zoom_pending', False):
+            return
+        self._zoom_pending = False
         self._fast_redraw()
 
     def on_pan_start(self, event):
@@ -115,12 +129,19 @@ class UVCanvasBase(Canvas):
         self.pan_start_y = event.y
 
     def on_pan_drag(self, event):
-        if self.is_panning:
-            self.pan_x      += event.x - self.pan_start_x
-            self.pan_y      += event.y - self.pan_start_y
-            self.pan_start_x = event.x
-            self.pan_start_y = event.y
-            self._fast_redraw()
+        if not self.is_panning:
+            return
+        dx = event.x - self.pan_start_x
+        dy = event.y - self.pan_start_y
+        self.pan_x      += dx
+        self.pan_y      += dy
+        self.pan_start_x = event.x
+        self.pan_start_y = event.y
+        # Pan: mover todos los items del canvas juntos, sin tocar PIL
+        self.move("all", dx, dy)
+        self.delete("edge_grad")
+        if hasattr(self, '_refresh_colors'):
+            self._refresh_colors()
 
     def on_pan_release(self, event):
         self.is_panning = False

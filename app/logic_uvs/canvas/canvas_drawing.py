@@ -19,6 +19,8 @@ class UVCanvasDrawing:
             self.texture_image = Image.open(texture_path)
             self.texture_base = self.texture_image.convert("RGBA").resize(
                 (512, 512), Image.Resampling.NEAREST)
+            self._texture_cache_size  = None
+            self._texture_cache_photo = None
             self.redraw_texture()
             return True
         except Exception as e:
@@ -35,20 +37,24 @@ class UVCanvasDrawing:
 
         base_size    = min(w, h)
         logical_size = max(1, int(base_size * self.zoom_level))
-        render_size = min(logical_size, 4096)
+        render_size  = min(logical_size, 4096)
 
-        src = self.texture_base if self.texture_base else self.texture_image
-        img = src.resize((render_size, render_size), Image.Resampling.NEAREST)
-        self.texture_photo = ImageTk.PhotoImage(img)
+        # Caché solo cuando el render_size es exactamente igual — sin aproximaciones
+        if render_size != self._texture_cache_size or self._texture_cache_photo is None:
+            src = self.texture_base if self.texture_base else self.texture_image
+            img = src.resize((render_size, render_size), Image.Resampling.NEAREST)
+            self._texture_cache_photo = ImageTk.PhotoImage(img)
+            self._texture_cache_size  = render_size
+            self.texture_photo        = self._texture_cache_photo
 
         self.delete("texture")
         self.create_image(self.pan_x, self.pan_y, anchor="nw",
-                          image=self.texture_photo, tags="texture")
+                          image=self._texture_cache_photo, tags="texture")
         self.tag_lower("texture")
         self.tag_raise("mode_ui")
         self.config(scrollregion=(
             self.pan_x - w, self.pan_y - h,
-            self.pan_x + logical_size + w, self.pan_y + logical_size + h
+            self.pan_x + render_size + w, self.pan_y + render_size + h
         ))
 
     # dibujo de UVs
@@ -68,64 +74,38 @@ class UVCanvasDrawing:
         self.selected_points = []
 
     def _build_subpart(self, vertices, scale):
-        """Construye triángulos a partir de Triangle Strip"""
         if len(vertices) < 3:
             return
 
-        vertex_lines = {}
-        for i in range(len(vertices)):
-            vertex_lines[i] = []
+        vertex_lines = {i: [] for i in range(len(vertices))}
+        edges_created = set()
 
         for i in range(2, len(vertices)):
-            if i % 2 == 0:
-                a, b, c = i - 2, i - 1, i
-            else:
-                a, b, c = i - 1, i - 2, i
+            a, b, c = (i-2, i-1, i) if i % 2 == 0 else (i-1, i-2, i)
 
-            if a < 0 or b < 0 or c < 0:
-                continue
-            if a >= len(vertices) or b >= len(vertices) or c >= len(vertices):
-                continue
+            for vi, vj in ((a, b), (b, c), (c, a)):
+                key = (min(vi, vj), max(vi, vj))
+                if key in edges_created:
+                    continue
+                edges_created.add(key)
 
-            edges = [(a, b), (b, c), (c, a)]
-            for vi, vj in edges:
-                exists = False
-                for existing in vertex_lines.get(vi, []):
-                    if existing['other_idx'] == vj:
-                        exists = True
-                        break
-                if not exists:
-                    v1_x = vertices[vi]['x'] * scale + self.pan_x
-                    v1_y = vertices[vi]['y'] * scale + self.pan_y
-                    v2_x = vertices[vj]['x'] * scale + self.pan_x
-                    v2_y = vertices[vj]['y'] * scale + self.pan_y
-                    x1, y1 = v1_x, v1_y
-                    x2, y2 = v2_x, v2_y
+                x1 = vertices[vi]['x'] * scale + self.pan_x
+                y1 = vertices[vi]['y'] * scale + self.pan_y
+                x2 = vertices[vj]['x'] * scale + self.pan_x
+                y2 = vertices[vj]['y'] * scale + self.pan_y
 
-                    border = self.create_line(
-                        x1, y1, x2, y2,
-                        fill="#000000", width=EDGE_BORDER,
-                        tags=("uv_line_border", "uv_items")
-                    )
-                    line = self.create_line(
-                        x1, y1, x2, y2,
-                        fill=C_EDGE_NORMAL, width=EDGE_WIDTH,
-                        tags=("uv_line", "uv_items")
-                    )
-                    self.uv_lines.append(line)
-                    vertex_lines.setdefault(vi, []).append({
-                        'line': line, 'border': border,
-                        'is_start': True, 'other_idx': vj
-                    })
-                    vertex_lines.setdefault(vj, []).append({
-                        'line': line, 'border': border,
-                        'is_start': False, 'other_idx': vi
-                    })
+                border = self.create_line(x1, y1, x2, y2,
+                    fill="#000000", width=EDGE_BORDER,
+                    tags=("uv_line_border", "uv_items"))
+                line = self.create_line(x1, y1, x2, y2,
+                    fill=C_EDGE_NORMAL, width=EDGE_WIDTH,
+                    tags=("uv_line", "uv_items"))
+                self.uv_lines.append(line)
+                vertex_lines[vi].append({'line': line, 'border': border, 'is_start': True,  'other_idx': vj})
+                vertex_lines[vj].append({'line': line, 'border': border, 'is_start': False, 'other_idx': vi})
 
-            tri_a_idx = len(self.uv_data) + a
-            tri_b_idx = len(self.uv_data) + b
-            tri_c_idx = len(self.uv_data) + c
-            self.tri_data.append((tri_a_idx, tri_b_idx, tri_c_idx))
+            tri_base = len(self.uv_data)
+            self.tri_data.append((tri_base + a, tri_base + b, tri_base + c))
 
         for i, vertex in enumerate(vertices):
             x = vertex['x'] * scale + self.pan_x
@@ -134,8 +114,7 @@ class UVCanvasDrawing:
                 x - VERT_RADIUS, y - VERT_RADIUS,
                 x + VERT_RADIUS, y + VERT_RADIUS,
                 fill=C_VERT_NORMAL, outline=C_VERT_NORMAL,
-                width=1, tags=("uv_point", "uv_items")
-            )
+                width=1, tags=("uv_point", "uv_items"))
             self.uv_points.append(point)
             self.uv_data.append({
                 'point':         point,
@@ -144,7 +123,7 @@ class UVCanvasDrawing:
                 'original_y':    vertex['y'],
                 'lines':         vertex_lines.get(i, []),
                 'vertices_list': vertices,
-                'vertex_index':  i
+                'vertex_index':  i,
             })
 
     def _build_faces(self):
@@ -186,14 +165,16 @@ class UVCanvasDrawing:
 
     def draw_uvs(self, parts_data, selected_parts):
         self.delete("all")
-        self.uv_points   = []
-        self.uv_lines    = []
-        self.uv_faces    = []
-        self.face_items  = []
+        self.uv_points    = []
+        self.uv_lines     = []
+        self.uv_faces     = []
+        self.face_items   = []
         self.face_centers = []
-        self.uv_data     = []
-        self.tri_data    = []
-        self.selected_points = []
+        self.uv_data      = []
+        self.tri_data     = []
+        self.selected_points  = []
+        self._prev_sel_set    = set()
+        self._edge_grad_dirty = True
 
         self.redraw_texture()
         scale = self._get_scale()
@@ -210,29 +191,13 @@ class UVCanvasDrawing:
         self._build_edge_map()
         for p in self.uv_points:
             self.tag_raise(p)
-        
+
         self._create_mode_ui()
 
     def _reposition_all_uvs(self, old_scale, old_pan_x, old_pan_y):
-        """Reposiciona todos los items UV (OPTIMIZADO HÍBRIDO)"""
         scale = self._get_scale()
-        
-        # Calcular cambios
-        scale_changed = abs(scale - old_scale) > 0.001
-        delta_x = self.pan_x - old_pan_x
-        delta_y = self.pan_y - old_pan_y
-        pan_changed = abs(delta_x) > 0.1 or abs(delta_y) > 0.1
-        
         self.delete("edge_grad")
-        
-        # OPTIMIZACIÓN
-        if pan_changed and not scale_changed:
-            self.move("uv_items", delta_x, delta_y)
-            if hasattr(self, '_refresh_colors'):
-                self._refresh_colors()
-            return
-        
-        # Si hay zoom, recalcular coordenadas
+
         for d in self.uv_data:
             sx = d['vertex']['x'] * scale + self.pan_x
             sy = d['vertex']['y'] * scale + self.pan_y
@@ -240,7 +205,6 @@ class UVCanvasDrawing:
                         sx - VERT_RADIUS, sy - VERT_RADIUS,
                         sx + VERT_RADIUS, sy + VERT_RADIUS)
 
-        # Optimizar líneas
         drawn = set()
         for d in self.uv_data:
             for li in d['lines']:
@@ -258,7 +222,6 @@ class UVCanvasDrawing:
                 if 'border' in li:
                     self.coords(li['border'], x1, y1, x2, y2)
 
-        # Actualizar caras y centros
         for i, tri in enumerate(self.tri_data):
             ia, ib, ic = tri
             if ia >= len(self.uv_data) or ib >= len(self.uv_data) or ic >= len(self.uv_data):
@@ -270,18 +233,21 @@ class UVCanvasDrawing:
             yb = db['vertex']['y'] * scale + self.pan_y
             xc = dc['vertex']['x'] * scale + self.pan_x
             yc = dc['vertex']['y'] * scale + self.pan_y
-            
+
             fid = self.face_items[i] if i < len(self.face_items) else None
             if fid:
                 self.coords(fid, xa, ya, xb, yb, xc, yc)
-            
+
             fc = self.face_centers[i] if i < len(self.face_centers) else None
             if fc:
                 cx = (xa + xb + xc) / 3
                 cy = (ya + yb + yc) / 3
                 self.coords(fc,
-                           cx - VERT_RADIUS, cy - VERT_RADIUS,
-                           cx + VERT_RADIUS, cy + VERT_RADIUS)
+                            cx - VERT_RADIUS, cy - VERT_RADIUS,
+                            cx + VERT_RADIUS, cy + VERT_RADIUS)
+
+        if hasattr(self, '_refresh_colors'):
+            self._refresh_colors()
 
     def _update_point_and_lines(self, data, scale=None):
         """Reposiciona óvalo y edges durante G-mode"""

@@ -69,19 +69,41 @@ class UVCanvasSelection:
                     self._edge_map[lid][1] = d
 
     def _refresh_colors(self):
-        """Actualiza colores según selección y modo"""
-        sel_set = set(self.selected_points)
+        sel_set  = set(self.selected_points)
+        prev_set = getattr(self, '_prev_sel_set', set())
 
+        changed_points = sel_set.symmetric_difference(prev_set)
+        self._prev_sel_set = sel_set
+
+        if not changed_points and getattr(self, '_edge_grad_dirty', False) is False:
+            return
+
+        # Vértices que cambiaron
         for d in self.uv_data:
-            col = C_VERT_SEL if d['point'] in sel_set else C_VERT_NORMAL
-            self.itemconfig(d['point'], fill=col, outline=col)
+            if d['point'] in changed_points:
+                col = C_VERT_SEL if d['point'] in sel_set else C_VERT_NORMAL
+                self.itemconfig(d['point'], fill=col, outline=col)
 
+        # Edges adyacentes a los vértices que cambiaron
         self.delete("edge_grad")
-
+        self._edge_grad_dirty = False
         edge_map = getattr(self, '_edge_map', {})
-        
-        # Degradados normales para todos los modos
-        for lid, (ds, de) in edge_map.items():
+
+        if changed_points:
+            dirty_edges = set()
+            for d in self.uv_data:
+                if d['point'] in changed_points:
+                    for li in d['lines']:
+                        dirty_edges.add(li['line'])
+            edges_to_process = {lid: v for lid, v in edge_map.items() if lid in dirty_edges}
+            clean_edges      = {lid: v for lid, v in edge_map.items() if lid not in dirty_edges}
+            for lid in clean_edges:
+                pass  # ya están con el color correcto, no tocar
+        else:
+            edges_to_process = edge_map
+            dirty_edges = set()
+
+        for lid, (ds, de) in edges_to_process.items():
             if ds is None or de is None:
                 continue
             s_sel = ds['point'] in sel_set
@@ -93,19 +115,34 @@ class UVCanvasSelection:
                 if len(coords) == 4:
                     x1, y1, x2, y2 = coords
                     ox, oy, fx, fy = (x1, y1, x2, y2) if s_sel else (x2, y2, x1, y1)
-                    mx1, my1 = ox + (fx - ox) * 0.33, oy + (fy - oy) * 0.33
-                    mx2, my2 = ox + (fx - ox) * 0.66, oy + (fy - oy) * 0.66
+                    mx1, my1 = ox + (fx-ox)*0.33, oy + (fy-oy)*0.33
+                    mx2, my2 = ox + (fx-ox)*0.66, oy + (fy-oy)*0.66
                     self.itemconfig(lid, fill=C_EDGE_NORMAL)
-                    self.create_line(ox, oy, fx, fy, fill="#000000", width=EDGE_BORDER, tags=("edge_grad", "uv_items"))
-                    self.create_line(ox, oy, mx1, my1, fill=C_EDGE_SEL, width=EDGE_WIDTH, tags=("edge_grad", "uv_items"))
-                    self.create_line(mx1, my1, mx2, my2, fill=C_EDGE_HALF, width=EDGE_WIDTH, tags=("edge_grad", "uv_items"))
-                    self.create_line(mx2, my2, fx, fy, fill=C_EDGE_NORMAL, width=EDGE_WIDTH, tags=("edge_grad", "uv_items"))
+                    self.create_line(ox, oy, fx, fy, fill="#000000", width=EDGE_BORDER, tags=("edge_grad","uv_items"))
+                    self.create_line(ox, oy, mx1, my1, fill=C_EDGE_SEL,    width=EDGE_WIDTH, tags=("edge_grad","uv_items"))
+                    self.create_line(mx1,my1, mx2,my2, fill=C_EDGE_HALF,   width=EDGE_WIDTH, tags=("edge_grad","uv_items"))
+                    self.create_line(mx2,my2, fx, fy,  fill=C_EDGE_NORMAL, width=EDGE_WIDTH, tags=("edge_grad","uv_items"))
             else:
                 self.itemconfig(lid, fill=C_EDGE_NORMAL)
 
-        # Caras
-        for i, tri in enumerate(self.tri_data):
-            ia, ib, ic = tri
+        # Caras — solo las afectadas por changed_points
+        affected_tris = set()
+        if changed_points:
+            changed_data = {d['point'] for d in self.uv_data if d['point'] in changed_points}
+            for i, tri in enumerate(self.tri_data):
+                ia, ib, ic = tri
+                if (ia < len(self.uv_data) and
+                    (self.uv_data[ia]['point'] in changed_points or
+                     (ib < len(self.uv_data) and self.uv_data[ib]['point'] in changed_points) or
+                     (ic < len(self.uv_data) and self.uv_data[ic]['point'] in changed_points))):
+                    affected_tris.add(i)
+        else:
+            affected_tris = set(range(len(self.tri_data)))
+
+        for i in affected_tris:
+            if i >= len(self.tri_data):
+                continue
+            ia, ib, ic = self.tri_data[i]
             if ia >= len(self.uv_data) or ib >= len(self.uv_data) or ic >= len(self.uv_data):
                 continue
             all_sel = (self.uv_data[ia]['point'] in sel_set and
@@ -114,23 +151,17 @@ class UVCanvasSelection:
             fid = self.face_items[i] if i < len(self.face_items) else None
             if fid:
                 self.itemconfig(fid, state='normal' if all_sel else 'hidden')
-
-        for i, fc in enumerate(self.face_centers):
-            if not fc:
-                continue
-            if i < len(self.tri_data):
-                ia, ib, ic = self.tri_data[i]
-                if ia < len(self.uv_data) and ib < len(self.uv_data) and ic < len(self.uv_data):
-                    all_sel = (self.uv_data[ia]['point'] in sel_set and
-                              self.uv_data[ib]['point'] in sel_set and
-                              self.uv_data[ic]['point'] in sel_set)
-                    col = C_VERT_SEL if all_sel else C_VERT_NORMAL
-                    self.itemconfig(fc, fill=col, outline=col)
+            fc = self.face_centers[i] if i < len(self.face_centers) else None
+            if fc:
+                col = C_VERT_SEL if all_sel else C_VERT_NORMAL
+                self.itemconfig(fc, fill=col, outline=col)
 
         self.tag_raise("uv_point")
 
     def _deselect_all(self):
         self.selected_points.clear()
+        self._prev_sel_set = set()
+        self._edge_grad_dirty = True
         self.delete("edge_grad")
         self._refresh_colors()
         self._update_coord_label()
