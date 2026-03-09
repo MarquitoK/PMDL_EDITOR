@@ -52,6 +52,7 @@ class ScrollableOptionMenu(ctk.CTkFrame):
         win = ctk.CTkToplevel(self)
         win.title(self.name_window)
 
+        win.resizable(False, False)  # ← evita redimensionar
         width, height = 220, 300
 
         # 🔹 POSICIÓN DEL MOUSE (ABSOLUTA)
@@ -79,7 +80,7 @@ class ScrollableOptionMenu(ctk.CTkFrame):
             btn = ctk.CTkButton(
                 scroll,
                 text=value,
-                anchor="w",
+                anchor="center",
                 command=lambda v=value: self._select(v, win)
             )
             btn.pack(fill="x", padx=2, pady=1)

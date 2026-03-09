@@ -258,9 +258,9 @@ class MultiSelectTable(ctk.CTkFrame):
         )
 
         if self.path == 0:
-            menu.add_command(label="Importar Subpart", command=self._import_subparts)
-            menu.add_command(label="Insertar Subpart", command=self._insert_subparts)
-            menu.add_command(label="Delete Subpart", command=self._delete_subparts)
+            menu.add_command(label="Reemplazar Subparte", command=self._import_subparts)
+            menu.add_command(label="Insertar Subpartes", command=self._insert_subparts)
+            menu.add_command(label="Borrar Subpartes", command=self._delete_subparts)
         else:
             menu.add_command(label="Agregar selecciones", command=self._add_subparts)
 
@@ -922,22 +922,23 @@ class MultiSelectTable(ctk.CTkFrame):
 
         ui = self.master.master # clase UiSubparts
         ui.label_name_part.configure(text=f"Pmdl: {self.path_name}")
-        ui.label_name_subpart.configure(text=f"SubPart: {row_idx:02}")
+        ui.label_name_subpart.configure(text=f"SubParte: {row_idx:02}")
         # ui.tooltip_label_namepart.change_text(path)
 
         entry = self._get_subparts()[
             ui._index_opt_left if self.path == 0 else ui._index_opt_right
         ][row_idx]
 
-        ui.opt_huesos.set(f"{entry.num_bones:02}")
-        ui.on_huesos_changed(f"{entry.num_bones:02}")
 
         for i, e in enumerate(ui.entry_huesos):
             e.delete(0, "end")
-            e.insert(0, f"{entry.id_bones[i]:02}")
+            e.insert(0, f"{entry.id_bones[i]:02X}")
+
+        ui.opt_huesos.set(f"{entry.num_bones:02}")
+        ui.on_huesos_changed(f"{entry.num_bones:02}")
 
         ui.entry_unk.delete(0, "end")
-        ui.entry_unk.insert(0, str(entry.unk))
+        ui.entry_unk.insert(0, f"{entry.unk:X}")
 
         # desactivar/activar botones/entry
         ui.btn_save_part.configure(state="normal" if self.path == 0 else "disabled")
@@ -988,7 +989,7 @@ class UiSubparts(ctk.CTkToplevel):
 
         self.opt_left = ScrollableOptionMenu(
             self.left_container,
-            values=["Part 0 - Capa: -"],
+            values=["Parte 0"],
             width=160,
             command=self.on_left_option_changed,
             name_window=os.path.basename(self.master._path) if self.master._path else "--"
@@ -1029,7 +1030,7 @@ class UiSubparts(ctk.CTkToplevel):
 
         self.label_name_subpart = ctk.CTkLabel(
             header,
-            text="SubPart: --",
+            text="SubParte: --",
             font=("Segoe UI", 14)
         )
         self.label_name_subpart.pack()
@@ -1068,7 +1069,7 @@ class UiSubparts(ctk.CTkToplevel):
         # IDS
         ctk.CTkLabel(
             card_cfg,
-            text="IDs:",
+            text="IDs (HEX):",
             font=("Segoe UI", 13)
         ).grid(row=2, column=0, sticky="nw", padx=10, pady=(10, 0))
 
@@ -1089,14 +1090,14 @@ class UiSubparts(ctk.CTkToplevel):
         # UNK
         ctk.CTkLabel(
             card_cfg,
-            text="UNK:",
+            text="UNK (Hex):",
             font=("Segoe UI", 13)
         ).grid(row=3, column=0, sticky="w", padx=10, pady=10)
 
         self.entry_unk = ctk.CTkEntry(
             card_cfg,
-            placeholder_text="01 C3 00 12",
-            width=110
+            placeholder_text="01C30012",
+            width=76
         )
         self.entry_unk.grid(row=3, column=1, sticky="e", padx=10, pady=10)
 
@@ -1114,6 +1115,15 @@ class UiSubparts(ctk.CTkToplevel):
             text="Acciones",
             font=("Segoe UI", 14, "bold")
         ).pack(pady=(8, 12))
+
+        self.btn_save_part = ctk.CTkButton(
+            card_actions,
+            text="Guardar cambios",
+            width=120,
+            command=self.on_save_part
+        )
+        self.btn_save_part.pack(pady=(0, 10))
+        # self.btn_save_part_tooltip = ToolTip(self.btn_save_part, "Guarda las modificaciones echas en configuracion")
 
         self.btn_mov_up = ctk.CTkButton(
             card_actions,
@@ -1134,14 +1144,6 @@ class UiSubparts(ctk.CTkToplevel):
         self.btn_mov_down.pack(pady=(0, 10))
 
         self.mov_down_st = True
-
-        self.btn_save_part = ctk.CTkButton(
-            card_actions,
-            text="Guardar cambios",
-            width=120,
-            command=self.on_save_part
-        )
-        self.btn_save_part.pack(pady=(0, 10))
 
         self.btn_vertex_ed = ctk.CTkButton(
             card_actions,
@@ -1169,7 +1171,7 @@ class UiSubparts(ctk.CTkToplevel):
 
         self.opt_right = ScrollableOptionMenu(
             self.right_container,
-            values=["Part 0 - Capa: -"],
+            values=["Part 0"],
             width=160,
             command=self.on_rigth_option_changed,
             name_window=os.path.basename(self.master._path2) if self.master._path2 else "--"
@@ -1213,8 +1215,8 @@ class UiSubparts(ctk.CTkToplevel):
                 self._sub_parts2.append(parse_subparts_index(data_part))
                 self._blobs2[f"{id_part}"] = data_part
 
-            capa_v = self.master._parts[id_part].part_id if pmdl == 0 else self.master._parts2[id_part].part_id
-            name_parts.append(f"Part: {id_part:02} - Capa: {capa_v:02X}")
+            # capa_v = self.master._parts[id_part].part_id if pmdl == 0 else self.master._parts2[id_part].part_id
+            name_parts.append(f"Parte: {id_part:02}")
 
         if pmdl == 0:
             self.opt_left.configure(values=name_parts)
@@ -1255,9 +1257,9 @@ class UiSubparts(ctk.CTkToplevel):
         # activa los demas entry dependiendo de la cantidad de huesos
         for i in range(4):
             if i < int(value):
-                self.entry_huesos[i].pack(side="left", padx=3)
+                self.entry_huesos[i].configure(state="normal")
             else:
-                self.entry_huesos[i].pack_forget()
+                self.entry_huesos[i].configure(state="disabled")
 
     @error_window_ui
     def on_save_part(self):
@@ -1285,9 +1287,9 @@ class UiSubparts(ctk.CTkToplevel):
         id_bones = [0, 0, 0, 0]
         for i in range(4):
             if i < bones_num:
-                id_bones[i] = int(self.entry_huesos[i].get())
+                id_bones[i] = int(self.entry_huesos[i].get(), 16)
 
-        unk_value = int(self.entry_unk.get())
+        unk_value = int(self.entry_unk.get(), 16)
 
         # ---- tamaños ----
         num_vertices = subpart.num_vertices
