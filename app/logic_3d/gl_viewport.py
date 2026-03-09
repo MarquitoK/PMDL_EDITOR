@@ -62,282 +62,242 @@ try:
             self.info_label = None
             # Referencia a la app principal
             self.parent_app = None
-            
+
             self.animate = 1
-            
-            # Trigger inicial
+
             self.after(100, self._initial_camera_nudge)
-        
+
         def _initial_camera_nudge(self):
-            """Hace un pequeño movimiento de cámara al iniciar para evitar parpadeos"""
             try:
                 self.rotation_y = 180.1
                 self.redraw()
                 self.after(50, lambda: setattr(self, 'rotation_y', 180) or self.redraw())
-            except:
+            except Exception:
                 self.after(100, self._initial_camera_nudge)
-        
+
         def initgl(self):
-            """Inicializa OpenGL"""
             glEnable(GL_DEPTH_TEST)
             glEnable(GL_LIGHTING)
             glEnable(GL_LIGHT0)
             glEnable(GL_COLOR_MATERIAL)
             glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
-            
+
             glLightfv(GL_LIGHT0, GL_POSITION, [1, 1, 1, 0])
-            glLightfv(GL_LIGHT0, GL_AMBIENT, [0.3, 0.3, 0.3, 1])
-            glLightfv(GL_LIGHT0, GL_DIFFUSE, [0.8, 0.8, 0.8, 1])
-            
+            glLightfv(GL_LIGHT0, GL_AMBIENT,  [0.3, 0.3, 0.3, 1])
+            glLightfv(GL_LIGHT0, GL_DIFFUSE,  [0.8, 0.8, 0.8, 1])
+
             glClearColor(0.15, 0.15, 0.18, 1.0)
             glShadeModel(GL_SMOOTH)
-            
-            # Habilitar blending para transparencias
             glEnable(GL_BLEND)
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-        
+
+            self._grid_vbo   = None
+            self._grid_count = 0
+            self._axes_vbo   = None
+            self._axes_count = 0
+            self._build_grid_vbos()
+
         def trigger_mini_rotation(self):
-            """Aplica una mini rotación imperceptible para refrescar el viewport"""
             self.rotation_y += 0.01
             if self.rotation_y > 360:
                 self.rotation_y -= 360
             self.redraw()
-        
+
+        def _render_loop(self):
+            pass
+
         def redraw(self):
-            """Redibuja la escena"""
+            self._do_redraw()
+
+        def _do_redraw(self):
             try:
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-                
-                # Configurar proyección
+
                 glMatrixMode(GL_PROJECTION)
                 glLoadIdentity()
-                width = self.winfo_width()
-                height = self.winfo_height()
-                if height == 0:
-                    height = 1
-                aspect = width / height
-                gluPerspective(45, aspect, 0.1, 100.0)
-                
-                # Configurar vista
+                width  = self.winfo_width()
+                height = max(self.winfo_height(), 1)
+                gluPerspective(45, width / height, 0.1, 100.0)
+
                 glMatrixMode(GL_MODELVIEW)
                 glLoadIdentity()
-                
-                # Aplicar zoom y pan
                 glTranslatef(self.pan_x, self.pan_y, -self.zoom)
-                
-                # Rotar alrededor del pivote
                 glRotatef(self.rotation_x, 1, 0, 0)
                 glRotatef(self.rotation_y, 0, 1, 0)
-                
-                # Trasladar al pivote
                 glTranslatef(-self.pivot_x, -self.pivot_y, -self.pivot_z)
-                
+
                 if self.mesh_data:
                     self.draw_grid()
                     self.draw_mesh()
-                
+
                 if self.bones_visible and self.bones_data:
                     self.draw_bones()
-                
-                # Cachear matrices GL para raycast preciso en handle_bone_selection
+
                 try:
                     self._gl_modelview  = glGetDoublev(GL_MODELVIEW_MATRIX)
                     self._gl_projection = glGetDoublev(GL_PROJECTION_MATRIX)
                     self._gl_viewport   = glGetIntegerv(GL_VIEWPORT)
-                except:
+                except Exception:
                     pass
-                
+
+                glFlush()
                 try:
                     self.tkSwapBuffers()
-                except:
+                except Exception:
                     pass
-            except Exception as e:
-                # Contexto OpenGL no está listo, ignorar
+            except Exception:
                 pass
         
-        def draw_grid(self):
-            """Dibuja el grid de referencia"""
-            glDisable(GL_LIGHTING)
-            glColor3f(0.25, 0.25, 0.28)
-            glBegin(GL_LINES)
-            
+        def _build_grid_vbos(self):
+            """Construye los VBOs del grid y ejes una sola vez."""
             size = 2.0
             step = 0.2
-            
-            for i in np.arange(-size, size + step, step):
-                glVertex3f(i, 0, -size)
-                glVertex3f(i, 0, size)
-                glVertex3f(-size, 0, i)
-                glVertex3f(size, 0, i)
-            
-            glEnd()
-            
-            # Ejes coordenados
+            pts = []
+            for i in np.arange(-size, size + step * 0.5, step):
+                i = round(float(i), 6)
+                pts += [i, 0, -size,  i, 0,  size]
+                pts += [-size, 0, i,   size, 0, i]
+            grid_arr = np.array(pts, dtype=np.float32)
+            self._grid_vbo = glGenBuffers(1)
+            glBindBuffer(GL_ARRAY_BUFFER, self._grid_vbo)
+            glBufferData(GL_ARRAY_BUFFER, grid_arr.nbytes, grid_arr, GL_STATIC_DRAW)
+            self._grid_count = len(grid_arr) // 3
+
+            axes_arr = np.array([
+                0,0,0,  0.5,0,0,
+                0,0,0,  0,0.5,0,
+                0,0,0,  0,0,0.5,
+            ], dtype=np.float32)
+            self._axes_vbo = glGenBuffers(1)
+            glBindBuffer(GL_ARRAY_BUFFER, self._axes_vbo)
+            glBufferData(GL_ARRAY_BUFFER, axes_arr.nbytes, axes_arr, GL_STATIC_DRAW)
+            glBindBuffer(GL_ARRAY_BUFFER, 0)
+
+        def draw_grid(self):
+            glDisable(GL_LIGHTING)
+            glEnableClientState(GL_VERTEX_ARRAY)
+
+            # Grid
+            glColor3f(0.25, 0.25, 0.28)
+            glBindBuffer(GL_ARRAY_BUFFER, self._grid_vbo)
+            glVertexPointer(3, GL_FLOAT, 0, None)
+            glDrawArrays(GL_LINES, 0, self._grid_count)
+
+            # Ejes (coloreados por segmento con 2 vértices cada uno)
             glLineWidth(3.0)
-            glBegin(GL_LINES)
-            
-            glColor3f(1, 0.2, 0.2)
-            glVertex3f(0, 0, 0)
-            glVertex3f(0.5, 0, 0)
-            
-            glColor3f(0.2, 1, 0.2)
-            glVertex3f(0, 0, 0)
-            glVertex3f(0, 0.5, 0)
-            
-            glColor3f(0.3, 0.5, 1)
-            glVertex3f(0, 0, 0)
-            glVertex3f(0, 0, 0.5)
-            
-            glEnd()
+            glBindBuffer(GL_ARRAY_BUFFER, self._axes_vbo)
+            glVertexPointer(3, GL_FLOAT, 0, None)
+            glColor3f(1, 0.2, 0.2);  glDrawArrays(GL_LINES, 0, 2)
+            glColor3f(0.2, 1, 0.2);  glDrawArrays(GL_LINES, 2, 2)
+            glColor3f(0.3, 0.5, 1);  glDrawArrays(GL_LINES, 4, 2)
             glLineWidth(1.0)
-            
+
+            glDisableClientState(GL_VERTEX_ARRAY)
+            glBindBuffer(GL_ARRAY_BUFFER, 0)
             glEnable(GL_LIGHTING)
         
         def draw_mesh(self):
-            """Dibuja el mesh 3D con optimizaciones"""
             if self.render_mode == "wireframe":
-                # Modo Wireframe
                 glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
                 glDisable(GL_LIGHTING)
                 glDisable(GL_TEXTURE_2D)
                 glLineWidth(1.5)
             else:
-                # Modos Solid y Texture
                 glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
-                
-                if self.render_mode == "solid":
-                    # Modo Sólido (sin iluminación)
-                    glDisable(GL_LIGHTING)
-                    glDisable(GL_TEXTURE_2D)
-                elif self.render_mode == "texture":
-                    # Modo Textura
-                    glDisable(GL_LIGHTING)
-                    glShadeModel(GL_SMOOTH)
-                    if self.texture_id is not None:
-                        glEnable(GL_TEXTURE_2D)
-                        glBindTexture(GL_TEXTURE_2D, self.texture_id)
-                        glColor3f(1.0, 1.0, 1.0)
-                    else:
-                        glDisable(GL_TEXTURE_2D)
-            
-            # Dibujar cada parte
-            for parte_idx, parte_data in enumerate(self.mesh_data):
-                vertices = parte_data['vertices']
-                triangulos = parte_data['triangulos']
-                uvs = parte_data.get('uvs', None)
-                opacidad = parte_data.get('opacidad', 1.0)
-                
-                # Determinar color según el modo
-                if self.render_mode == "texture":
-                    # Modo textura: usar color solo si NO hay textura
-                    if self.texture_id is None:
-                        color = parte_data['color']
-                        glColor4f(color[0], color[1], color[2], opacidad)
-                    else:
-                        glColor4f(1.0, 1.0, 1.0, opacidad)
-                
-                # Convertir a numpy arrays si no lo están
-                if not isinstance(vertices, np.ndarray):
-                    vertices = np.array(vertices, dtype=np.float32)
-                
-                # En modo solid, dibujar cara por cara con colores pre-calculados
-                if self.render_mode == "solid":
-                    glBegin(GL_TRIANGLES)
-                    
-                    # Usar colores pre-calculados si existen
-                    if self.solid_colors_cache and parte_idx < len(self.solid_colors_cache):
-                        face_colors = self.solid_colors_cache[parte_idx]
-                        for tri_idx, tri in enumerate(triangulos):
-                            if all(i < len(vertices) for i in tri):
-                                if tri_idx < len(face_colors):
-                                    color = face_colors[tri_idx]
-                                    glColor4f(color[0], color[1], color[2], opacidad)
-                                else:
-                                    glColor4f(0.8, 0.8, 0.8, opacidad)
-                                
-                                v0 = vertices[tri[0]]
-                                v1 = vertices[tri[1]]
-                                v2 = vertices[tri[2]]
-                                
-                                glVertex3f(v0[0], v0[1], v0[2])
-                                glVertex3f(v1[0], v1[1], v1[2])
-                                glVertex3f(v2[0], v2[1], v2[2])
-                    else:
-                        # Fallback si no hay cache
-                        glColor4f(0.8, 0.8, 0.8, opacidad)
-                        for tri in triangulos:
-                            if all(i < len(vertices) for i in tri):
-                                v0 = vertices[tri[0]]
-                                v1 = vertices[tri[1]]
-                                v2 = vertices[tri[2]]
-                                
-                                glVertex3f(v0[0], v0[1], v0[2])
-                                glVertex3f(v1[0], v1[1], v1[2])
-                                glVertex3f(v2[0], v2[1], v2[2])
-                    
-                    glEnd()
+                glDisable(GL_LIGHTING)
+                if self.render_mode == "texture" and self.texture_id is not None:
+                    glEnable(GL_TEXTURE_2D)
+                    glBindTexture(GL_TEXTURE_2D, self.texture_id)
+                    glColor3f(1.0, 1.0, 1.0)
                 else:
-                    # Modos texture y wireframe: usar vertex arrays
-                    glEnableClientState(GL_VERTEX_ARRAY)
-                    glVertexPointer(3, GL_FLOAT, 0, vertices)
-                    
-                    if self.render_mode == "texture" and self.texture_id is not None and uvs is not None:
-                        glEnableClientState(GL_TEXTURE_COORD_ARRAY)
-                        if not isinstance(uvs, np.ndarray):
-                            uvs = np.array(uvs, dtype=np.float32)
-                        glTexCoordPointer(2, GL_FLOAT, 0, uvs)
-                    
-                    # Crear índice de elementos
-                    indices = np.array(triangulos, dtype=np.uint32).flatten()
-                    
-                    # Dibujar usando glDrawElements
-                    glDrawElements(GL_TRIANGLES, len(indices), GL_UNSIGNED_INT, indices)
-                    
-                    glDisableClientState(GL_VERTEX_ARRAY)
-                    if self.render_mode == "texture" and self.texture_id is not None and uvs is not None:
+                    glDisable(GL_TEXTURE_2D)
+
+            glEnableClientState(GL_VERTEX_ARRAY)
+
+            for parte_data in self.mesh_data:
+                vbo_v   = parte_data.get('vbo_vertices')
+                vbo_uv  = parte_data.get('vbo_uvs')
+                vbo_idx = parte_data.get('vbo_indices')
+                vbo_sv  = parte_data.get('vbo_solid_vertices')
+                vbo_sc  = parte_data.get('vbo_solid_colors')
+                n_idx   = parte_data.get('n_indices', 0)
+                n_solid = parte_data.get('n_solid', 0)
+                opacidad = parte_data.get('opacidad', 1.0)
+
+                if self.render_mode == "solid":
+                    if vbo_sv is None or n_solid == 0:
+                        continue
+                    glBindBuffer(GL_ARRAY_BUFFER, vbo_sv)
+                    glVertexPointer(3, GL_FLOAT, 0, None)
+                    glEnableClientState(GL_COLOR_ARRAY)
+                    glBindBuffer(GL_ARRAY_BUFFER, vbo_sc)
+                    glColorPointer(4, GL_FLOAT, 0, None)
+                    glDrawArrays(GL_TRIANGLES, 0, n_solid)
+                    glDisableClientState(GL_COLOR_ARRAY)
+                else:
+                    if vbo_v is None or n_idx == 0:
+                        continue
+                    color = parte_data['color']
+                    if self.render_mode == "texture":
+                        if self.texture_id is None:
+                            glColor4f(color[0], color[1], color[2], opacidad)
+                        else:
+                            glColor4f(1.0, 1.0, 1.0, opacidad)
+                        if self.texture_id is not None and vbo_uv is not None:
+                            glEnableClientState(GL_TEXTURE_COORD_ARRAY)
+                            glBindBuffer(GL_ARRAY_BUFFER, vbo_uv)
+                            glTexCoordPointer(2, GL_FLOAT, 0, None)
+                    glBindBuffer(GL_ARRAY_BUFFER, vbo_v)
+                    glVertexPointer(3, GL_FLOAT, 0, None)
+                    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo_idx)
+                    glDrawElements(GL_TRIANGLES, n_idx, GL_UNSIGNED_INT, None)
+                    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0)
+                    if self.render_mode == "texture" and self.texture_id is not None and vbo_uv is not None:
                         glDisableClientState(GL_TEXTURE_COORD_ARRAY)
-            
+
+            glDisableClientState(GL_VERTEX_ARRAY)
+            glBindBuffer(GL_ARRAY_BUFFER, 0)
+
             if self.render_mode == "wireframe":
                 glLineWidth(1.0)
-            
             glDisable(GL_TEXTURE_2D)
-            
-            # Dibujar bordes de selección
+
             self.draw_selection_outline()
-            
-            # Dibujar información de selección
             self.draw_selection_info()
-        
+
         def draw_selection_outline(self):
-            """Dibuja bordes amarillos alrededor de las partes seleccionadas"""
             if not self.selected_parts or not self.mesh_data:
                 return
-            
+
             glDisable(GL_LIGHTING)
             glDisable(GL_TEXTURE_2D)
             glDisable(GL_DEPTH_TEST)
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
             glLineWidth(4.0)
             glColor3f(1.0, 1.0, 0.0)
-            
+            glEnableClientState(GL_VERTEX_ARRAY)
+
             for idx in self.selected_parts:
                 if idx < len(self.mesh_data):
                     parte_data = self.mesh_data[idx]
-                    vertices = parte_data['vertices']
-                    triangulos = parte_data['triangulos']
-                    
-                    glBegin(GL_TRIANGLES)
-                    for tri in triangulos:
-                        if all(i < len(vertices) for i in tri):
-                            glVertex3f(*vertices[tri[0]])
-                            glVertex3f(*vertices[tri[1]])
-                            glVertex3f(*vertices[tri[2]])
-                    glEnd()
-            
+                    vbo_v  = parte_data.get('vbo_vertices')
+                    vbo_idx = parte_data.get('vbo_indices')
+                    n_idx  = parte_data.get('n_indices', 0)
+                    if vbo_v is None or n_idx == 0:
+                        continue
+                    glBindBuffer(GL_ARRAY_BUFFER, vbo_v)
+                    glVertexPointer(3, GL_FLOAT, 0, None)
+                    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo_idx)
+                    glDrawElements(GL_TRIANGLES, n_idx, GL_UNSIGNED_INT, None)
+                    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0)
+
+            glDisableClientState(GL_VERTEX_ARRAY)
+            glBindBuffer(GL_ARRAY_BUFFER, 0)
             glLineWidth(1.0)
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
             glEnable(GL_DEPTH_TEST)
             glEnable(GL_LIGHTING)
+
         
         def _write_info(self, segments):
             import tkinter as tk
@@ -706,71 +666,126 @@ try:
             
             return "break"
         
+        def _upload_vbos(self, mesh_data):
+            """
+            Sube todos los VBOs a VRAM en el momento de carga del mesh.
+            Esto se hace una sola vez; redraw() solo emite draw calls.
+            Genera para cada subparte:
+              - vbo_vertices / vbo_uvs / vbo_indices  → para texture y wireframe
+              - vbo_solid_vertices / vbo_solid_colors → para solid (vértices aplanados con color por cara)
+            """
+            light_dir = np.array([1.0, 1.0, 1.0], dtype=np.float32)
+            light_dir /= np.linalg.norm(light_dir)
+            ambient  = 0.4
+            diffuse  = 1.0
+            base_col = np.array([0.8, 0.8, 0.8], dtype=np.float32)
+
+            for parte_data in mesh_data:
+                verts = parte_data['vertices']   # ya float32 desde procesar_parte
+                tris  = parte_data['triangulos']
+                uvs   = parte_data.get('uvs')
+                opac  = float(parte_data.get('opacidad', 1.0))
+
+                # ── VBO vértices (texture / wireframe) ──────────────────────
+                vbo_v = glGenBuffers(1)
+                glBindBuffer(GL_ARRAY_BUFFER, vbo_v)
+                glBufferData(GL_ARRAY_BUFFER, verts.nbytes, verts, GL_STATIC_DRAW)
+
+                # ── VBO uvs ──────────────────────────────────────────────────
+                vbo_uv = None
+                if uvs is not None:
+                    uv_arr = uvs if isinstance(uvs, np.ndarray) else np.array(uvs, dtype=np.float32)
+                    uv_arr = np.ascontiguousarray(uv_arr, dtype=np.float32)
+                    vbo_uv = glGenBuffers(1)
+                    glBindBuffer(GL_ARRAY_BUFFER, vbo_uv)
+                    glBufferData(GL_ARRAY_BUFFER, uv_arr.nbytes, uv_arr, GL_STATIC_DRAW)
+
+                # ── VBO índices ──────────────────────────────────────────────
+                idx_arr = np.array(tris, dtype=np.uint32).flatten()
+                vbo_idx = glGenBuffers(1)
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo_idx)
+                glBufferData(GL_ELEMENT_ARRAY_BUFFER, idx_arr.nbytes, idx_arr, GL_STATIC_DRAW)
+
+                # ── VBO solid: vértices aplanados + color por cara ───────────
+                solid_v_list = []
+                solid_c_list = []
+                for tri in tris:
+                    if not all(i < len(verts) for i in tri):
+                        continue
+                    v0, v1, v2 = verts[tri[0]], verts[tri[1]], verts[tri[2]]
+                    edge1 = v1 - v0
+                    edge2 = v2 - v0
+                    normal = np.cross(edge1, edge2)
+                    nlen = np.linalg.norm(normal)
+                    normal = normal / nlen if nlen > 0 else np.array([0, 1, 0], dtype=np.float32)
+                    df = max(0.0, float(np.dot(normal, light_dir)))
+                    c  = np.clip(base_col * (ambient + diffuse * df), 0, 1)
+                    for v in (v0, v1, v2):
+                        solid_v_list.extend(v)
+                        solid_c_list.extend([c[0], c[1], c[2], opac])
+
+                vbo_sv = vbo_sc = None
+                n_solid = 0
+                if solid_v_list:
+                    sv_arr = np.array(solid_v_list, dtype=np.float32)
+                    sc_arr = np.array(solid_c_list, dtype=np.float32)
+                    vbo_sv = glGenBuffers(1)
+                    glBindBuffer(GL_ARRAY_BUFFER, vbo_sv)
+                    glBufferData(GL_ARRAY_BUFFER, sv_arr.nbytes, sv_arr, GL_STATIC_DRAW)
+                    vbo_sc = glGenBuffers(1)
+                    glBindBuffer(GL_ARRAY_BUFFER, vbo_sc)
+                    glBufferData(GL_ARRAY_BUFFER, sc_arr.nbytes, sc_arr, GL_STATIC_DRAW)
+                    n_solid = len(solid_v_list) // 3
+
+                glBindBuffer(GL_ARRAY_BUFFER, 0)
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0)
+
+                # Guardar handles en el dict — redraw() solo los usa
+                parte_data.update({
+                    'vbo_vertices':      vbo_v,
+                    'vbo_uvs':           vbo_uv,
+                    'vbo_indices':       vbo_idx,
+                    'vbo_solid_vertices': vbo_sv,
+                    'vbo_solid_colors':   vbo_sc,
+                    'n_indices':         len(idx_arr),
+                    'n_solid':           n_solid,
+                })
+
+        def _free_vbos(self, mesh_data):
+            """Libera VBOs de VRAM cuando el mesh es reemplazado."""
+            if not mesh_data:
+                return
+            for pd in mesh_data:
+                for key in ('vbo_vertices', 'vbo_uvs', 'vbo_indices',
+                            'vbo_solid_vertices', 'vbo_solid_colors'):
+                    buf = pd.get(key)
+                    if buf is not None:
+                        try:
+                            glDeleteBuffers(1, [buf])
+                        except Exception:
+                            pass
+
         def set_mesh_data(self, mesh_data, viewing_mode='all', part_index=-1):
-            """Establece los datos del mesh"""
+            # Liberar VBOs del mesh anterior
+            self._free_vbos(self.mesh_data)
             self.mesh_data = mesh_data
             self.viewing_mode = viewing_mode
             self.current_part_index = part_index
             self.selected_parts.clear()
-            self.solid_colors_cache = None
+            self.solid_colors_cache = None  # ya no se usa, pero se mantiene por compatibilidad
             if mesh_data:
+                self._upload_vbos(mesh_data)
                 self.update_pivot_from_mesh()
             self.redraw()
-        
+
         def set_render_mode(self, mode):
-            """Cambia el modo de renderizado (solid, texture, wireframe)"""
+            # Los VBOs ya están listos para todos los modos — solo cambiar flag y redibujar
             self.render_mode = mode
-            # Pre-calcular colores para modo sólido
-            if mode == "solid" and self.mesh_data:
-                self.precalculate_solid_colors()
             self.redraw()
-        
+
         def precalculate_solid_colors(self):
-            """Pre-calcula los colores iluminados para modo sólido (optimización)"""
-            if not self.mesh_data:
-                return
-            
-            self.solid_colors_cache = []
-            
-            # Configuración de luz fija
-            light_dir = np.array([1.0, 1.0, 1.0])
-            light_dir = light_dir / np.linalg.norm(light_dir)
-            ambient = 0.4
-            diffuse = 1.0
-            base_color = np.array([0.8, 0.8, 0.8])
-            
-            for parte_data in self.mesh_data:
-                vertices = parte_data['vertices']
-                triangulos = parte_data['triangulos']
-                
-                face_colors = []
-                
-                for tri in triangulos:
-                    if all(i < len(vertices) for i in tri):
-                        v0 = vertices[tri[0]]
-                        v1 = vertices[tri[1]]
-                        v2 = vertices[tri[2]]
-                        
-                        # Calcular normal de la cara
-                        edge1 = v1 - v0
-                        edge2 = v2 - v0
-                        normal = np.cross(edge1, edge2)
-                        norm_length = np.linalg.norm(normal)
-                        if norm_length > 0:
-                            normal = normal / norm_length
-                        else:
-                            normal = np.array([0.0, 1.0, 0.0])
-                        
-                        # Calcular iluminación
-                        diffuse_factor = max(0.0, np.dot(normal, light_dir))
-                        final_color = base_color * (ambient + diffuse * diffuse_factor)
-                        final_color = np.clip(final_color, 0.0, 1.0)
-                        
-                        face_colors.append(final_color)
-                    else:
-                        face_colors.append(base_color)
-                
-                self.solid_colors_cache.append(face_colors)
+            # Ya no hace falta: los colores se calculan en _upload_vbos al cargar el mesh.
+            pass
         
         def update_pivot_from_mesh(self):
             """Actualiza el punto pivote al centro del modelo"""
@@ -794,33 +809,30 @@ try:
                 pass
         
         def load_texture(self, image_path):
-            """Carga una textura desde un archivo PNG"""
             try:
                 from PIL import Image
-                
+
                 img = Image.open(image_path)
                 img = img.transpose(Image.FLIP_TOP_BOTTOM)
                 img_data = np.array(img, dtype=np.uint8)
-                
+
                 if self.texture_id is None:
                     self.texture_id = glGenTextures(1)
-                
+
                 glBindTexture(GL_TEXTURE_2D, self.texture_id)
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+                # Cerca: linear suave; lejos: mipmap nearest (sin flickering)
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST)
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT)
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT)
-                
-                if img.mode == "RGB":
-                    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, img.width, img.height, 
-                               0, GL_RGB, GL_UNSIGNED_BYTE, img_data)
-                elif img.mode == "RGBA":
-                    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, img.width, img.height, 
-                               0, GL_RGBA, GL_UNSIGNED_BYTE, img_data)
-                
+
+                fmt = GL_RGB if img.mode == "RGB" else GL_RGBA
+                glTexImage2D(GL_TEXTURE_2D, 0, fmt, img.width, img.height, 0, fmt, GL_UNSIGNED_BYTE, img_data)
+                glGenerateMipmap(GL_TEXTURE_2D)
+
                 self.redraw()
                 return True
-                
+
             except Exception as e:
                 print(f"Error cargando textura: {e}")
                 return False
