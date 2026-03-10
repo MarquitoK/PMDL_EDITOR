@@ -3,6 +3,13 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 import numpy as np
 import colorsys
+
+
+def _opacity_to_float(raw_u16: int) -> float:
+    low = raw_u16 & 0xFF
+    if low == 0:
+        return 1.0
+    return low / 255.0
 import tempfile
 import os
 
@@ -497,7 +504,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
         else:
             if indice < len(self.pmdl_data['partes']):
                 parte = self.pmdl_data['partes'][indice]
-                opacidad_normalizada = parte['opacidad'] / 65535.0
+                opacidad_normalizada = _opacity_to_float(parte['opacidad'])
                 mesh_data = self.procesar_parte(parte, (0.4, 0.7, 1.0), opacidad=opacidad_normalizada)
                 self.gl_viewport.set_mesh_data(mesh_data, viewing_mode='single', part_index=indice)
                 self.gl_viewport.isolated_part_index = indice
@@ -529,7 +536,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
         for idx, parte in enumerate(self.pmdl_data['partes']):
             hue = idx / max(num_partes, 1)
             color = colorsys.hsv_to_rgb(hue, 0.7, 0.95)
-            opacidad_normalizada = parte['opacidad'] / 65535.0
+            opacidad_normalizada = _opacity_to_float(parte['opacidad'])
             parte_mesh = self.procesar_parte(parte, color, part_index=idx, opacidad=opacidad_normalizada)
             mesh_data.extend(parte_mesh)
         return mesh_data
@@ -642,7 +649,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
                         self.gl_viewport.set_mesh_data(mesh_data, viewing_mode='all', part_index=-1)
                     elif current_selection < len(self.pmdl_data['partes']):
                         parte = self.pmdl_data['partes'][current_selection]
-                        opacidad_normalizada = parte['opacidad'] / 65535.0
+                        opacidad_normalizada = _opacity_to_float(parte['opacidad'])
                         mesh_data = self.procesar_parte(parte, (0.4, 0.7, 1.0), opacidad=opacidad_normalizada)
                         self.gl_viewport.set_mesh_data(mesh_data, viewing_mode='single', part_index=current_selection)
                 else:
@@ -1083,7 +1090,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
                         elif self.parte_seleccionada < len(self.pmdl_data['partes']):
                             # Parte específica
                             parte = self.pmdl_data['partes'][self.parte_seleccionada]
-                            opacidad_normalizada = parte['opacidad'] / 65535.0
+                            opacidad_normalizada = _opacity_to_float(parte['opacidad'])
                             mesh_data = self.procesar_parte(parte, (0.4, 0.7, 1.0), opacidad=opacidad_normalizada)
                             if hasattr(self, 'gl_viewport') and self.gl_viewport:
                                 self.gl_viewport.set_mesh_data(mesh_data, viewing_mode='single', part_index=self.parte_seleccionada)
