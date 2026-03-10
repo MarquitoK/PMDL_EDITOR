@@ -103,7 +103,7 @@ def import_part(blob: bytearray, hdr: PmdlHeader, parts: List[PartIndexEntry], n
     else:
         new_part_id = 0x0000
     
-    new_opacity = 0xFFFF
+    new_opacity = 0x00FF
     new_flag = 0x00000000
     new_offset = insert_pos
     new_length = len(new_part_data)
@@ -260,7 +260,7 @@ def sync_parts_from_ui(blob: bytearray, hdr: PmdlHeader, parts: List[PartIndexEn
         parts[i].part_id = (current & 0xFF00) | low
         
         # Opacidad
-        pct = max(0.0, min(100.0, float(data.get('opacity_pct', 100.0))))
+        pct = max(1, min(100, int(round(float(data.get('opacity_pct', 100))))))
         parts[i].opacity = opacity_u16_from_percent(pct)
         
         # Función

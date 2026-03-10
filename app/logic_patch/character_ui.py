@@ -326,7 +326,8 @@ class CharacterEditorUI(ctk.CTkToplevel):
             scale = min(display_size / img.width, display_size / img.height)
             new_w = max(1, int(img.width * scale))
             new_h = max(1, int(img.height * scale))
-            img = img.resize((new_w, new_h), Image.Resampling.NEAREST)
+            resample = Image.Resampling.LANCZOS if self._limited_mode else Image.Resampling.NEAREST
+            img = img.resize((new_w, new_h), resample)
 
             self.current_ctk_image = ctk.CTkImage(
                 light_image=img,

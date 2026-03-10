@@ -1,7 +1,7 @@
 import tkinter as tk
 import customtkinter as ctk
 from typing import List, Callable
-from app.core import PartIndexEntry, FLAG_MAP_VALUE_TO_LABEL
+from app.core import PartIndexEntry, FLAG_MAP_VALUE_TO_LABEL, percent_from_opacity_u16
 
 
 class PartsTable(ctk.CTkScrollableFrame):
@@ -149,18 +149,13 @@ class PartsTable(ctk.CTkScrollableFrame):
             size_lbl = ctk.CTkLabel(self, text=f"{p.part_length:X}", font=("Segoe UI", 12), fg_color=bg_color)
             size_lbl.grid(row=row, column=2, padx=(6, 4), pady=(2, 2), sticky="w")
             
-            # Opacidad — precisión de 1 decimal, sin redondeo al cargar
-            if p.opacity <= 0:
-                pct = 0.0
-            elif p.opacity >= 0xFFFF:
-                pct = 100.0
-            else:
-                pct = round(p.opacity * 100 / 0xFFFF, 1)
+            # Opacidad
+            pct = percent_from_opacity_u16(p.opacity)
 
-            pct_lbl = ctk.CTkLabel(self, text=f"{pct:.1f}%", width=44, font=("Segoe UI", 12), fg_color=bg_color)
+            pct_lbl = ctk.CTkLabel(self, text=f"{pct}%", width=44, font=("Segoe UI", 12), fg_color=bg_color)
             pct_lbl.grid(row=row, column=3, padx=(6, 2), pady=(2, 2), sticky="w")
 
-            slider = ctk.CTkSlider(self, from_=0, to=100, number_of_steps=1000, width=60, height=10, fg_color=bg_color)
+            slider = ctk.CTkSlider(self, from_=1, to=100, number_of_steps=99, width=60, height=10, fg_color=bg_color)
             slider.set(pct)
             slider.configure(command=lambda val, idx=i, lbl=pct_lbl: self._on_opacity(val, idx, lbl))
             slider.grid(row=row, column=3, padx=(46, 2), pady=(2, 2), sticky="w")
@@ -223,9 +218,9 @@ class PartsTable(ctk.CTkScrollableFrame):
                     depth = 0
 
                 try:
-                    opacity_pct = round(float(slider.get()), 1)
+                    opacity_pct = max(1, min(100, int(round(float(slider.get())))))
                 except Exception:
-                    opacity_pct = 100.0
+                    opacity_pct = 100
 
                 try:
                     flag_label = flag_opt.get()
@@ -287,11 +282,10 @@ class PartsTable(ctk.CTkScrollableFrame):
 
     def _on_opacity(self, value, part_index: int, label_widget: ctk.CTkLabel):
         try:
-            pct = round(float(value), 1)
+            pct = max(1, min(100, int(round(float(value)))))
         except Exception:
-            pct = 0.0
-        pct = max(0.0, min(100.0, pct))
-        label_widget.configure(text=f"{pct:.1f}%")
+            pct = 100
+        label_widget.configure(text=f"{pct}%")
         if callable(self.on_opacity_change):
             self.on_opacity_change(part_index, pct)
     
@@ -441,12 +435,7 @@ class SecondaryPartsTable(ctk.CTkScrollableFrame):
             size_lbl.grid(row=row, column=2, padx=(6, 4), pady=(2, 2), sticky="w")
             
             # Opacidad
-            if p.opacity <= 0:
-                pct = 0
-            elif p.opacity >= 0xFFFF:
-                pct = 100
-            else:
-                pct = round(p.opacity * 100 / 0xFFFF)
+            pct = percent_from_opacity_u16(p.opacity)
             pct_lbl = ctk.CTkLabel(self, text=f"{pct}%", font=("Segoe UI", 12), fg_color=bg_color)
             pct_lbl.grid(row=row, column=3, padx=(6, 4), pady=(2, 2), sticky="w")
             

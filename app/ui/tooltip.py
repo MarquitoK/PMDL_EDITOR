@@ -1,32 +1,23 @@
 import customtkinter as ctk
 from pathlib import Path
 
+
 class ToolTip:
     def __init__(self, widget, text: str, timeout: int = 5000):
         self.widget = widget
         self.text = text
         self.tip = None
-        self.timeout = timeout   # tiempo en ms
-        self._after_id = None    # id del temporizador
-        self._focus_check = None
+        self.timeout = timeout
+        self._after_id = None
+        self._poll_id = None
 
         widget.bind("<Enter>", self.show)
         widget.bind("<Leave>", self.hide)
-
         widget.bind("<ButtonPress>", self.hide, add="+")
-        widget.bind("<FocusOut>", self.hide, add="+")
         widget.bind("<Destroy>", self.hide, add="+")
-
-        widget.winfo_toplevel().bind("<FocusOut>", self.hide, add="+")
-        widget.winfo_toplevel().bind("<Unmap>", self.hide, add="+")
-        widget.winfo_toplevel().bind("<Leave>", self.hide, add="+")
-
-    # ------------------------------
 
     def change_text(self, text: str):
         self.text = self._user_hide(text)
-
-    # ------------------------------
 
     def show(self, event=None):
         if self.tip or not self.text:
@@ -50,46 +41,66 @@ class ToolTip:
             font=("Segoe UI", 11)
         )
         label.pack()
-
         self.tip.geometry(f"+{x}+{y}")
 
-        # ⏱️ autocierre normal
-        if self.timeout > 0 and not self._after_id:
-            root = self.widget.winfo_toplevel()
-            self._after_id = root.after(self.timeout, self.hide)
-
-        # 👇 iniciar verificación global de foco
-        self._check_focus_loop()
-
-    # ------------------------------
-
-    def hide(self, event=None):
-
-        # cancelar timer de autocierre
-        if self._after_id is not None and self.tip:
+        if self.timeout > 0:
             try:
                 root = self.widget.winfo_toplevel()
-                root.after_cancel(self._after_id)
-            except:
+                self._after_id = root.after(self.timeout, self.hide)
+            except Exception:
                 pass
-            self._after_id = None
 
-        # cancelar loop de foco
-        if self._focus_check is not None and self.tip:
-            try:
-                self.tip.after_cancel(self._focus_check)
-            except:
-                pass
-            self._focus_check = None
+        self._start_mouse_poll()
+
+    def hide(self, event=None):
+        self._cancel_after()
+        self._cancel_poll()
 
         if self.tip is not None:
             try:
                 self.tip.destroy()
-            except:
+            except Exception:
                 pass
             self.tip = None
 
-    # ------------------------------
+    def _cancel_after(self):
+        if self._after_id is not None:
+            try:
+                self.widget.winfo_toplevel().after_cancel(self._after_id)
+            except Exception:
+                pass
+            self._after_id = None
+
+    def _cancel_poll(self):
+        if self._poll_id is not None:
+            try:
+                self.widget.winfo_toplevel().after_cancel(self._poll_id)
+            except Exception:
+                pass
+            self._poll_id = None
+
+    def _start_mouse_poll(self):
+        self._cancel_poll()
+        self._poll_mouse()
+
+    def _poll_mouse(self):
+        if not self.tip:
+            return
+
+        try:
+            mx = self.widget.winfo_pointerx() - self.widget.winfo_rootx()
+            my = self.widget.winfo_pointery() - self.widget.winfo_rooty()
+            w = self.widget.winfo_width()
+            h = self.widget.winfo_height()
+
+            if mx < 0 or my < 0 or mx > w or my > h:
+                self.hide()
+                return
+
+            root = self.widget.winfo_toplevel()
+            self._poll_id = root.after(150, self._poll_mouse)
+        except Exception:
+            self.hide()
 
     def _user_hide(self, path_str: str) -> str:
         if not self._is_path_like(path_str):
@@ -109,24 +120,3 @@ class ToolTip:
             return Path(path_str).anchor != "" or "/" in path_str or "\\" in path_str
         except Exception:
             return False
-
-    def _check_focus_loop(self):
-        if not self.tip:
-            return
-
-        try:
-            # si la app ya no tiene foco → cerrar tooltip
-            root = self.widget.winfo_toplevel()
-            if root.focus_displayof() is None:
-                self.hide()
-                return
-        except:
-            self.hide()
-            return
-
-        if not self._after_id:
-            self.hide()
-            return
-
-        # repetir cada 250 ms
-        self._focus_check = self.tip.after(250, self._check_focus_loop)
