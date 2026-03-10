@@ -9,6 +9,7 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 from app.core.operations import export_part, replace_part
 from app.logic_sub_parts_pmdl.header_subpart import SpartHeader, comprobar_header_spart
+from app.logic_sub_parts_pmdl.options_subparts import RemapBones
 from app.logic_sub_parts_pmdl.scrollable_option_menu import ScrollableOptionMenu
 from app.logic_sub_parts_pmdl.sub_parts_index import parse_subparts_index, SubPartIndexEntry
 from app.logic_sub_parts_pmdl.operations import calc_subpart_size, export_sub_part, import_sub_part, align_16, \
@@ -713,8 +714,8 @@ class MultiSelectTable(ctk.CTkFrame):
         subparts_by_part_2 = self._get_subparts()
 
         if not messagebox.askokcancel(
-                "Confirmar Agruegar",
-                f"Vas a agruegar las siguientes subpartes: {row_idx_2}\n\n¿Deseas continuar?",
+                "Confirmar Agregar",
+                f"Vas a agregar las siguientes subpartes: {row_idx_2}\n\n¿Deseas continuar?",
                 parent=self.master.master
         ):
             return
@@ -828,7 +829,7 @@ class MultiSelectTable(ctk.CTkFrame):
 
         self.master.master.tab_left.select_row(row_idx[0] + 1)
 
-        messagebox.showinfo("Agruegada", f"SubParte agruegada desde la posicion {row_idx[0] + 1:02}",
+        messagebox.showinfo("Agregada", f"SubParte agregada desde la posicion {row_idx[0] + 1:02}",
                             parent=self.master.master)
 
     @error_window_ui
@@ -950,6 +951,7 @@ class MultiSelectTable(ctk.CTkFrame):
         ui.btn_vertex_ed.configure(state="normal" if self.path == 0 else "disabled")
         ui.btn_mov_up.configure(state="normal" if self.path == 0 else "disabled")
         ui.btn_mov_down.configure(state="normal" if self.path == 0 else "disabled")
+        ui.btn_remap.configure(state="normal" if self.path == 0 else "disabled")
 
 class UiSubparts(ctk.CTkToplevel):
     def __init__(self, master, **kwargs):
@@ -1149,6 +1151,14 @@ class UiSubparts(ctk.CTkToplevel):
 
         self.mov_down_st = True
 
+        self.btn_remap = ctk.CTkButton(
+            card_actions,
+            text="Remap ID",
+            width=120,
+            command=self.on_options_remap
+        )
+        self.btn_remap.pack(pady=(0, 10))
+
         self.btn_vertex_ed = ctk.CTkButton(
             card_actions,
             text="Editar vertices",
@@ -1156,14 +1166,6 @@ class UiSubparts(ctk.CTkToplevel):
             command=self.on_ed_vertex
         )
         self.btn_vertex_ed.pack(pady=(0, 10))
-
-        self.btn_ui_pmdl_editor = ctk.CTkButton(
-            card_actions,
-            text="Regresar",
-            width=120,
-            command=self.on_back
-        )
-        self.btn_ui_pmdl_editor.pack(pady=(0, 10))
 
         # =========================
         # CONTENEDOR DERECHO
@@ -1470,12 +1472,58 @@ class UiSubparts(ctk.CTkToplevel):
         self.mov_down_st = True
 
     @error_window_ui
+    def on_options_remap(self):
+        self.ui_remap =  RemapBones(self)
+        part_id = self._index_opt_left
+
+        # obtener las id de los huesos de las diferentes subpartes
+        subparts = self._sub_parts[part_id]
+        data = []
+        for subpart in subparts:
+            id_bones = subpart.id_bones[:subpart.num_bones]
+            data.append(id_bones)
+
+        self.ui_remap.set_table_values(data)
+
+    def reemplazar_id_bones(self, data: list[int]):
+        part_id = self._index_opt_left
+        part_bytes = self._blobs[str(part_id)]
+        part_bytes = bytearray(part_bytes)
+
+        # reemplazar en subparts
+        subparts = self._sub_parts[part_id]
+        for i, subpart in enumerate(subparts):
+            subparts[i].id_bones = copy.deepcopy((data[i] + [0] * 4)[:4])
+
+            # reemplazar en part en blobs
+            struct.pack_into("<4B", part_bytes, (0x10*i) + 8, *subparts[i].id_bones)
+
+        self._blobs[str(part_id)] = part_bytes
+
+        # ---- reemplazar en modelo ----
+        replace_part(
+            self.master._blob,
+            self.master._hdr,
+            self.master._parts,
+            part_bytes,
+            part_id
+        )
+        table = self.tab_left
+
+        # ---- refrescar UI ----
+        table.set_table(len(self._sub_parts[part_id]), self._sub_parts, part_id)
+        table.select_row(0)
+
+        messagebox.showinfo("Informacion", f"Las id fueron reemplazadas en la Parte: {part_id:02}", parent=self)
+
+
+    @error_window_ui
     def on_ed_vertex(self):
         part_id = self._index_opt_left
         row_idx = self.tab_left.get_selected_row_indices()
         if len(row_idx) > 1:
             messagebox.showinfo("Advertencia",
-                                "tienes mas de una subpart seleccionada", parent=self)
+                                "Tienes mas de una subpart seleccionada", parent=self)
             return
 
         if not row_idx:

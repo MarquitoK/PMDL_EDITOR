@@ -242,15 +242,24 @@ class MeshBinaryBuilder:
 
                 # ---- weights  (>H)
                 for w in v["weights"]:
-                    out += struct.pack(">H", w)
+                    try:
+                        out += struct.pack(">H", w)
+                    except Exception as e:
+                        raise ValueError(f"El peso {w} genero el error: {e}")
 
                 # ---- uv (<B)
                 for uv in v["uv"]:
-                    out += struct.pack("<B", uv)
+                    try:
+                        out += struct.pack("<B", uv)
+                    except Exception as e:
+                        raise ValueError(f"La UV {uv} supera el rango permitido (0-255) o (0-1): {e}")
 
                 # ---- pos (<h)
                 for p in v["pos"]:
-                    out += struct.pack("<h", p)
+                    try:
+                        out += struct.pack("<h", p)
+                    except Exception as e:
+                        ValueError(f"La posicion {p} genero el error: {e}")
 
 
         data_part += bytearray(44)
