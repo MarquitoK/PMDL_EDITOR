@@ -2,7 +2,6 @@ class UVCanvasEvents:
     """Mixin para eventos de mouse y teclado"""
     
     def _setup_bindings(self):
-        """Configura todos los bindings de eventos"""
         self.bind("<ButtonPress-1>",   self.on_left_press)
         self.bind("<B1-Motion>",       self.on_box_select_drag)
         self.bind("<ButtonRelease-1>", self.on_left_release)
@@ -14,6 +13,7 @@ class UVCanvasEvents:
         self.bind("<Motion>",          self.on_mouse_move)
         self.bind("<KeyPress>",        self.on_key_press)
         self.bind("<ButtonPress-1>",   self._grab_focus, add=True)
+        self.bind("<Enter>",           self._grab_focus)
 
     # eventos de mouse
 

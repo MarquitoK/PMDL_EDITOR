@@ -137,7 +137,8 @@ class PartsTable(ctk.CTkScrollableFrame):
             depth_entry.insert(0, depth_hex)
             depth_entry.configure(validate="key", validatecommand=self._vcmd)
             depth_entry.bind("<FocusOut>", lambda e, idx=i: self._commit_depth(e.widget.get(), idx, e.widget))
-            depth_entry.bind("<Return>", lambda e, idx=i: self._commit_depth(e.widget.get(), idx, e.widget))
+            depth_entry.bind("<Return>",   lambda e, idx=i: self._commit_depth(e.widget.get(), idx, e.widget))
+            depth_entry.bind("<KeyRelease>", lambda e, idx=i: self._commit_depth(e.widget.get(), idx, e.widget))
             depth_entry.grid(row=row, column=0, padx=(6, 4), pady=(2, 2), sticky="w")
             
             # Nombre
@@ -148,26 +149,27 @@ class PartsTable(ctk.CTkScrollableFrame):
             size_lbl = ctk.CTkLabel(self, text=f"{p.part_length:X}", font=("Segoe UI", 12), fg_color=bg_color)
             size_lbl.grid(row=row, column=2, padx=(6, 4), pady=(2, 2), sticky="w")
             
-            # Opacidad
+            # Opacidad — precisión de 1 decimal, sin redondeo al cargar
             if p.opacity <= 0:
-                pct = 0
+                pct = 0.0
             elif p.opacity >= 0xFFFF:
-                pct = 100
+                pct = 100.0
             else:
-                pct = round(p.opacity * 100 / 0xFFFF)
-            
-            pct_lbl = ctk.CTkLabel(self, text=f"{pct}%", width=36, font=("Segoe UI", 12), fg_color=bg_color)
+                pct = round(p.opacity * 100 / 0xFFFF, 1)
+
+            pct_lbl = ctk.CTkLabel(self, text=f"{pct:.1f}%", width=44, font=("Segoe UI", 12), fg_color=bg_color)
             pct_lbl.grid(row=row, column=3, padx=(6, 2), pady=(2, 2), sticky="w")
-            
-            slider = ctk.CTkSlider(self, from_=0, to=100, number_of_steps=100, width=60, height=10, fg_color=bg_color)
+
+            slider = ctk.CTkSlider(self, from_=0, to=100, number_of_steps=1000, width=60, height=10, fg_color=bg_color)
             slider.set(pct)
             slider.configure(command=lambda val, idx=i, lbl=pct_lbl: self._on_opacity(val, idx, lbl))
             slider.grid(row=row, column=3, padx=(46, 2), pady=(2, 2), sticky="w")
-            
+            self.after(50, lambda s=slider, idx=i, lbl=pct_lbl: self._bind_slider_keys(s, idx, lbl))
+
             # Función
             init_label = FLAG_MAP_VALUE_TO_LABEL.get(p.special_flag, "Ninguna")
             flag_var = tk.StringVar(value=init_label)
-            
+
             flag_opt = ctk.CTkComboBox(
                 self,
                 values=list(FLAG_MAP_VALUE_TO_LABEL.values()),
@@ -198,43 +200,42 @@ class PartsTable(ctk.CTkScrollableFrame):
             self._rows_widgets.append([depth_entry, name_lbl, size_lbl, pct_lbl, slider, flag_opt, export_btn, del_btn])
     
     def get_ui_data(self) -> List[dict]:
-        """Obtiene los datos actuales de la UI."""
+        # Forzar commit de todos los campos de capa antes de leer
+        for ws in self._rows_widgets:
+            try:
+                depth_entry = ws[0]
+                idx = self._rows_widgets.index(ws)
+                self._commit_depth(depth_entry.get(), idx, depth_entry)
+            except Exception:
+                pass
+
         data = []
         for ws in self._rows_widgets:
             try:
                 depth_entry = ws[0]
-                slider = ws[4]
-                flag_opt = ws[5]
-                
-                # Depth
-                txt = (depth_entry.get() or "").strip().upper()
-                if txt == "":
-                    txt = "00"
+                slider      = ws[4]
+                flag_opt    = ws[5]
+
+                txt = (depth_entry.get() or "").strip().upper() or "00"
                 try:
                     depth = int(txt, 16) & 0xFF
                 except Exception:
                     depth = 0
-                
-                # Opacity
+
                 try:
-                    opacity_pct = int(round(float(slider.get())))
+                    opacity_pct = round(float(slider.get()), 1)
                 except Exception:
-                    opacity_pct = 100
-                
-                # Flag
+                    opacity_pct = 100.0
+
                 try:
                     flag_label = flag_opt.get()
                 except Exception:
                     flag_label = "Ninguna"
-                
-                data.append({
-                    'depth': depth,
-                    'opacity_pct': opacity_pct,
-                    'flag_label': flag_label
-                })
+
+                data.append({'depth': depth, 'opacity_pct': opacity_pct, 'flag_label': flag_label})
             except Exception:
                 continue
-        
+
         return data
     
     # ----- Helpers / Validaciones / Callbacks -----
@@ -269,15 +270,28 @@ class PartsTable(ctk.CTkScrollableFrame):
         if callable(self.on_depth_change):
             self.on_depth_change(part_index, val)
     
+    def _slider_arrow(self, slider_widget, delta: int, part_index: int, label_widget: ctk.CTkLabel):
+        current = round(float(slider_widget.get()), 1)
+        new_val = round(max(0.0, min(100.0, current + delta * 0.1)), 1)
+        slider_widget.set(new_val)
+        self._on_opacity(new_val, part_index, label_widget)
+
+    def _bind_slider_keys(self, slider, idx, lbl):
+        slider.bind("<ButtonPress-1>", lambda e: e.widget.focus_set())
+        slider.bind("<Left>",  lambda e, i=idx, l=lbl: self._slider_arrow(slider, -1, i, l))
+        slider.bind("<Right>", lambda e, i=idx, l=lbl: self._slider_arrow(slider, +1, i, l))
+        for child in slider.winfo_children():
+            child.bind("<ButtonPress-1>", lambda e: slider.focus_set())
+            child.bind("<Left>",  lambda e, i=idx, l=lbl: self._slider_arrow(slider, -1, i, l))
+            child.bind("<Right>", lambda e, i=idx, l=lbl: self._slider_arrow(slider, +1, i, l))
+
     def _on_opacity(self, value, part_index: int, label_widget: ctk.CTkLabel):
-        """Callback de cambio de opacidad."""
         try:
-            pct = int(round(float(value)))
+            pct = round(float(value), 1)
         except Exception:
-            pct = 0
-        pct = max(0, min(100, pct))
-        label_widget.configure(text=f"{pct}%")
-        
+            pct = 0.0
+        pct = max(0.0, min(100.0, pct))
+        label_widget.configure(text=f"{pct:.1f}%")
         if callable(self.on_opacity_change):
             self.on_opacity_change(part_index, pct)
     

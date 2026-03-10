@@ -70,12 +70,17 @@ class UVCanvasSelection:
 
     def _refresh_colors(self):
         sel_set  = set(self.selected_points)
-        prev_set = getattr(self, '_prev_sel_set', set())
+        prev_set = self._prev_sel_set  # puede ser None (forzar full), set vacío, o set con items
 
-        changed_points = sel_set.symmetric_difference(prev_set)
-        self._prev_sel_set = sel_set
+        if prev_set is None:
+            # Full refresh — pintar todos los vértices y edges
+            changed_points = {d['point'] for d in self.uv_data}
+            self._prev_sel_set = sel_set
+        else:
+            changed_points = sel_set.symmetric_difference(prev_set)
+            self._prev_sel_set = sel_set
 
-        if not changed_points and getattr(self, '_edge_grad_dirty', False) is False:
+        if not changed_points and not getattr(self, '_edge_grad_dirty', False):
             return
 
         # Vértices que cambiaron
@@ -160,7 +165,7 @@ class UVCanvasSelection:
 
     def _deselect_all(self):
         self.selected_points.clear()
-        self._prev_sel_set = set()
+        self._prev_sel_set = None  # None fuerza full refresh en _refresh_colors
         self._edge_grad_dirty = True
         self.delete("edge_grad")
         self._refresh_colors()
@@ -178,6 +183,8 @@ class UVCanvasSelection:
     def _select_all_points(self):
         self.delete("edge_grad")
         self.selected_points = [d['point'] for d in self.uv_data]
+        self._prev_sel_set = None
+        self._edge_grad_dirty = True
         self._refresh_colors()
         self._update_coord_label()
 

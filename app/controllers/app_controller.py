@@ -24,6 +24,7 @@ from app.logic_patch import PatchBridge, CharacterEditorUI
 from app.logic_3d.main_window import PMDLViewerApp
 from app.logic_bones import BoneEditor
 from app.utils.ui_error_window import error_window_ui
+from app.utils.icon import set_app_icon
 
 APP_TITLE = "Pmdl Editor (TTT) · By Los ijue30s · v1.4.2"
 GEOMETRY = (1070, 600)
@@ -44,6 +45,7 @@ class PmdlPartsApp(ctk.CTk):
         
         # Centrar ventana
         center_window(self, GEOMETRY[0], GEOMETRY[1])
+        set_app_icon(self)
         
         # Interceptar cierre de la ventana
         self.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -438,50 +440,48 @@ class PmdlPartsApp(ctk.CTk):
         self.deiconify()
         self.focus_force()
 
-    def _return_from_3d_viewer(self):
+    def _return_from_3d_viewer(self, skip_unsaved_check=False):
         # Cierra el visor 3D y regresa a la ventana principal
         if self.window_viewer_3d and self.window_viewer_3d.winfo_exists():
-            if hasattr(self.window_viewer_3d, 'has_unsaved_changes') and self.window_viewer_3d.has_unsaved_changes:
-                modified_pmdl = self.window_viewer_3d.get_modified_pmdl_data()
-                if modified_pmdl:
-                    # Actualizar el blob con los cambios de UVs
-                    self._blob = bytearray(modified_pmdl)
-                    
-                    # Si viene de parche, guardar automáticamente
-                    if self.patch_bridge.is_from_patch():
-                        try:
-                            analyzer = self.patch_bridge.get_patch_analyzer()
-                            if analyzer:
-                                # CharacterAnalyzer guarda datos en analyzer.character_data
-                                if hasattr(analyzer, 'character_data'):
+            if (not skip_unsaved_check and
+                    hasattr(self.window_viewer_3d, 'has_unsaved_changes') and
+                    self.window_viewer_3d.has_unsaved_changes):
+                respuesta = messagebox.askyesnocancel(
+                    "Cambios sin guardar",
+                    "Hay cambios sin guardar en el editor de UVs.\n¿Deseas aplicar los cambios antes de cerrar?",
+                    icon="warning"
+                )
+                if respuesta is None:
+                    # Cancelar — no cerrar
+                    return
+                if respuesta:
+                    # Sí — aplicar cambios
+                    modified_pmdl = self.window_viewer_3d.get_modified_pmdl_data()
+                    if modified_pmdl:
+                        self._blob = bytearray(modified_pmdl)
+                        if self.patch_bridge.is_from_patch():
+                            try:
+                                analyzer = self.patch_bridge.get_patch_analyzer()
+                                if analyzer and hasattr(analyzer, 'character_data'):
                                     analyzer.character_data['pmdl_blob'] = bytes(self._blob)
                                     analyzer.save_patch()
                                     print("✓ Cambios de UVs guardados en el parche automáticamente")
-                                else:
-                                    print("Advertencia: No se pudo guardar automáticamente en el parche")
+                            except Exception as e:
+                                print(f"Error al guardar cambios de UVs en parche: {e}")
+                        try:
+                            self._hdr = parse_header(self._blob)
+                            self._parts = parse_parts_index(self._blob, self._hdr)
+                            if hasattr(self, 'parts_table'):
+                                self.parts_table.populate(self._parts)
+                                self.parts_table.update_part_count(self._hdr.part_count)
                         except Exception as e:
-                            print(f"Error al guardar cambios de UVs en parche: {e}")
-                    else:
-                        print("✓ Cambios de UVs aplicados")
-                    
-                    # Re-analizar el PMDL actualizado
-                    try:
-                        from app.core import parse_header, parse_parts_index
-                        
-                        self._hdr = parse_header(self._blob)
-                        self._parts = parse_parts_index(self._blob, self._hdr)
-                        
-                        # Actualizar tabla
-                        if hasattr(self, 'parts_table'):
-                            self.parts_table.populate(self._parts)
-                            self.parts_table.update_part_count(self._hdr.part_count)
-                    except Exception as e:
-                        print(f"Error al re-analizar PMDL: {e}")
-            
+                            print(f"Error al re-analizar PMDL: {e}")
+                # No — descartar cambios, cerrar sin aplicar
+
             self.window_viewer_3d.cleanup()
             self.window_viewer_3d.destroy()
         self.window_viewer_3d = None
-        
+
         # Mostrar ventana principal
         self.deiconify()
         self.focus_force()
@@ -948,93 +948,72 @@ class PmdlPartsApp(ctk.CTk):
     # ------------ Importar Parte (.tttpart) ------------
     @error_window_ui
     def on_import_part(self):
-        """Importa una parte desde archivo .tttpart (con o sin encabezado)."""
+        """Importa una o más partes desde archivos .tttpart (con o sin encabezado)."""
         if self._blob is None or self._hdr is None or self._parts is None:
             messagebox.showinfo("Info", "Abre primero un archivo .pmdl.")
             return
-        
-        in_path = filedialog.askopenfilename(
-            title="Selecciona una parte .tttpart",
+
+        in_paths = filedialog.askopenfilenames(
+            title="Selecciona una o más partes .tttpart",
             filetypes=[("TTT Part", "*.tttpart"), ("Todos los archivos", "*.*")]
         )
-        if not in_path:
+        if not in_paths:
             return
-        
-        try:
-            with open(in_path, "rb") as f:
-                file_data = f.read()
-            
-            # Verificar estado del toggle de normalización
-            normalize_enabled = self.normalize_toggle_var.get() if self.normalize_toggle_var else True
-            
-            # Procesar encabezado si existe
-            part_data, metadata = importar_parte_con_encabezado(file_data)
-            
-            if metadata and normalize_enabled:
-                # Tiene encabezado Y normalización activada
-                # 1. Normalizar PMDL principal a grosor máximo si es necesario
-                was_normalized = normalizar_pmdl_completo(self._blob, self._hdr.parts_index_offset, self._parts)
-                if was_normalized:
-                    print("✓ PMDL principal normalizado a grosor máximo")
-                
-                # 2. Convertir parte a grosor máximo
-                part_converted = preparar_parte_externa_para_insercion(part_data, metadata['grosor'])
-                
-                # 3. Importar parte convertida
-                new_offset, new_length = import_part(self._blob, self._hdr, self._parts, bytes(part_converted))
-                
-                # 4. Aplicar metadatos (opacidad, flag) a la parte recién insertada
-                last_part = self._parts[-1]
-                last_part.opacity = metadata['opacidad']
-                last_part.special_flag = metadata['flag']
-                
-                # Actualizar en el blob
-                base = self._hdr.parts_index_offset
-                stride = 0x20
-                last_idx = len(self._parts) - 1
-                off = base + last_idx * stride
-                
-                import struct
-                struct.pack_into("<H", self._blob, off + 0x02, last_part.opacity & 0xFFFF)
-                struct.pack_into("<I", self._blob, off + 0x0C, last_part.special_flag & 0xFFFFFFFF)
-                
-                msg = f"Parte importada con normalización de grosor.\nOffset=0x{new_offset:X}\nLongitud=0x{new_length:X}"
-            
-            elif metadata and not normalize_enabled:
-                # Tiene encabezado PERO normalización desactivada
-                new_offset, new_length = import_part(self._blob, self._hdr, self._parts, part_data)
-                
-                # Aplicar solo metadatos (opacidad, flag) sin conversión de grosor
-                last_part = self._parts[-1]
-                last_part.opacity = metadata['opacidad']
-                last_part.special_flag = metadata['flag']
-                
-                base = self._hdr.parts_index_offset
-                stride = 0x20
-                last_idx = len(self._parts) - 1
-                off = base + last_idx * stride
-                
-                import struct
-                struct.pack_into("<H", self._blob, off + 0x02, last_part.opacity & 0xFFFF)
-                struct.pack_into("<I", self._blob, off + 0x0C, last_part.special_flag & 0xFFFFFFFF)
-                
-                msg = f"Parte importada SIN normalización (toggle desactivado).\nOffset=0x{new_offset:X}\nLongitud=0x{new_length:X}\n\n⚠️ ADVERTENCIA: Podría estar fuera de escala."
-            
-            else:
-                # Sin encabezado - importación legacy
-                new_offset, new_length = import_part(self._blob, self._hdr, self._parts, part_data)
-                msg = f"Parte importada (sin encabezado).\nOffset=0x{new_offset:X}\nLongitud=0x{new_length:X}\n\n⚠️ ADVERTENCIA: Podría estar fuera de escala."
-            
-            # Refrescar UI
-            self.parts_table.populate(self._parts)
-            self.parts_table.update_part_count(self._hdr.part_count)
-            
-            messagebox.showinfo("Importada", msg)
-        
-        except Exception as e:
-            messagebox.showerror("Error", f"No se pudo importar la parte:\n{e}")
-            import traceback
-            traceback.print_exc()
+
+        normalize_enabled = self.normalize_toggle_var.get() if self.normalize_toggle_var else True
+        resultados = []
+        errores = []
+
+        for in_path in in_paths:
+            nombre = os.path.basename(in_path)
+            try:
+                with open(in_path, "rb") as f:
+                    file_data = f.read()
+
+                part_data, metadata = importar_parte_con_encabezado(file_data)
+
+                if metadata and normalize_enabled:
+                    was_normalized = normalizar_pmdl_completo(self._blob, self._hdr.parts_index_offset, self._parts)
+                    if was_normalized:
+                        print("✓ PMDL principal normalizado a grosor máximo")
+                    part_converted = preparar_parte_externa_para_insercion(part_data, metadata['grosor'])
+                    new_offset, new_length = import_part(self._blob, self._hdr, self._parts, bytes(part_converted))
+                    last_part = self._parts[-1]
+                    last_part.opacity = metadata['opacidad']
+                    last_part.special_flag = metadata['flag']
+                    off = self._hdr.parts_index_offset + (len(self._parts) - 1) * 0x20
+                    import struct
+                    struct.pack_into("<H", self._blob, off + 0x02, last_part.opacity & 0xFFFF)
+                    struct.pack_into("<I", self._blob, off + 0x0C, last_part.special_flag & 0xFFFFFFFF)
+                    resultados.append(f"✓ {nombre} — con normalización (0x{new_offset:X}, 0x{new_length:X})")
+
+                elif metadata and not normalize_enabled:
+                    new_offset, new_length = import_part(self._blob, self._hdr, self._parts, part_data)
+                    last_part = self._parts[-1]
+                    last_part.opacity = metadata['opacidad']
+                    last_part.special_flag = metadata['flag']
+                    off = self._hdr.parts_index_offset + (len(self._parts) - 1) * 0x20
+                    import struct
+                    struct.pack_into("<H", self._blob, off + 0x02, last_part.opacity & 0xFFFF)
+                    struct.pack_into("<I", self._blob, off + 0x0C, last_part.special_flag & 0xFFFFFFFF)
+                    resultados.append(f"⚠ {nombre} — SIN normalización (0x{new_offset:X}, 0x{new_length:X})")
+
+                else:
+                    new_offset, new_length = import_part(self._blob, self._hdr, self._parts, part_data)
+                    resultados.append(f"⚠ {nombre} — sin encabezado (0x{new_offset:X}, 0x{new_length:X})")
+
+            except Exception as e:
+                errores.append(f"✗ {nombre}: {e}")
+                import traceback
+                traceback.print_exc()
+
+        self.parts_table.populate(self._parts)
+        self.parts_table.update_part_count(self._hdr.part_count)
+
+        resumen = "\n".join(resultados)
+        if errores:
+            resumen += "\n\nErrores:\n" + "\n".join(errores)
+        messagebox.showinfo("Importación completada", resumen if resumen else "Sin resultados.")
     
     def _save_to_patch(self):
         """Guarda el PMDL actualizado en el parche original."""

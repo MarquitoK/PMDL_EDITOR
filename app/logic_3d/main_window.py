@@ -11,6 +11,7 @@ from .mesh_processor import merge_vertices_by_distance
 from .gl_viewport import GLViewport
 from app.logic_uvs.canvas import UVCanvas
 from app.logic_uvs.parser import PmdlParser
+from app.utils.icon import set_app_icon
 
 ESCALA: float =  0.00051875
 
@@ -49,6 +50,8 @@ class PMDLViewerApp(ctk.CTkToplevel):
         self.bind("<ButtonPress-1>", self._on_window_move_start, add="+")
         self.bind("<ButtonRelease-1>", self._on_window_move_end, add="+")
         
+        self.protocol("WM_DELETE_WINDOW", self._on_close_request)
+        set_app_icon(self)
         self.setup_ui()
         
         # Bindings globales para Undo/Redo
@@ -292,8 +295,8 @@ class PMDLViewerApp(ctk.CTkToplevel):
         if not filepath:
             return
 
-        ext = os.path.splitext(filepath)[1].lower()
-        if ext in (".atex", ".unk"):
+        is_raw = os.path.splitext(filepath)[1].lower() in (".atex", ".unk")
+        if is_raw:
             try:
                 import tempfile
                 from app.utils.atex_reader import atex_to_pil
@@ -308,7 +311,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
                     try: os.unlink(self.temp_texture_path)
                     except: pass
                 self.temp_texture_path = png_path
-                self._temp_texture_owned = True  # este PNG lo creamos nosotros
+                self._temp_texture_owned = True
                 filepath = png_path
             except Exception as e:
                 messagebox.showerror("Error", f"No se pudo leer la textura RAW:\n{e}")
@@ -316,15 +319,13 @@ class PMDLViewerApp(ctk.CTkToplevel):
 
         if GLViewport and hasattr(self, 'gl_viewport'):
             if self.gl_viewport.load_texture(filepath):
-                # Guardar ruta para que el canvas UV pueda accederla después
-                # Solo actualizar si no fue ya seteado por la rama RAW arriba
-                if not (os.path.splitext(filepath)[1].lower() in (".atex", ".unk")):
-                    # Es un PNG/imagen directa del usuario — NO es nuestro temporal
+                if not is_raw:
+                    # PNG directo del usuario — no es nuestro temporal
                     if self._temp_texture_owned and self.temp_texture_path and os.path.exists(self.temp_texture_path):
                         try: os.unlink(self.temp_texture_path)
                         except: pass
                     self.temp_texture_path = filepath
-                    self._temp_texture_owned = False  # archivo del usuario, no tocar
+                    self._temp_texture_owned = False
                 texture_name = os.path.basename(filepath)
                 self.lbl_textura.configure(
                     text=f"🖼️ {texture_name}",
@@ -332,12 +333,10 @@ class PMDLViewerApp(ctk.CTkToplevel):
                 )
                 if self.pmdl_data:
                     self.seleccionar_parte(-1)
-                # Habilitar editor UVs si ya hay PMDL cargado
                 if self.pmdl_data and not self.is_secondary_pmdl and hasattr(self, 'btn_edit_uvs'):
                     self.btn_edit_uvs.configure(state="normal")
-                # Si el panel UV está abierto, actualizar textura en canvas
                 if self.uv_panel_visible and self.uv_canvas:
-                    self.uv_canvas.load_texture(filepath)
+                    self.uv_canvas.load_texture(self.temp_texture_path)
                     self.load_uvs_for_selected_part()
             else:
                 messagebox.showerror("Error", "No se pudo cargar la textura")
@@ -598,13 +597,15 @@ class PMDLViewerApp(ctk.CTkToplevel):
             except:
                 pass
             self.uv_editor_window = None
-        
-        if self.temp_pmdl_path and os.path.exists(self.temp_pmdl_path):
-            try:
-                os.unlink(self.temp_pmdl_path)
-            except:
-                pass
-        
+
+        # Solo borrar el pmdl temporal si NO es un archivo explícito del usuario
+        if self.pmdl_origin != 'explicit':
+            if self.temp_pmdl_path and os.path.exists(self.temp_pmdl_path):
+                try:
+                    os.unlink(self.temp_pmdl_path)
+                except:
+                    pass
+
         if self._temp_texture_owned and self.temp_texture_path and os.path.exists(self.temp_texture_path):
             try:
                 os.unlink(self.temp_texture_path)
@@ -804,6 +805,9 @@ class PMDLViewerApp(ctk.CTkToplevel):
                 if hasattr(self, 'splitter') and self.splitter:
                     self.splitter.grid(row=1, column=2, sticky="ns", padx=0, pady=0)
                 self.uv_panel.grid(row=1, column=3, sticky="nsew", padx=0, pady=0)
+                # Sincronizar textura en caso de que haya cambiado
+                if self.uv_canvas and self.temp_texture_path and os.path.exists(self.temp_texture_path):
+                    self.uv_canvas.load_texture(self.temp_texture_path)
             self.uv_panel_visible = True
             
             # Forzar actualización del viewport OpenGL
@@ -998,14 +1002,23 @@ class PMDLViewerApp(ctk.CTkToplevel):
         if not self.uv_parser or not self.temp_pmdl_path:
             messagebox.showerror("Error", "No hay UVs para guardar")
             return
-        
+
+        # Si es pmdl externo, confirmar antes de sobreescribir
+        if self.pmdl_origin == 'explicit' and self.pmdl_explicit_path:
+            if not messagebox.askyesno(
+                "Confirmar",
+                f"Se reemplazará el archivo:\n{self.pmdl_explicit_path}\n\n¿Continuar?",
+                icon="warning"
+            ):
+                return
+
         try:
-            # Guardar UVs
             if self.uv_parser.save_uvs(self.uv_parser.parts_data, self.temp_pmdl_path):
                 print("✓ UVs guardadas")
-                # Marcar como guardado
-                self.has_unsaved_changes = True
-                # Recargar modelo 3D sin cambiar el modo actual
+                self.has_unsaved_changes = False
+                title = self.title()
+                if title.startswith("* "):
+                    self.title(title[2:])
                 self.reload_pmdl_from_file(skip_uv_reload=True)
             else:
                 messagebox.showerror("Error", "No se pudieron guardar las UVs")
@@ -1016,7 +1029,24 @@ class PMDLViewerApp(ctk.CTkToplevel):
 
     def mark_as_modified(self):
         """Marca que hay cambios sin guardar (llamado desde canvas)"""
-        pass
+        self.has_unsaved_changes = True
+        title = self.title()
+        if not title.startswith("*"):
+            self.title("* " + title)
+
+    def _on_close_request(self):
+        """Intercepta el cierre de ventana para preguntar si hay cambios sin guardar"""
+        if self.has_unsaved_changes:
+            from tkinter import messagebox as _mb
+            if not _mb.askyesno(
+                "Cambios sin guardar",
+                "Hay cambios sin guardar en el editor de UVs.\n¿Salir de todas formas? Los cambios se perderán."
+            ):
+                return
+        if hasattr(self.master, '_return_from_3d_viewer'):
+            self.master._return_from_3d_viewer(skip_unsaved_check=True)
+        else:
+            self.destroy()
     
     def get_modified_pmdl_data(self):
         """Devuelve el bytearray del PMDL modificado solo si fue heredado del editor principal."""
