@@ -35,7 +35,7 @@ try:
             self.current_part_index = -1
 
             self.bones_data = []
-            self.bones_visible = True
+            self.bones_visible = False
             self.selected_bone = None
             self.bones_names = {}
 

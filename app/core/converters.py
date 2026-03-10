@@ -1,19 +1,12 @@
-"""
-Conversores de opacidad entre porcentaje (0-100) y valor uint16 (0x0000-0xFFFF).
-"""
-
-def percent_from_opacity_u16(u16: int) -> float:
-    if u16 <= 0:
-        return 0.0
-    if u16 >= 0xFFFF:
-        return 100.0
-    return round(u16 * 100 / 0xFFFF, 1)
+def percent_from_opacity_u16(u16: int) -> int:
+    low_byte = u16 & 0xFF
+    if low_byte <= 0:
+        return 100
+    return round(low_byte * 100 / 0xFF)
 
 
 def opacity_u16_from_percent(pct) -> int:
-    pct = max(0.0, min(100.0, float(pct)))
-    if pct >= 100.0:
-        return 0xFFFF
-    if pct <= 0.0:
-        return 0x0000
-    return int(round(pct * 0xFFFF / 100.0))
+    pct = max(1, min(100, int(round(float(pct)))))
+    low_byte = round(pct * 0xFF / 100)
+    low_byte = max(1, min(0xFF, low_byte))
+    return low_byte & 0xFFFF

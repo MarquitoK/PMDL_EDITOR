@@ -851,6 +851,7 @@ class PmdlPartsApp(ctk.CTk):
             self.parts_table.populate(self._parts)
             self.parts_table.update_part_count(self._hdr.part_count)
             
+            self._refresh_patch_texture()
             self.status_var.set("Parte borrada correctamente · Los ijue30s")
             messagebox.showinfo("Borrado", "Parte eliminada correctamente.")
         
@@ -1010,6 +1011,8 @@ class PmdlPartsApp(ctk.CTk):
         self.parts_table.populate(self._parts)
         self.parts_table.update_part_count(self._hdr.part_count)
 
+        self._refresh_patch_texture()
+
         resumen = "\n".join(resultados)
         if errores:
             resumen += "\n\nErrores:\n" + "\n".join(errores)
@@ -1082,6 +1085,48 @@ class PmdlPartsApp(ctk.CTk):
         self._return_from_character_editor()
         self.patch_bridge.mark_saved()
     
+    def _refresh_patch_texture(self):
+        """Re-lee la tex del parche tras cambios de tamaño en el PMDL."""
+        if not self.patch_bridge.is_from_patch():
+            return
+        analyzer = self.patch_bridge.get_patch_analyzer()
+        if not analyzer:
+            return
+        try:
+            self.patch_bridge.update_pmdl_in_patch(self._blob)
+            analyzer.find_pmdl_and_texture()
+        except Exception as e:
+            print(f"Error refrescando tex del parche: {e}")
+            return
+
+        # Actualizar character editor si está abierto
+        if self.window_character_editor and self.window_character_editor.winfo_exists():
+            try:
+                self.window_character_editor.analyzer = analyzer
+                self.window_character_editor.display_texture()
+            except Exception as e:
+                print(f"Error actualizando tex en character editor: {e}")
+
+        # Actualizar visor 3D si está abierto
+        if self.window_viewer_3d and self.window_viewer_3d.winfo_exists():
+            try:
+                import tempfile
+                img = analyzer.generate_texture_image()
+                if img:
+                    viewer = self.window_viewer_3d
+                    if viewer.temp_texture_path and os.path.exists(viewer.temp_texture_path):
+                        try:
+                            os.unlink(viewer.temp_texture_path)
+                        except Exception:
+                            pass
+                    with tempfile.NamedTemporaryFile(mode='wb', suffix='.png', delete=False) as tmp:
+                        img.save(tmp.name)
+                        viewer.temp_texture_path = tmp.name
+                    if hasattr(viewer, 'gl_viewport') and viewer.gl_viewport:
+                        viewer.gl_viewport.load_texture(viewer.temp_texture_path)
+            except Exception as e:
+                print(f"Error actualizando tex en visor 3D: {e}")
+
     # ------------ PMDL Secundario ------------
     @error_window_ui
     def on_open_file_secondary(self):
@@ -1151,6 +1196,8 @@ class PmdlPartsApp(ctk.CTk):
             # Refrescar UI
             self.parts_table.populate(self._parts)
             self.parts_table.update_part_count(self._hdr.part_count)
+            
+            self._refresh_patch_texture()
             
             if normalize_enabled:
                 msg = f"Parte agregada con normalización de grosor.\nOffset=0x{new_offset:X}\nLongitud=0x{new_length:X}"
