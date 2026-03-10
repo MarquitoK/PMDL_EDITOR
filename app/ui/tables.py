@@ -271,19 +271,23 @@ class PartsTable(ctk.CTkScrollableFrame):
             self.on_depth_change(part_index, val)
     
     def _slider_arrow(self, slider_widget, delta: int, part_index: int, label_widget: ctk.CTkLabel):
-        current = round(float(slider_widget.get()), 1)
-        new_val = round(max(0.0, min(100.0, current + delta * 0.1)), 1)
+        current = max(1, min(100, int(round(float(slider_widget.get())))))
+        new_val = max(1, min(100, current + delta))
         slider_widget.set(new_val)
         self._on_opacity(new_val, part_index, label_widget)
 
     def _bind_slider_keys(self, slider, idx, lbl):
         slider.bind("<ButtonPress-1>", lambda e: e.widget.focus_set())
-        slider.bind("<Left>",  lambda e, i=idx, l=lbl: self._slider_arrow(slider, -1, i, l))
-        slider.bind("<Right>", lambda e, i=idx, l=lbl: self._slider_arrow(slider, +1, i, l))
+        slider.bind("<Left>",       lambda e, i=idx, l=lbl: self._slider_arrow(slider, -1,  i, l))
+        slider.bind("<Right>",      lambda e, i=idx, l=lbl: self._slider_arrow(slider, +1,  i, l))
+        slider.bind("<Shift-Left>",  lambda e, i=idx, l=lbl: self._slider_arrow(slider, -10, i, l))
+        slider.bind("<Shift-Right>", lambda e, i=idx, l=lbl: self._slider_arrow(slider, +10, i, l))
         for child in slider.winfo_children():
             child.bind("<ButtonPress-1>", lambda e: slider.focus_set())
-            child.bind("<Left>",  lambda e, i=idx, l=lbl: self._slider_arrow(slider, -1, i, l))
-            child.bind("<Right>", lambda e, i=idx, l=lbl: self._slider_arrow(slider, +1, i, l))
+            child.bind("<Left>",       lambda e, i=idx, l=lbl: self._slider_arrow(slider, -1,  i, l))
+            child.bind("<Right>",      lambda e, i=idx, l=lbl: self._slider_arrow(slider, +1,  i, l))
+            child.bind("<Shift-Left>",  lambda e, i=idx, l=lbl: self._slider_arrow(slider, -10, i, l))
+            child.bind("<Shift-Right>", lambda e, i=idx, l=lbl: self._slider_arrow(slider, +10, i, l))
 
     def _on_opacity(self, value, part_index: int, label_widget: ctk.CTkLabel):
         try:
