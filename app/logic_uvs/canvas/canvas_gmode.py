@@ -41,6 +41,9 @@ class UVCanvasGMode:
                 d['vertex']['y'] = max(0, min(255, oy + int_dy))
             self._update_point_and_lines(d, scale)
         self._update_faces()
+        self.delete("edge_grad")
+        self._edge_grad_dirty = True
+        self._prev_sel_set = None
         self._refresh_colors()
         self._update_coord_label()
 
@@ -90,6 +93,9 @@ class UVCanvasGMode:
                 d['vertex']['y'] = oy
                 self._update_point_and_lines(d, scale)
         self._update_faces()
+        self.delete("edge_grad")
+        self._edge_grad_dirty = True
+        self._prev_sel_set = None
         self._refresh_colors()
         self.g_mode      = False
         self.g_axis      = None

@@ -133,14 +133,6 @@ def import_part(blob: bytearray, hdr: PmdlHeader, parts: List[PartIndexEntry], n
     return new_offset, new_length
 
 def replace_part(blob: bytearray, hdr: PmdlHeader, parts: List[PartIndexEntry], part_data: bytearray, id_part: int):
-    """
-    remplaza una parte existen
-    :param blob: Datos del archivo PMDL.
-    :param hdr: Header del PMDL.
-    :param parts: Lista de partes.
-    :param part_data: Bytes de la nueva parte.
-    :param id_part: Identificador de la parte del PMDL.
-    """
 
     offset_part = parts[id_part].part_offset
     old_length = parts[id_part].part_length
@@ -268,7 +260,7 @@ def sync_parts_from_ui(blob: bytearray, hdr: PmdlHeader, parts: List[PartIndexEn
         parts[i].part_id = (current & 0xFF00) | low
         
         # Opacidad
-        pct = max(0, min(100, data.get('opacity_pct', 100)))
+        pct = max(0.0, min(100.0, float(data.get('opacity_pct', 100.0))))
         parts[i].opacity = opacity_u16_from_percent(pct)
         
         # Función
