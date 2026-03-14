@@ -1,5 +1,10 @@
 import customtkinter as ctk
 
+from app.utils.icon import set_app_icon
+
+ZEBRA_A = "#2B2B2B"
+ZEBRA_B = "#242424"
+
 class ScrollableOptionMenu(ctk.CTkFrame):
     def __init__(self, master, values=None, width=160,
                  command=None, name_window="Select option", **kwargs):
@@ -54,6 +59,7 @@ class ScrollableOptionMenu(ctk.CTkFrame):
 
         win.resizable(False, False)  # ← evita redimensionar
         width, height = 220, 300
+        set_app_icon(win)
 
         # 🔹 POSICIÓN DEL MOUSE (ABSOLUTA)
         x = self.winfo_pointerx()
@@ -76,14 +82,19 @@ class ScrollableOptionMenu(ctk.CTkFrame):
         scroll = ctk.CTkScrollableFrame(win)
         scroll.pack(fill="both", expand=True, padx=5, pady=5)
 
-        for value in self.values:
+        for i, value in enumerate(self.values):
+            row_color = ZEBRA_A if i % 2 == 0 else ZEBRA_B
+
             btn = ctk.CTkButton(
                 scroll,
                 text=value,
                 anchor="center",
+                fg_color=row_color,
+                hover_color="#3A3A3A",
                 command=lambda v=value: self._select(v, win)
             )
-            btn.pack(fill="x", padx=2, pady=1)
+
+            btn.pack(fill="x", padx=2, pady=0)
 
     def _select(self, value, win):
         self.set(value)
