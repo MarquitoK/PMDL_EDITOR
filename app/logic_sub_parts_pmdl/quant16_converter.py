@@ -100,8 +100,16 @@ def procesar_pesos(vertices:list, to_float = True):
         for w in v['weights']:
             # print(w)
             if to_float:
-                bones.append(game16_to_float(w) if w != 0 else "N/A")
+                if w != 0:
+                    value = game16_to_float(w)
+                    value = round(value, 1)  # limitar a 1 decimal
+                    bones.append(value)
+                else:
+                    bones.append("N/A")
             else:
-                bones.append(0 if str(w).strip().lower() == "n/a" or not str(w).strip() else float_to_game16(float(w)))
+                bones.append(
+                    0 if str(w).strip().lower() == "n/a" or not str(w).strip()
+                    else float_to_game16(round(float(w), 1))
+                )
         # print(bones)
         v["weights"] = bones

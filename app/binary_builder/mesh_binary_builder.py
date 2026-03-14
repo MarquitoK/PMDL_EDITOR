@@ -25,12 +25,12 @@ class MeshBinaryBuilder:
         self.subparts_dict = []
         with open(input_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-            if not data["type"] == "part":
+            if not data.get("type", "").strip().lower() == "part":
                 raise ValueError(f"El archivo {self.path.name} no es tipo part o no contiene un modelo 3D")
 
         vertices = data["vertices"]
         faces = data["faces"]
-        id_bones = data.get("id_bones", [])
+        id_bones = data["id_bones"]
 
         # -------------------------------------------------
         # 1. Construir mapa arista -> caras
@@ -235,9 +235,6 @@ class MeshBinaryBuilder:
             # posicion de la subparte
             data_part += struct.pack("<I", size_header + len(out))
 
-            # subpart["vertices"] = _procesar_vertices(subpart["vertices"], subpart["grosor"], ESCALA, False)
-            # subpart["vertices"] = _procesar_pesos(subpart["vertices"], False)
-
             for v in subpart["vertices"]:
 
                 # ---- weights  (>H)
@@ -267,46 +264,6 @@ class MeshBinaryBuilder:
 
         return data_part
 
-    # def _procesar_vertices(self, vertices: list, to_float=True):
-    #     GROSOR_MAXIMO = 68.0
-    #
-    #     grosor_x = self.grosor[0] if self.grosor[0] > 0 else GROSOR_MAXIMO
-    #     grosor_y = self.grosor[1] if self.grosor[1] > 0 else GROSOR_MAXIMO
-    #     grosor_z = self.grosor[2] if self.grosor[2] > 0 else GROSOR_MAXIMO
-    #
-    #     factor_x = grosor_x / GROSOR_MAXIMO
-    #     factor_y = grosor_y / GROSOR_MAXIMO
-    #     factor_z = grosor_z / GROSOR_MAXIMO
-    #
-    #     for v in vertices:
-    #         if to_float:
-    #             x = struct.unpack('f', struct.pack('f',
-    #                                                v['pos'][0] * self.escala * factor_x * -1.0
-    #                                                ))[0]
-    #
-    #             y = struct.unpack('f', struct.pack('f',
-    #                                                v['pos'][1] * self.escala * factor_y * -1.0
-    #                                                ))[0]
-    #             z = struct.unpack('f', struct.pack('f',
-    #                                                v['pos'][2] * self.escala * factor_z
-    #                                                ))[0]
-    #         else:
-    #             x = int(-v['pos'][0] / (self.escala * factor_x))
-    #             y = int(-v['pos'][1] / (self.escala * factor_y))
-    #             z = int(v['pos'][2] / (self.escala * factor_z))
-    #
-    #         v['pos'] = [x, y, z]
-    #
-    # def _procesar_pesos(self, vertices: list, to_float=True):
-    #     bones = []
-    #     for v in vertices:
-    #         bones = []
-    #         for w in v['weights']:
-    #             if to_float:
-    #                 bones.append(game16_to_float(w) if w != 0 else "N/A")
-    #             else:
-    #                 bones.append(0 if str(w).strip().lower() == "n/a" or not str(w).strip() else float_to_game16(float(w)))
-    #         v["weights"] = bones
 
     def make_part(self, path: Path | str, max_tris: int):
         self.path = path if type(path) == Path else Path(path)
@@ -324,5 +281,5 @@ class MeshBinaryBuilder:
             part_header = exportar_parte_con_encabezado(parte_ttt, self.grosor[0], self.grosor[1], self.grosor[2], 1,  65535, 0)
             f.write(part_header)
             if DEBUG:
-                print("parte ttt generada")
+                print(f"parte ttt generada: {self.path.name}")
 
