@@ -122,7 +122,7 @@ class VertexEditor(ctk.CTkToplevel):
     def load_vertices(self, vertices: list):
         def weight_color(value):
             if value == "N/A":
-                return "#555555"
+                return "#1f1f1f"
 
             v = float(value)
 
