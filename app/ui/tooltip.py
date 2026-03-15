@@ -1,4 +1,5 @@
 import customtkinter as ctk
+import re
 from pathlib import Path
 
 
@@ -102,18 +103,28 @@ class ToolTip:
         except Exception:
             self.hide()
 
-    def _user_hide(self, path_str: str) -> str:
+    def _user_hide(self, text: str) -> str:
+
+        # detecta inicio de ruta windows
+        match = re.search(r"[A-Za-z]:[\\/].*", text)
+        if not match:
+            return text
+
+        path_str = match.group(0)
+
         if not self._is_path_like(path_str):
-            return path_str
+            return text
 
         p = Path(path_str)
         home = Path.home()
 
         try:
             rel = p.relative_to(home)
-            return f"{p.drive}\\~\\{rel}".replace("\\", "/")
+            new_path = f"{p.drive}/~/{rel}".replace("\\", "/")
         except ValueError:
-            return path_str.replace("\\", "/")
+            new_path = path_str.replace("\\", "/")
+
+        return text.replace(path_str, new_path)
 
     def _is_path_like(self, path_str: str) -> bool:
         try:

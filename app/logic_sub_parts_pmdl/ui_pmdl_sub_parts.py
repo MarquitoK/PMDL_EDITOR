@@ -27,22 +27,26 @@ UI_FONT = ("Segoe UI", 12)
 GRID_FONT = ("Consolas", 15)
 SEL_COLOR = "#1F538D"
 BG_COLOR = "#333333"
+BG_COLOR_ALT = "#2E2E2E"
 
 class MultiSelectTable(ctk.CTkFrame):
+
     def __init__(self, master, rows=0, cols=5, headers=None,
                  parent_app=None, path=0, **kwargs):
         super().__init__(master, fg_color="transparent", **kwargs)
 
-        self.parent_app = parent_app # clase controllers/app_controller
-        self.path = path          # 0 = izquierda, 1 = derecha
+        self.parent_app = parent_app
+        self.path = path
         self.path_name = None
 
         self.anchor_row: int | None = None
 
         self.rows_count = rows
         self.cols_count = cols
+
         self.cells: list[list[ctk.CTkEntry]] = []
         self.selected_rows: set[int] = set()
+        self._last_selected_rows: set[int] = set()
 
         self._build_scroll()
         self._build_headers(headers)
@@ -51,6 +55,7 @@ class MultiSelectTable(ctk.CTkFrame):
     # UI
     # =========================
     def _build_scroll(self):
+
         self.scroll = ctk.CTkScrollableFrame(
             self,
             fg_color="#2B2B2B",
@@ -61,10 +66,12 @@ class MultiSelectTable(ctk.CTkFrame):
         self.scroll.pack(fill="both", expand=True)
 
     def _build_headers(self, headers):
+
         if not headers:
             return
 
         for col, text in enumerate(headers):
+
             ctk.CTkLabel(
                 self.scroll,
                 text=text,
@@ -79,7 +86,6 @@ class MultiSelectTable(ctk.CTkFrame):
     # HELPERS
     # =========================
     def _get_blob(self):
-        # return self.parent_app._blob if self.path == 0 else self.parent_app._blob2
         return self.master.master._blobs if self.path == 0 else self.master.master._blobs2
 
     def _get_parts(self):
@@ -93,26 +99,28 @@ class MultiSelectTable(ctk.CTkFrame):
         )
 
     def get_selected_row_indices(self) -> list[int]:
-        """
-        Devuelve una lista ordenada de filas seleccionadas.
-        """
         return sorted(self.selected_rows)
 
     def _get_selected_row_index(self):
+
         if len(self.selected_rows) != 1:
             return None
+
         return next(iter(self.selected_rows))
 
     # =========================
     # TABLE CONTROL
     # =========================
     def clear(self):
+
         for row in self.cells:
             for cell in row:
                 cell.destroy()
 
         self.cells.clear()
         self.selected_rows.clear()
+        self._last_selected_rows.clear()
+
         self.rows_count = 0
 
         try:
@@ -121,62 +129,75 @@ class MultiSelectTable(ctk.CTkFrame):
             pass
 
     def set_table(self, rows=0, subpart=None, part=0):
+
         self.clear()
         self.rows_count = rows
 
         data = subpart[part]
-        rows_data = [
-            [
+
+        for r, e in enumerate(data):
+
+            values = (
                 e.sub_part,
                 e.sub_part_offset,
                 e.num_vertices,
                 e.num_bones,
                 calc_subpart_size(e.num_vertices, e.num_bones),
                 e.unk
-            ]
-            for e in data
-        ]
+            )
 
-        for r, row_data in enumerate(rows_data):
             widgets = []
-            for c in range(self.cols_count):
-                entry = self._create_cell(r, c, row_data[c])
+
+            for c, value in enumerate(values):
+
+                entry = self._create_cell(r, c, value)
                 widgets.append(entry)
+
             self.cells.append(widgets)
 
         if self.cells:
             self.select_row(0)
 
+        self.scroll.update_idletasks()
+
     def _create_cell(self, row, col, value):
+
+        var = tk.StringVar(value=f"{value:02}")
+
+        row_color = BG_COLOR if row % 2 == 0 else BG_COLOR_ALT
+
         entry = ctk.CTkEntry(
             self.scroll,
+            textvariable=var,
             width=75,
             height=28,
             font=GRID_FONT,
             justify="center",
             corner_radius=0,
             border_width=1,
-            fg_color=BG_COLOR,
-            border_color="#444444"
+            fg_color=row_color,
+            border_color="#444444",
+            state="readonly"
         )
 
-        entry.insert(0, f"{value:02}")
-        entry.configure(state="readonly")
         entry.grid(row=row + 1, column=col, sticky="nsew")
 
         entry.bind("<Button-1>", lambda e, r=row: self._handle_click(e, r))
         entry.bind("<Button-3>", self._open_context_menu)
+
         return entry
 
     # =========================
     # SELECTION
     # =========================
     def select_row(self, row_idx: int, scroll_to=True):
+
         if row_idx < 0 or row_idx >= len(self.cells):
             return
 
         self.selected_rows = {row_idx}
-        self.anchor_row = row_idx  # ← importante
+        self.anchor_row = row_idx
+
         self._update_visuals()
 
         if scroll_to:
@@ -188,52 +209,59 @@ class MultiSelectTable(ctk.CTkFrame):
                 pass
 
     def _handle_click(self, event, row_idx):
+
         ctrl = (event.state & 0x0004) != 0
         shift = (event.state & 0x0001) != 0
 
-        # =========================
-        # SHIFT → agregar rango desde anchor
-        # =========================
         if shift:
+
             if self.anchor_row is None:
                 self.anchor_row = row_idx
 
             start = min(self.anchor_row, row_idx)
             end = max(self.anchor_row, row_idx)
 
-            # 🔹 añade rango sin borrar lo anterior
             self.selected_rows.update(range(start, end + 1))
 
-        # =========================
-        # CTRL → toggle individual
-        # =========================
         elif ctrl:
+
             if row_idx in self.selected_rows:
                 self.selected_rows.remove(row_idx)
             else:
                 self.selected_rows.add(row_idx)
 
-            # Ctrl redefine anchor
             self.anchor_row = row_idx
 
-        # =========================
-        # CLICK NORMAL → selección única
-        # =========================
         else:
+
             self.selected_rows = {row_idx}
             self.anchor_row = row_idx
 
         self._update_visuals()
 
     def _update_visuals(self):
-        for r, row in enumerate(self.cells):
-            color = SEL_COLOR if r in self.selected_rows else BG_COLOR
-            for cell in row:
+
+        changed = self.selected_rows ^ self._last_selected_rows
+
+        for r in changed:
+
+            if r >= len(self.cells):
+                continue
+
+            if r in self.selected_rows:
+                color = SEL_COLOR
+            else:
+                color = BG_COLOR if r % 2 == 0 else BG_COLOR_ALT
+
+            for cell in self.cells[r]:
                 cell.configure(fg_color=color)
+
+        self._last_selected_rows = set(self.selected_rows)
 
         self._change_labels()
 
     def get_selected_data(self):
+
         return [
             [cell.get() for cell in self.cells[r]]
             for r in sorted(self.selected_rows)
@@ -243,6 +271,7 @@ class MultiSelectTable(ctk.CTkFrame):
     # CONTEXT MENU
     # =========================
     def _open_context_menu(self, event):
+
         if not self.selected_rows:
             return
 
@@ -267,6 +296,7 @@ class MultiSelectTable(ctk.CTkFrame):
             menu.add_command(label="Agregar selecciones", command=self._add_subparts)
 
         menu.tk_popup(event.x_root, event.y_root)
+
 
     # =========================
     # OPERATIONS

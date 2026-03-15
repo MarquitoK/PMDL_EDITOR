@@ -1,3 +1,4 @@
+import copy
 import json
 import struct
 import customtkinter as ctk
@@ -6,6 +7,7 @@ from app.logic_sub_parts_pmdl.header_subpart import SpartHeader
 from app.logic_sub_parts_pmdl.operations import calc_subpart_size
 from app.logic_sub_parts_pmdl.quant16_converter import game16_to_float, float_to_game16, procesar_vertices, \
     procesar_pesos, ESCALA
+from app.utils.icon import set_app_icon
 from app.utils.ui_error_window import error_window_ui
 
 ctk.set_appearance_mode("dark")
@@ -28,8 +30,9 @@ class VertexEditor(ctk.CTkToplevel):
         self.grab_set()  # bloquea interacción con otras ventanas
         self.focus()  # recibe el foco
 
+        set_app_icon(self)
         # opcional: centrar respecto al padre
-        self.after(10, lambda: self.center(parent))
+        self.after(20, lambda: self.center(parent))
 
         self.vertices = None
         self.entries = []
@@ -117,6 +120,54 @@ class VertexEditor(ctk.CTkToplevel):
 
     # ----------------------------
     def load_vertices(self, vertices: list):
+        def weight_color(value):
+            if value == "N/A":
+                return "#1f1f1f"
+
+            v = float(value)
+
+            if v <= 0.25:  # azul → cian
+                t = v / 0.25
+                r = 0
+                g = int(255 * t)
+                b = 255
+
+            elif v <= 0.5:  # cian → verde
+                t = (v - 0.25) / 0.25
+                r = 0
+                g = 255
+                b = int(255 * (1 - t))
+
+            elif v <= 0.75:  # verde → amarillo
+                t = (v - 0.5) / 0.25
+                r = int(255 * t)
+                g = 255
+                b = 0
+
+            else:  # amarillo → rojo
+                t = (v - 0.75) / 0.25
+                r = 255
+                g = int(255 * (1 - t))
+                b = 0
+
+            # 🔧 reducir brillo (tipo Blender UI)
+            factor = 0.35
+            r = int(r * factor)
+            g = int(g * factor)
+            b = int(b * factor)
+
+            return f"#{r:02x}{g:02x}{b:02x}"
+
+        def update_weight_color(widget, value):
+            color = weight_color(value)
+
+            widget.configure(
+                fg_color=color,
+                button_color=color,
+                button_hover_color=color
+            )
+
+        WEIGHT_VALUES = ["N/A"] + [f"{i / 10:.1f}" for i in range(11)]
 
         # ---- LIMPIAR TABLA ----
         for widget in self.table.winfo_children():
@@ -128,11 +179,17 @@ class VertexEditor(ctk.CTkToplevel):
 
         # ---- CREAR FILAS NUEVAS ----
         for r, v in enumerate(self.vertices):
+            row_color = "#2b2b2b" if r % 2 else "#333333"
 
             row_entries = []
 
             # ---- ID (solo lectura) ----
-            id_entry = ctk.CTkEntry(self.table, width=80, justify="center")
+            id_entry = ctk.CTkEntry(
+                self.table,
+                width=80,
+                justify="center",
+                fg_color=row_color
+            )
             id_entry.insert(0, str(r))
             id_entry.configure(state="disabled")
             id_entry.grid(row=r, column=0, padx=2, pady=2)
@@ -149,23 +206,45 @@ class VertexEditor(ctk.CTkToplevel):
 
             # ---- XYZ + UV ----
             for c, value in enumerate(base_data):
-                e = ctk.CTkEntry(self.table, width=80, justify="center")
+                e = ctk.CTkEntry(
+                    self.table,
+                    width=80,
+                    justify="center",
+                    fg_color=row_color
+                )
                 e.insert(0, str(value))
                 e.grid(row=r, column=c + 1, padx=2, pady=2)
                 row_entries.append(e)
 
             # ---- Pesos ----
             for i in range(4):
-                e = ctk.CTkEntry(self.table, width=85, justify="center")
+
+                w = ctk.CTkOptionMenu(
+                    self.table,
+                    values=WEIGHT_VALUES,
+                    width=85,
+                    command=lambda v, widget=None: update_weight_color(widget, v)
+                )
+
+                # fix lambda referencia
+                w.configure(command=lambda v, widget=w: update_weight_color(widget, v))
 
                 if i < weight_count:
-                    e.insert(0, str(weights[i]))
-                else:
-                    e.insert(0, "")
-                    e.configure(state="disabled")
+                    value = weights[i]
 
-                e.grid(row=r, column=6 + i, padx=2, pady=2)
-                row_entries.append(e)
+                    if value == "N/A":
+                        w.set("N/A")
+                    else:
+                        w.set(f"{float(value):.1f}")
+                else:
+                    w.set("N/A")
+                    w.configure(state="disabled")
+
+                # aplicar color inicial
+                update_weight_color(w, w.get())
+
+                w.grid(row=r, column=6 + i, padx=2, pady=2)
+                row_entries.append(w)
 
             self.entries.append(row_entries)
 
@@ -183,20 +262,22 @@ class VertexEditor(ctk.CTkToplevel):
                 # row[0] es ID, se ignora
                 x, y, z = float(row[1].get()), float(row[2].get()), float(row[3].get())
                 u, v = int(row[4].get()), int(row[5].get())
+                if not (0 <= u <= 255 and 0 <= v <= 255):
+                    raise ValueError("Las uv deben estar dentro del rango de 0 a 255")
 
                 weights = []
                 for w in row[6:10]:
                     if w.cget("state") == "normal":
                         val = w.get().strip()
                         if val:
-                            weights.append(float(val) if val.lower() != "n/a" else "n/a")
+                            weights.append(float(val) if val.lower() != "n/a" else "N/A")
                         else:
                             weights.append(0)
 
                 result.append({
                     "pos": [x, y, z],
                     "uv": [u, v],
-                    "weights": weights
+                    "weights": copy.deepcopy(weights)
                 })
 
             except ValueError:
@@ -357,6 +438,13 @@ class VertexEditor(ctk.CTkToplevel):
         if data["type"].strip().lower() != "subpart":
             raise ValueError("El json no contiene una subpart")
 
+        # asegurar usar un decimal
+        for v in data["vertices"]:
+            v["weights"] = [
+                "N/A" if str(w).lower() == "n/a" else round(float(w), 1)
+                for w in v.get("weights", [])
+            ]
+
         self.load_vertices(data["vertices"])
 
         self.grosor = data["grosor"]
@@ -364,55 +452,4 @@ class VertexEditor(ctk.CTkToplevel):
         self.unk = data["unk"]
 
         messagebox.showinfo("Cargado", "Datos cargados", parent=self)
-
-    # def _procesar_vertices(self, vertices:list, to_float = True):
-    #     GROSOR_MAXIMO: float = 512.0
-    #
-    #     grosor_x = self.grosor[0] if self.grosor[0] > 0 else GROSOR_MAXIMO
-    #     grosor_y = self.grosor[1] if self.grosor[1] > 0 else GROSOR_MAXIMO
-    #     grosor_z = self.grosor[2] if self.grosor[2] > 0 else GROSOR_MAXIMO
-    #
-    #     factor_x = grosor_x / GROSOR_MAXIMO
-    #     factor_y = grosor_y / GROSOR_MAXIMO
-    #     factor_z = grosor_z / GROSOR_MAXIMO
-    #
-    #     for v in vertices:
-    #         if to_float:
-    #             x = struct.unpack('f', struct.pack('f',
-    #                 v['pos'][0] * self.escala * factor_x
-    #             ))[0]
-    #
-    #             z = struct.unpack('f', struct.pack('f',
-    #                 -v['pos'][1] * self.escala * factor_y
-    #             ))[0]
-    #             y = struct.unpack('f', struct.pack('f',
-    #                 v['pos'][2] * self.escala * factor_z
-    #             ))[0]
-    #         else:
-    #              x = int(v['pos'][0] / (self.escala * factor_x))
-    #              z = int(-v['pos'][1] / (self.escala * factor_y))
-    #              y = int(v['pos'][2] / (self.escala * factor_z))
-    #
-    #         v['pos'] = [x, y, z]
-    #
-    # def _procesar_pesos(self, vertices:list, to_float = True):
-    #     bones = []
-    #     for v in vertices:
-    #         bones = []
-    #         for w in v['weights']:
-    #             if to_float:
-    #                 bones.append(game16_to_float(w) if w != 0 else "N/A")
-    #             else:
-    #                 bones.append(0 if w == "n/a" or not str(w).strip() else float_to_game16(float(w)))
-    #         v["weights"] = bones
-
-    # def _procesar_uv(self, vertices:list, to_float = True):
-    #     ESCALA_UV = 1.0 / 255.0
-    #     for v in vertices:
-    #         if to_float:
-    #             v["uv"][0] *= ESCALA_UV
-    #             v["uv"][1] *= ESCALA_UV
-    #         else:
-    #             v["uv"][0] = int(v["uv"][0] * 255.0)
-    #             v["uv"][1] = int(v["uv"][1] * 255.0)
 

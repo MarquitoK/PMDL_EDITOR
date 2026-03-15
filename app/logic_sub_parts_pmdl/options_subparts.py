@@ -1,5 +1,6 @@
 import customtkinter as ctk
 
+from app.utils.icon import set_app_icon
 from app.utils.ui_error_window import error_window_ui
 from app.utils.window import center_to_window
 
@@ -12,6 +13,7 @@ class RemapBones(ctk.CTkToplevel):
         self.title("Remap ID(HEX)")
         self.geometry("595x360")
         self.resizable(False, False)
+        set_app_icon(self)
 
         center_to_window(self, self.master)
 
@@ -23,6 +25,7 @@ class RemapBones(ctk.CTkToplevel):
         self.selected_row = None
         self.rows = []
         self.color_normal = ctk.ThemeManager.theme["CTkEntry"]["fg_color"]
+        self.color_alt = "#2E2E2E"
         self.color_selected = "#1F538D"
 
         # =============================
@@ -188,8 +191,12 @@ class RemapBones(ctk.CTkToplevel):
     def _select_row(self, index):
 
         if self.selected_row is not None:
-            for widget in self.rows[self.selected_row]:
-                widget.configure(fg_color=self.color_normal)
+
+            prev = self.selected_row
+            row_color = self.color_normal if prev % 2 == 0 else self.color_alt
+
+            for widget in self.rows[prev]:
+                widget.configure(fg_color=row_color)
 
         self.selected_row = index
 
@@ -231,10 +238,13 @@ class RemapBones(ctk.CTkToplevel):
 
             for col, value in enumerate(row_data):
 
+                row_color = self.color_normal if i % 2 == 0 else self.color_alt
+
                 entry = ctk.CTkEntry(
                     self.table,
                     width=55,
                     justify="center",
+                    fg_color=row_color,
                     font=GRID_FONT
                 )
 
