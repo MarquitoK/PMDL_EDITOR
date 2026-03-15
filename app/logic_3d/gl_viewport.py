@@ -1,6 +1,7 @@
 import numpy as np
 from OpenGL.GL import *
 from OpenGL.GLU import *
+from app.utils.lang import t
 
 try:
     from pyopengltk import OpenGLFrame
@@ -361,11 +362,11 @@ try:
                                 total_edges.add(tuple(sorted([tri[2], tri[0]])))
 
                     segs = [
-                        (f"Parte_{part_index:02d}", "bold_yellow"), ("\n", "normal_white"),
-                        ("Vértices:", "bold_white"), (f" {total_vertices}\n", "normal_white"),
-                        ("Caras:", "bold_white"), (f" {total_triangulos}\n", "normal_white"),
-                        ("Aristas:", "bold_white"), (f" {len(total_edges)}\n", "normal_white"),
-                        ("SubPartes:", "bold_white"), (f" {num_subpartes}", "normal_white"),
+                        (f"{t('vista_3d.parte_label', idx=f'{part_index:02d}')}", "bold_yellow"), ("\n", "normal_white"),
+                        (t("vista_3d.info_vertices"), "bold_white"), (f" {total_vertices}\n", "normal_white"),
+                        (t("vista_3d.info_caras"), "bold_white"), (f" {total_triangulos}\n", "normal_white"),
+                        (t("vista_3d.info_aristas"), "bold_white"), (f" {len(total_edges)}\n", "normal_white"),
+                        (t("vista_3d.info_subpartes"), "bold_white"), (f" {num_subpartes}", "normal_white"),
                     ]
                     self._write_info(segs)
             else:
@@ -383,10 +384,10 @@ try:
                         num_edges = len(edges)
 
                         segs = [
-                            (f"SubParte {idx:02d}/{len(self.mesh_data):02d}", "bold_yellow"), ("\n", "normal_white"),
-                            ("Vértices:", "bold_white"), (f" {num_vertices}\n", "normal_white"),
-                            ("Caras:", "bold_white"), (f" {num_triangulos}\n", "normal_white"),
-                            ("Aristas:", "bold_white"), (f" {num_edges}", "normal_white"),
+                            (t("vista_3d.info_subparte_label", idx=f"{idx:02d}", total=len(self.mesh_data)), "bold_yellow"), ("\n", "normal_white"),
+                            (t("vista_3d.info_vertices"), "bold_white"), (f" {num_vertices}\n", "normal_white"),
+                            (t("vista_3d.info_caras"), "bold_white"), (f" {num_triangulos}\n", "normal_white"),
+                            (t("vista_3d.info_aristas"), "bold_white"), (f" {num_edges}", "normal_white"),
                         ]
                         self._write_info(segs)
                 else:
