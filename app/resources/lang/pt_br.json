@@ -140,7 +140,9 @@
     "btn_1": "Buscar ID 1 e substituir por ID 2",
     "btn_2": "Substituir tudo por ID 1",
     "btn_3": "Substituir ID 1 na coluna ID 2",
-    "save": "Aplicar alterações"
+    "save": "Aplicar alterações",
+    "error_id1": "ID 1 não está no intervalo (0-FF)",
+    "error_id2": "ID 2 não está entre 1 e 4"
   },
   "ui_edit_vert": {
     "titulo": "Pmdl Editor - Subparte N°:",
@@ -148,6 +150,16 @@
     "btn_exportar": "Exportar dados",
     "btn_importar": "Importar dados",
     "btn_save": "Salvar alterações",
-    "ruta": "Caminho"
+    "ruta": "Caminho",
+    "mesg_pmdl_normalizar": "O modelo deve estar normalizado para usar isso",
+    "msg_guardado": "Dados salvos com sucesso",
+    "dlg_json": "Selecionar JSON",
+    "dlg_export": "Salvar dados dos vértices",
+    "msg_dt_load": "Dados carregados",
+    "error_json": "O JSON não contém uma subparte",
+    "error_fila": "Erro em uma linha",
+    "error_uv": "As UVs devem estar no intervalo de 0 a 255",
+    "t_correcto": "Sucesso",
+    "t_warning": "Aviso"
   }
 }

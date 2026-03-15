@@ -140,7 +140,9 @@
     "btn_1": "Search ID 1 and replace with ID 2",
     "btn_2": "Replace all with ID 1",
     "btn_3": "Replace ID 1 in ID 2 column",
-    "save": "Apply changes"
+    "save": "Apply changes",
+    "error_id1": "ID 1 is not in the range (0-FF)",
+    "error_id2": "ID 2 is not between 1 and 4"
   },
   "ui_edit_vert": {
     "titulo": "Pmdl Editor - Subpart N°:",
@@ -148,6 +150,16 @@
     "btn_exportar": "Export data",
     "btn_importar": "Import data",
     "btn_save": "Save changes",
-    "ruta": "Path"
+    "ruta": "Path",
+    "mesg_pmdl_normalizar": "The model must be normalized to use this",
+    "msg_guardado": "Data saved successfully",
+    "dlg_json": "Select JSON",
+    "dlg_export": "Save vertex data",
+    "msg_dt_load": "Data loaded",
+    "error_json": "The JSON does not contain a sub-part",
+    "error_fila": "Error in a row",
+    "error_uv": "UVs must be within the range of 0 to 255",
+    "t_correcto": "Success",
+    "t_warning": "Warning"
   }
 }

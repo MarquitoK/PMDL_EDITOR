@@ -116,7 +116,7 @@ class RemapBones(ctk.CTkToplevel):
             return
         id_1 = int(id_1, 16)
         if not (0 <= id_1 <= 0xFF):
-            raise ValueError("0 <= ID 1 <= 0xFF")
+            raise ValueError("0 >= ID 1 <= 0xFF")
 
         data = self.get_table_values()
 
@@ -139,10 +139,10 @@ class RemapBones(ctk.CTkToplevel):
         id_2 = int(id_2, 16)
 
         if not (0 <= id_1 <= 0xFF):
-            raise ValueError("0 <= ID 1 <= 0xFF")
+            raise ValueError("0 >= ID 1 <= 0xFF")
 
         if not (0 <= id_2 <= 0xFF):
-            raise ValueError("0 <= ID 2 <= 0xFF")
+            raise ValueError("0 >= ID 2 <= 0xFF")
 
         data = self.get_table_values()
 
@@ -166,10 +166,10 @@ class RemapBones(ctk.CTkToplevel):
         col_index = int(id_2) - 1
 
         if not (0 <= id_1 <= 0xFF):
-            raise ValueError("ID1 no esta en el rango de (0-FF)")
+            raise ValueError(t("ui_remap_id.error_id1"))
 
         if not (0 <= col_index <= 3):  # columnas 0..3
-            raise ValueError("ID2 no esta entre 1 y 4")
+            raise ValueError(t("ui_remap_id.error_id2"))
 
         data = self.get_table_values()
 
