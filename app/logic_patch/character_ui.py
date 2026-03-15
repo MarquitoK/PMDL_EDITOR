@@ -146,25 +146,33 @@ class CharacterEditorUI(ctk.CTkToplevel):
         )
         self.texture_label.grid(row=0, column=0)
 
-        # Menú contextual: modo limitado solo exportar, modo completo todo
-        self.texture_menu = Menu(self, tearoff=0)
-        self.texture_menu.add_command(
-            label="📤 Exportar Textura (PNG)",
-            command=self.export_texture_dialog
-        )
-        self.texture_menu.add_command(
-            label="📤 Exportar Textura (RAW)",
-            command=self.export_texture_raw_dialog
+        # Menú contextual con tema oscuro
+        self.texture_menu = Menu(
+            self, tearoff=0,
+            bg="#2b2b2b", fg="white",
+            activebackground="#3c3c3c", activeforeground="white",
+            font=("Segoe UI", 13),
+            bd=0, relief="flat",
+            activeborderwidth=0
         )
         if not self._limited_mode:
             self.texture_menu.add_command(
-                label="📥 Importar Textura (PNG)",
+                label="  📥  Importar Textura (PNG)",
                 command=self.import_texture_dialog
             )
             self.texture_menu.add_command(
-                label="📥 Importar Textura (RAW)",
+                label="  📥  Importar Textura (RAW)",
                 command=self.import_texture_raw_dialog
             )
+            self.texture_menu.add_separator()
+        self.texture_menu.add_command(
+            label="  📤  Exportar Textura (PNG)",
+            command=self.export_texture_dialog
+        )
+        self.texture_menu.add_command(
+            label="  📤  Exportar Textura (RAW)",
+            command=self.export_texture_raw_dialog
+        )
 
         self.texture_label.bind("<Button-3>", self.show_texture_menu)
 
@@ -350,7 +358,9 @@ class CharacterEditorUI(ctk.CTkToplevel):
         if hasattr(self, 'open_in_editor_btn'):
             self.open_in_editor_btn.configure(state="normal")
 
-        if hasattr(self, 'on_open_in_editor_callback') and self.on_open_in_editor_callback:
+        is_wrapper = isinstance(self.analyzer, FaceAnalyzerWrapper)
+
+        if not is_wrapper and hasattr(self, 'on_open_in_editor_callback') and self.on_open_in_editor_callback:
             self._detect_and_show_extra_faces()
 
         if not self._limited_mode:
@@ -359,7 +369,7 @@ class CharacterEditorUI(ctk.CTkToplevel):
             self.save_btn.configure(state="normal")
             self.save_as_btn.configure(state="normal")
 
-        if hasattr(self, 'pmdf_slot_dropdown'):
+        if not is_wrapper and hasattr(self, 'pmdf_slot_dropdown'):
             self._refresh_pmdf_dropdown()
     
     def _detect_and_show_extra_faces(self):
@@ -403,14 +413,13 @@ class CharacterEditorUI(ctk.CTkToplevel):
                 messagebox.showerror("Error", "No se pudo exportar la textura")
     
     def import_texture_dialog(self):
-        """Importa una textura desde un archivo PNG."""
         if not self.analyzer.texture_info:
             messagebox.showwarning("Advertencia", "Primero carga un personaje")
             return
         
         file_path = filedialog.askopenfilename(
             title="Importar textura",
-            filetypes=[("Imágenes PNG", "*.png"), ("Todas las imágenes", "*.png *.jpg *.jpeg")]
+            filetypes=[("Imágenes PNG", "*.png")]
         )
         
         if file_path:

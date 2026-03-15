@@ -309,11 +309,29 @@ class PartsTable(ctk.CTkScrollableFrame):
             self.on_delete_part(part_index)
     
     def _on_close_pmdl(self):
-        """Callback para cerrar el PMDL."""
         from tkinter import messagebox
         if messagebox.askyesno("Cerrar PMDL", "¿Estás seguro de que deseas cerrar el PMDL principal?\nSe perderán todos los cambios no guardados."):
             if callable(self.on_close_pmdl):
                 self.on_close_pmdl()
+
+    def set_pmdf_mode(self, active: bool, on_save_pmdf_cb):
+        """Cambia el botón cerrar por Guardar PMDF (verde) al entrar en modo PMDF."""
+        if self._close_btn is None or not self._close_btn.winfo_exists():
+            return
+        if active:
+            self._close_btn.configure(
+                text="💾 Guardar PMDF",
+                fg_color="#16A34A",
+                hover_color="#15803D",
+                command=on_save_pmdf_cb
+            )
+        else:
+            self._close_btn.configure(
+                text="Cerrar PMDL",
+                fg_color="#DC2626",
+                hover_color="#B91C1C",
+                command=self._on_close_pmdl
+            )
 
 
 class SecondaryPartsTable(ctk.CTkScrollableFrame):
