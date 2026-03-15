@@ -165,10 +165,10 @@ class RemapBones(ctk.CTkToplevel):
         col_index = int(id_2) - 1
 
         if not (0 <= id_1 <= 0xFF):
-            raise ValueError("0 <= ID 1 <= 0xFF")
+            raise ValueError("ID1 no esta en el rango de (0-FF)")
 
         if not (0 <= col_index <= 3):  # columnas 0..3
-            raise ValueError("1 <= Columna <= 4")
+            raise ValueError("ID2 no esta entre 1 y 4")
 
         data = self.get_table_values()
 
