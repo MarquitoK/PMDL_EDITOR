@@ -1,6 +1,7 @@
 import customtkinter as ctk
 
 from app.utils.icon import set_app_icon
+from app.utils.lang import t
 
 ZEBRA_A = "#2B2B2B"
 ZEBRA_B = "#242424"
@@ -17,7 +18,7 @@ class ScrollableOptionMenu(ctk.CTkFrame):
 
         self.button = ctk.CTkButton(
             self,
-            text="Selec",
+            text=t("ui_subparts.btn_select"),
             width=width,
             command=self._open_menu
         )

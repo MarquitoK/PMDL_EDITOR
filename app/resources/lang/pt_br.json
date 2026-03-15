@@ -20,7 +20,6 @@
     "abrir_parche_sec": "Abrir Parche Secundario",
     "visualizar": "Visualizar"
   },
-
   "layout": {
     "ruta_pmdl": "Ruta .pmdl",
     "ruta_pmdl_tooltip": "Ruta del archivo .pmdl cargado",
@@ -30,7 +29,6 @@
     "normalizar_tooltip": "Encendido: Ajusta la escala del modelo principal y de las partes importadas para que el grosor de las partes sea uniforme. (Recomendado)\n\nApagado: Las partes importadas de otros modelos podrían tener un tamaño o grosor inesperados viéndose planas o muy estiradas. (Usar solo si sabes lo que haces)",
     "status_default": "Creado por Los ijue30s"
   },
-
   "tables": {
     "col_capa": "Capa",
     "col_nombre": "Nombre",
@@ -50,7 +48,6 @@
     "confirm_cerrar_sec_titulo": "Cerrar PMDL Secundario",
     "confirm_cerrar_sec_msg": "¿Estás seguro de que deseas cerrar el PMDL secundario?"
   },
-
   "status": {
     "default": "Creado por Los ijue30s",
     "archivo_cargado": "Archivo cargado: {name}",
@@ -72,7 +69,6 @@
     "parte_opacidad": "Parte {index}: Opacidad = {val}%",
     "parte_funcion": "Parte {index}: Función = '{label}' (0x{val})"
   },
-
   "dialogs": {
     "info": "Info",
     "error": "Error",
@@ -106,7 +102,6 @@
     "error_cargar_parche_sec": "No se pudo cargar el parche secundario",
     "error_actualizar_pmdl": "No se pudo actualizar el PMDL en el parche"
   },
-
   "lang_window": {
     "titulo": "Seleccionar Idioma",
     "descripcion": "Elige el idioma de la aplicación:",
@@ -116,5 +111,43 @@
     "reinicio_msg": "Es necesario reiniciar para aplicar los cambios.",
     "btn_ok": "Aceptar",
     "btn_cancelar_reinicio": "Cancelar"
+  },
+  "ui_subparts": {
+    "titulo": "Pmdl Editor - Subpartes",
+    "subparte": "Subparte",
+    "configuracion": "Configuração",
+    "n_huesos": "N° de ossos",
+    "ids": "IDs (HEX)",
+    "unk": "UNK (HEX)",
+    "accion": "Ações",
+    "btn_guardar": "Salvar alterações",
+    "btn_mover_arriba": "Mover para cima",
+    "btn_mover_abajo": "Mover para baixo",
+    "btn_remap_id": "Remapear ID",
+    "btn_edit_vert": "Editar vértices",
+    "btn_parte": "Parte",
+    "pos": "Posição",
+    "vert": "Vértices",
+    "size": "Tamanho",
+    "btn_select": "Selecione",
+    "ctx_export": "Exportar seleções",
+    "ctx_import": "Substituir Subparte",
+    "ctx_insert": "Inserir Subpartes",
+    "ctx_delete": "Excluir Subpartes",
+    "ctx_add": "Adicionar seleções"
+  },
+  "ui_remap_id": {
+    "btn_1": "Buscar ID 1 e substituir por ID 2",
+    "btn_2": "Substituir tudo por ID 1",
+    "btn_3": "Substituir ID 1 na coluna ID 2",
+    "save": "Aplicar alterações"
+  },
+  "ui_edit_vert": {
+    "titulo": "Pmdl Editor - Subparte N°:",
+    "influencia": "Peso",
+    "btn_exportar": "Exportar dados",
+    "btn_importar": "Importar dados",
+    "btn_save": "Salvar alterações",
+    "ruta": "Caminho"
   }
 }

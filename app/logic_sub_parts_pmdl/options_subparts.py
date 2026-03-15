@@ -3,6 +3,7 @@ import customtkinter as ctk
 from app.utils.icon import set_app_icon
 from app.utils.ui_error_window import error_window_ui
 from app.utils.window import center_to_window
+from app.utils.lang import t
 
 GRID_FONT = ("Consolas", 15)
 class RemapBones(ctk.CTkToplevel):
@@ -80,13 +81,13 @@ class RemapBones(ctk.CTkToplevel):
             font=GRID_FONT)
         self.entry_b.grid(row=1, column=1, padx=5, pady=(0,10))
 
-        self.btn_add = ctk.CTkButton(self.frame_right, text="Buscar ID 1 y remplazar por ID 2", command=self.buscar_reemplazar)
+        self.btn_add = ctk.CTkButton(self.frame_right, text=t('ui_remap_id.btn_1'), command=self.buscar_reemplazar)
         self.btn_add.grid(row=2, column=0, columnspan=2, pady=5, padx=10, sticky="ew")
 
-        self.btn_update = ctk.CTkButton(self.frame_right, text="Remplazar todo por ID 1", command=self.reemplazar_todo)
+        self.btn_update = ctk.CTkButton(self.frame_right, text=t('ui_remap_id.btn_2'), command=self.reemplazar_todo)
         self.btn_update.grid(row=3, column=0, columnspan=2, pady=5, padx=10, sticky="ew")
 
-        self.btn_delete = ctk.CTkButton(self.frame_right, text="Remplazar ID 1, en la columna ID 2", command=self.reemplazar_columna)
+        self.btn_delete = ctk.CTkButton(self.frame_right, text=t('ui_remap_id.btn_3'), command=self.reemplazar_columna)
         self.btn_delete.grid(row=4, column=0, columnspan=2, pady=5, padx=10, sticky="ew")
 
         self.frame_right.grid_columnconfigure((0,1), weight=1)
@@ -100,7 +101,7 @@ class RemapBones(ctk.CTkToplevel):
 
         self.btn_apply = ctk.CTkButton(
             self.frame_bottom,
-            text="Aplicar cambios",
+            text=t('ui_remap_id.save'),
             command=self.aplicar_cambios
         )
         self.btn_apply.pack(fill="x", padx=10, pady=10)

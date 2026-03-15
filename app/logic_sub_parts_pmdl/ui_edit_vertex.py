@@ -9,6 +9,7 @@ from app.logic_sub_parts_pmdl.quant16_converter import game16_to_float, float_to
     procesar_pesos, ESCALA
 from app.utils.icon import set_app_icon
 from app.utils.ui_error_window import error_window_ui
+from app.utils.lang import t
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -18,8 +19,9 @@ class VertexEditor(ctk.CTkToplevel):
     def __init__(self, parent, data_subpart:dict, idsubpart:str, namepmdl:str, path:str, **kwargs):
         super().__init__(parent)
         self.escala = ESCALA
+        self.name_peso = t('ui_edit_vert.influencia')
 
-        self.title(f"Pmdl Editor - Subpart N°: ** {idsubpart} ** - {namepmdl}")
+        self.title(f"{t('ui_edit_vert.titulo')} ** {idsubpart} ** - {namepmdl}")
         self.geometry("920x520")
         self.attributes("-toolwindow", True)
         self.resizable(False, False)
@@ -64,21 +66,21 @@ class VertexEditor(ctk.CTkToplevel):
 
         ctk.CTkButton(
             self.btn_frame,
-            text="Export datos",
+            text=t('ui_edit_vert.btn_exportar'),
             width=120,
             command=self.on_export_data
         ).pack(side="left", padx=5)
 
         ctk.CTkButton(
             self.btn_frame,
-            text="Importar datos",
+            text=t('ui_edit_vert.btn_importar'),
             width=120,
             command=self.on_import_data
         ).pack(side="left", padx=5)
 
         ctk.CTkButton(
             self.btn_frame,
-            text="Guardar cambios",
+            text=t('ui_edit_vert.btn_save'),
             width=140,
             command=self.on_save_change
         ).pack(side="left", padx=5)
@@ -89,7 +91,7 @@ class VertexEditor(ctk.CTkToplevel):
 
         self.path_label = ctk.CTkLabel(
             self.path_frame,
-            text=f"Ruta: {path}",
+            text=f"{t('ui_edit_vert.ruta')}: {path}",
             anchor="w",   # texto alineado a la izquierda dentro del label
         )
         self.path_label.pack(side="left", fill="x", expand=True)
@@ -105,7 +107,7 @@ class VertexEditor(ctk.CTkToplevel):
             "ID",
             "X", "Y", "Z",
             "UV X", "UV Y",
-            "Peso 1", "Peso 2", "Peso 3", "Peso 4"
+            f"{self.name_peso} 1", f"{self.name_peso} 2", f"{self.name_peso} 3", f"{self.name_peso} 4"
         ]
 
         for col, text in enumerate(headers):

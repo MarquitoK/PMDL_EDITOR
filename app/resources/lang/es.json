@@ -116,5 +116,46 @@
     "reinicio_msg": "Es necesario reiniciar para aplicar los cambios.",
     "btn_ok": "Aceptar",
     "btn_cancelar_reinicio": "Cancelar"
+  },
+
+  "ui_subparts": {
+    "titulo": "Pmdl Editor - SubPartes",
+    "subparte": "SubParte",
+    "configuracion": "Configuracion",
+    "n_huesos": "N° huesos",
+    "ids": "IDs (HEX)",
+    "unk": "UNK (HEX)",
+    "accion": "Acciones",
+    "btn_guardar": "Guardar cambios",
+    "btn_mover_arriba": "Mover arriba",
+    "btn_mover_abajo": "Mover abajo",
+    "btn_remap_id": "Remap ID",
+    "btn_edit_vert": "Editar vertices",
+    "btn_parte": "Parte",
+    "pos": "Posicion",
+    "vert": "Vertices",
+    "size": "Tamaño",
+    "btn_select": "Seleccionar",
+    "ctx_export": "Exportar selecciones",
+    "ctx_import": "Reemplazar Subparte",
+    "ctx_insert": "Insertar Subpartes",
+    "ctx_delete": "Borrar Subparters",
+    "ctx_add": "Agregar selecciones"
+  },
+
+  "ui_remap_id": {
+    "btn_1": "Buscar ID 1 y remplazar por ID 2",
+    "btn_2": "Remplazar todo por ID 1",
+    "btn_3": "Remplazar ID1, en la columna ID 2",
+    "save": "Aplicar cambios"
+  },
+
+  "ui_edit_vert": {
+    "titulo": "Pmdl Editor- Subpart N°:",
+    "influencia": "Peso",
+    "btn_exportar": "Exportar datos",
+    "btn_importar": "Importar datos",
+    "btn_save": "Guardar cambios",
+    "ruta": "Ruta"
   }
 }
