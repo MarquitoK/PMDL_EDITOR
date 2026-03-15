@@ -3,6 +3,7 @@ import customtkinter as ctk
 import webbrowser
 
 from app.utils.icon import set_app_icon
+from app.utils.lang import t
 
 
 class AboutWindow(ctk.CTkToplevel):
@@ -10,7 +11,7 @@ class AboutWindow(ctk.CTkToplevel):
     def __init__(self, parent):
         super().__init__(parent)
         
-        self.title("Acerca de PMDL Editor")
+        self.title(t("about.titulo"))
         self.geometry("550x520")
         self.resizable(False, False)
         
@@ -29,7 +30,7 @@ class AboutWindow(ctk.CTkToplevel):
         
         version_label = ctk.CTkLabel(
             scroll_frame,
-            text="Versión 1.4.5",
+            text=t("about.version"),
             font=("Segoe UI", 13),
             text_color=("gray50", "gray60")
         )
@@ -38,16 +39,7 @@ class AboutWindow(ctk.CTkToplevel):
         desc_frame = ctk.CTkFrame(scroll_frame, corner_radius=8)
         desc_frame.pack(fill="x", padx=5, pady=(0, 15))
         
-        desc_text = (
-            "PMDL Editor es una herramienta de modding diseñada\n"
-            "para facilitar la edición avanzada de archivos PMDL,\n"
-            "el formato de modelos 3D utilizado en Dragon Ball Z:\n"
-            "Tenkaichi Tag Team.\n\n"
-            "Esta aplicación permite manipular de forma intuitiva\n"
-            "y eficiente las partes del modelo, mallas, vértices,\n"
-            "coordenadas UV y pesos de huesos, simplificando\n"
-            "el proceso de modding y edición."
-        )
+        desc_text = t("about.descripcion")
         
         desc_label = ctk.CTkLabel(
             desc_frame,
@@ -88,14 +80,14 @@ class AboutWindow(ctk.CTkToplevel):
         
         contrib_title = ctk.CTkLabel(
             contrib_frame,
-            text="Contribución",
+            text=t("about.contribucion_titulo"),
             font=("Segoe UI", 13, "bold")
         )
         contrib_title.pack(pady=(12, 4))
         
         contrib_desc = ctk.CTkLabel(
             contrib_frame,
-            text="Colaborador principal y clave en el desarrollo\nde la herramienta.",
+            text=t("about.contribucion_desc"),
             font=("Segoe UI", 10),
             text_color=("gray50", "gray60")
         )
@@ -116,14 +108,14 @@ class AboutWindow(ctk.CTkToplevel):
         
         thanks_title = ctk.CTkLabel(
             thanks_frame,
-            text="Agradecimientos",
+            text=t("about.agradecimientos_titulo"),
             font=("Segoe UI", 13, "bold")
         )
         thanks_title.pack(pady=(12, 4))
         
         thanks_desc = ctk.CTkLabel(
             thanks_frame,
-            text="Por proporcionar información técnica esencial\nsobre la estructura del formato PMDL.",
+            text=t("about.agradecimientos_desc"),
             font=("Segoe UI", 10),
             text_color=("gray50", "gray60")
         )
@@ -144,7 +136,7 @@ class AboutWindow(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             hiro_frame,
-            text="Por la nomenclatura utilizada\npara la identificación de huesos.",
+            text=t("about.hiro_desc"),
             font=("Segoe UI", 10),
             text_color=("gray50", "gray60")
         ).pack(pady=(0, 8))

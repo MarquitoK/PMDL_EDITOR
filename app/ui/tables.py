@@ -1,8 +1,22 @@
 import tkinter as tk
 import customtkinter as ctk
 from typing import List, Callable
-from app.core import PartIndexEntry, FLAG_MAP_VALUE_TO_LABEL, percent_from_opacity_u16
+from app.core import PartIndexEntry, FLAG_MAP_VALUE_TO_LABEL, FLAG_MAP_LABEL_TO_VALUE, percent_from_opacity_u16
 from app.utils.lang import t
+
+
+
+def _flag_label_to_translated(label: str) -> str:
+    return t(f"flags.{label}", **{}) if t(f"flags.{label}") != f"flags.{label}" else label
+
+def _translated_to_flag_label(translated: str) -> str:
+    flags_map = t("flags.__map__")
+    if isinstance(flags_map, dict):
+        return {v: k for k, v in flags_map.items()}.get(translated, translated)
+    for key in FLAG_MAP_VALUE_TO_LABEL.values():
+        if _flag_label_to_translated(key) == translated:
+            return key
+    return translated
 
 
 class PartsTable(ctk.CTkScrollableFrame):
@@ -165,17 +179,17 @@ class PartsTable(ctk.CTkScrollableFrame):
 
             # Función
             init_label = FLAG_MAP_VALUE_TO_LABEL.get(p.special_flag, "Ninguna")
-            flag_var = tk.StringVar(value=init_label)
+            flag_var = tk.StringVar(value=_flag_label_to_translated(init_label))
 
             flag_opt = ctk.CTkComboBox(
                 self,
-                values=list(FLAG_MAP_VALUE_TO_LABEL.values()),
+                values=[_flag_label_to_translated(l) for l in FLAG_MAP_VALUE_TO_LABEL.values()],
                 variable=flag_var,
                 width=100,
                 font=("Segoe UI", 12),
                 state="readonly",
                 fg_color=bg_color,
-                command=lambda new_label, idx=i: self._on_flag(idx, new_label)
+                command=lambda new_label, idx=i: self._on_flag(idx, _translated_to_flag_label(new_label))
             )
             flag_opt.grid(row=row, column=4, padx=(6, 4), pady=(2, 2), sticky="w")
             
@@ -225,7 +239,7 @@ class PartsTable(ctk.CTkScrollableFrame):
                     opacity_pct = 100
 
                 try:
-                    flag_label = flag_opt.get()
+                    flag_label = _translated_to_flag_label(flag_opt.get())
                 except Exception:
                     flag_label = "Ninguna"
 
@@ -465,7 +479,7 @@ class SecondaryPartsTable(ctk.CTkScrollableFrame):
             pct_lbl.grid(row=row, column=3, padx=(6, 4), pady=(2, 2), sticky="w")
             
             # Función
-            func_lbl = ctk.CTkLabel(self, text=FLAG_MAP_VALUE_TO_LABEL.get(p.special_flag, "Ninguna"),
+            func_lbl = ctk.CTkLabel(self, text=_flag_label_to_translated(FLAG_MAP_VALUE_TO_LABEL.get(p.special_flag, "Ninguna")),
                                     font=("Segoe UI", 12), fg_color=bg_color)
             func_lbl.grid(row=row, column=4, padx=(6, 4), pady=(2, 2), sticky="w")
             

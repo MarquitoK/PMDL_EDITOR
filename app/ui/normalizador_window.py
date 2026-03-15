@@ -8,6 +8,7 @@ from app.core.header import parse_header
 from app.core.parts_index import parse_parts_index
 from app.utils import center_window
 from app.utils.icon import set_app_icon
+from app.utils.lang import t
 from app.utils.thickness_normalizer import (
     GROSOR_MAXIMO,
     leer_grosor,
@@ -24,7 +25,7 @@ class NormalizadorWindow(ctk.CTkToplevel):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
 
-        self.title("Normalizador de Grosor")
+        self.title(t("normalizador.titulo"))
         self.geometry("340x280")
         self.resizable(False, False)
         center_window(self, 340, 280)
@@ -53,7 +54,7 @@ class NormalizadorWindow(ctk.CTkToplevel):
         # Botón Abrir PMDL
         self.btn_abrir = ctk.CTkButton(
             frame,
-            text="📂  Abrir PMDL",
+            text=t("normalizador.btn_abrir"),
             height=36,
             font=_FONT_NORMAL,
             corner_radius=7,
@@ -66,7 +67,7 @@ class NormalizadorWindow(ctk.CTkToplevel):
         # Botón Normalizar
         self.btn_normalizar = ctk.CTkButton(
             frame,
-            text="⚡  Normalizar Modelo",
+            text=t("normalizador.btn_normalizar"),
             height=36,
             font=_FONT_NORMAL,
             corner_radius=7,
@@ -80,7 +81,7 @@ class NormalizadorWindow(ctk.CTkToplevel):
         # Nombre del PMDL
         self.lbl_nombre = ctk.CTkLabel(
             frame,
-            text="Sin archivo cargado",
+            text=t("normalizador.sin_archivo"),
             font=_FONT_SMALL,
             text_color=("gray50", "gray60"),
             anchor="center",
@@ -100,7 +101,7 @@ class NormalizadorWindow(ctk.CTkToplevel):
         # Botón Guardar (solo para archivos externos)
         self.btn_guardar = ctk.CTkButton(
             frame,
-            text="💾  Guardar",
+            text=t("normalizador.btn_guardar"),
             height=36,
             font=_FONT_NORMAL,
             corner_radius=7,
@@ -123,16 +124,16 @@ class NormalizadorWindow(ctk.CTkToplevel):
         raw_path = getattr(app, "_path", None) or ""
         if raw_path.startswith("[PATCH]"):
             patch_name = os.path.basename(raw_path.replace("[PATCH]", ""))
-            self._display_name = f"PMDL de {patch_name}"
+            self._display_name = t("normalizador.pmdl_de", name=patch_name)
         else:
-            self._display_name = os.path.basename(raw_path) if raw_path else "PMDL sin nombre"
+            self._display_name = os.path.basename(raw_path) if raw_path else t("normalizador.pmdl_sin_nombre")
 
         self._refresh_ui()
 
     # ACCIONES
     def _on_open_pmdl(self):
         path = filedialog.askopenfilename(
-            title="Abrir PMDL",
+            title=t("normalizador.btn_abrir"),
             filetypes=[("PMDL files", "*.pmdl"), ("All files", "*.*")],
         )
         if not path:
@@ -146,14 +147,14 @@ class NormalizadorWindow(ctk.CTkToplevel):
             self._display_name = os.path.basename(path)
             self._refresh_ui()
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo abrir el archivo:\n{e}", parent=self)
+            messagebox.showerror(t("normalizador.error"), t("normalizador.error_abrir", e=e), parent=self)
 
     def _on_normalizar(self):
         if not self._blob:
             return
 
         if self._is_normalizado():
-            messagebox.showinfo("Info", "El modelo ya está normalizado.", parent=self)
+            messagebox.showinfo(t("normalizador.info"), t("normalizador.ya_normalizado"), parent=self)
             return
 
         try:
@@ -161,22 +162,22 @@ class NormalizadorWindow(ctk.CTkToplevel):
             parts = parse_parts_index(self._blob, hdr)
             normalizar_pmdl_completo(self._blob, hdr.parts_index_offset, parts)
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo normalizar:\n{e}", parent=self)
+            messagebox.showerror(t("normalizador.error"), t("normalizador.error_normalizar", e=e), parent=self)
             return
 
         if self._is_inherited:
             self._push_to_master()
 
         self._refresh_ui()
-        messagebox.showinfo("Listo", "Modelo normalizado correctamente.", parent=self)
+        messagebox.showinfo(t("normalizador.listo"), t("normalizador.normalizado_ok"), parent=self)
 
     def _on_guardar(self):
         if not self._blob or not self._path:
             return
 
         resp = messagebox.askyesno(
-            "Confirmar",
-            f"Se reemplazará el archivo original:\n{self._path}\n\n¿Estás seguro?",
+            t("normalizador.confirmar"),
+            t("normalizador.confirmar_guardar", path=self._path),
             parent=self,
         )
         if not resp:
@@ -186,9 +187,9 @@ class NormalizadorWindow(ctk.CTkToplevel):
         try:
             with open(self._path, "wb") as f:
                 f.write(self._blob)
-            messagebox.showinfo("Guardado", "Archivo guardado correctamente.", parent=self)
+            messagebox.showinfo(t("normalizador.guardado"), t("normalizador.guardado_ok"), parent=self)
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo guardar:\n{e}", parent=self)
+            messagebox.showerror(t("normalizador.error"), t("normalizador.error_guardar", e=e), parent=self)
 
     # HELPERS
     def _is_normalizado(self) -> bool:
@@ -217,7 +218,7 @@ class NormalizadorWindow(ctk.CTkToplevel):
 
     def _refresh_ui(self):
         if not self._blob:
-            self.lbl_nombre.configure(text="Sin archivo cargado", text_color=("gray50", "gray60"))
+            self.lbl_nombre.configure(text=t("normalizador.sin_archivo"), text_color=("gray50", "gray60"))
             self.lbl_estado.configure(text="", text_color=("gray50", "gray60"))
             self.btn_normalizar.configure(state="disabled")
             self.btn_guardar.grid_remove()
@@ -229,13 +230,13 @@ class NormalizadorWindow(ctk.CTkToplevel):
         # Estado
         if self._is_normalizado():
             self.lbl_estado.configure(
-                text="✔  PMDL Normalizado",
+                text=t("normalizador.estado_normalizado"),
                 text_color=("#2E7D32", "#66BB6A"),
             )
             self.btn_normalizar.configure(state="disabled")
         else:
             self.lbl_estado.configure(
-                text="✘  PMDL No normalizado",
+                text=t("normalizador.estado_no_normalizado"),
                 text_color=("#C62828", "#EF5350"),
             )
             self.btn_normalizar.configure(state="normal")
