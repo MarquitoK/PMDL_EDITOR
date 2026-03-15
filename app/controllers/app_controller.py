@@ -25,8 +25,11 @@ from app.logic_3d.main_window import PMDLViewerApp
 from app.logic_bones import BoneEditor
 from app.utils.ui_error_window import error_window_ui
 from app.utils.icon import set_app_icon
+import app.utils.lang as lang
+from app.utils.lang import t
+from app.ui.lang_window import LangWindow
 
-APP_TITLE = "Pmdl Editor (TTT) · By Los ijue30s · v1.4.2"
+APP_TITLE = "Pmdl Editor (TTT) · By Los ijue30s · v1.4.5"
 GEOMETRY = (1070, 600)
 
 
@@ -35,6 +38,7 @@ class PmdlPartsApp(ctk.CTk):
     
     def __init__(self):
         super().__init__()
+        lang.init()
         
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
@@ -111,41 +115,46 @@ class PmdlPartsApp(ctk.CTk):
         # Puente para manejo de parches secundarios
         self.patch_bridge_secondary = PatchBridge()
         
+        # Estado modo PMDF (cara extra abierta en el editor)
+        self._pmdf_mode = False
+        self._pmdf_face_name: Optional[str] = None
+        self._pmdf_parent_analyzer = None  # CharacterAnalyzer original del parche
+        
         # Configurar shortcuts de teclado
         self._bind_keyboard_shortcuts()
     
     def _build_menubar(self):
-        """Construye el menu bar de la aplicación."""
         self.menubar = MenuBar(self, height=28)
         self.menubar.pack(side="top", fill="x", pady=(0, 0))
         
         # Menú Archivo
-        menu_archivo = self.menubar.add_menu("Archivo")
-        menu_archivo.add_command("Abrir PMDL", self.on_open_file, "Ctrl+O")
-        menu_archivo.add_command("Abrir Parche", self.on_open_patch, "Ctrl+P")
+        menu_archivo = self.menubar.add_menu(t("menubar.archivo"))
+        children = self.menubar.winfo_children()
+        self._menu_archivo_btn = children[-1] if children else None
+        menu_archivo.add_command(t("menubar.abrir_pmdl"), self.on_open_file, "Ctrl+O")
+        menu_archivo.add_command(t("menubar.abrir_parche"), self.on_open_patch, "Ctrl+P")
         menu_archivo.add_separator()
-        menu_archivo.add_command("Guardar", self.on_save, "Ctrl+S")
-        menu_archivo.add_command("Guardar Como", self.on_save_as, "Ctrl+Shift+S")
+        menu_archivo.add_command(t("menubar.guardar"), self.on_save, "Ctrl+S")
+        menu_archivo.add_command(t("menubar.guardar_como"), self.on_save_as, "Ctrl+Shift+S")
         
-        # Menú Tools
-        menu_tools = self.menubar.add_menu("Tools")
-        menu_tools.add_command("Character Editor", self.on_open_character_editor, "Ctrl+R")
-        menu_tools.add_command("SubParts Editor", self.on_open_subparts_editor, "Ctrl+T")
-        menu_tools.add_command("Vista 3D", self.on_open_3d_viewer, "Ctrl+D")
+        menu_tools = self.menubar.add_menu(t("menubar.tools"))
+        menu_tools.add_command(t("menubar.character_editor"), self.on_open_character_editor, "Ctrl+R")
+        menu_tools.add_command(t("menubar.subparts_editor"), self.on_open_subparts_editor, "Ctrl+T")
+        menu_tools.add_command(t("menubar.vista_3d"), self.on_open_3d_viewer, "Ctrl+D")
         menu_tools.add_separator()
-        menu_tools.add_command("Editor de Huesos", self.on_open_bone_editor, "Ctrl+H")
+        menu_tools.add_command(t("menubar.editor_huesos"), self.on_open_bone_editor, "Ctrl+H")
         menu_tools.add_separator()
-        menu_tools.add_command("Normalizador de Grosor", self.on_open_normalizador, "Ctrl+N")
+        menu_tools.add_command(t("menubar.normalizador"), self.on_open_normalizador, "Ctrl+N")
         
         # Menú Opciones
-        menu_opciones = self.menubar.add_menu("Opciones")
-        # Aquí pondré algunos ajustes a futuro pero aun no quiero entrar en eso xD
-        menu_opciones.add_command("Convertir JSON a TTTPART", self.on_convert_json_to_tttpart)
-        
-        # Botón Acerca De
+        menu_opciones = self.menubar.add_menu(t("menubar.opciones"))
+        menu_opciones.add_command(t("menubar.convertir_json"), self.on_convert_json_to_tttpart)
+        menu_opciones.add_separator()
+        menu_opciones.add_command(t("menubar.lenguaje"), self.on_open_lang_window)
+
         acerca_btn = ctk.CTkButton(
             self.menubar,
-            text="Acerca De",
+            text=t("menubar.acerca_de"),
             width=75,
             height=22,
             corner_radius=3,
@@ -155,77 +164,93 @@ class PmdlPartsApp(ctk.CTk):
             command=self.on_show_about
         )
         acerca_btn.pack(side="left", padx=1, pady=1)
-        
-        # Separador
+
         separator = ctk.CTkFrame(self.menubar, width=200, fg_color="transparent")
         separator.pack(side="left", fill="x", expand=True)
-        
-        # Menú Archivo Secundario
-        menu_archivo_sec = self.menubar.add_menu("Archivo Secundario")
-        menu_archivo_sec.add_command("Abrir PMDL Secundario", self.on_open_file_secondary, "Ctrl+Shift+O")
-        menu_archivo_sec.add_command("Abrir Parche Secundario", self.on_open_patch_secondary, "Ctrl+Shift+P")
-        menu_archivo_sec.add_command("Visualizar", self.on_visualize_secondary, "Ctrl+Shift+D")
+
+        menu_archivo_sec = self.menubar.add_menu(t("menubar.archivo_secundario"))
+        menu_archivo_sec.add_command(t("menubar.abrir_pmdl_sec"), self.on_open_file_secondary, "Ctrl+Shift+O")
+        menu_archivo_sec.add_command(t("menubar.abrir_parche_sec"), self.on_open_patch_secondary, "Ctrl+Shift+P")
+        menu_archivo_sec.add_command(t("menubar.visualizar"), self.on_visualize_secondary, "Ctrl+Shift+D")
     
     def _bind_keyboard_shortcuts(self):
-        """Configura los atajos de teclado."""
-        # Archivo Principal
-        self.bind("<Control-o>", lambda e: self.on_open_file())
-        self.bind("<Control-O>", lambda e: self.on_open_file())
-        
-        self.bind("<Control-p>", lambda e: self.on_open_patch())
-        self.bind("<Control-P>", lambda e: self.on_open_patch())
-        
-        self.bind("<Control-s>", lambda e: self.on_save())
-        self.bind("<Control-S>", lambda e: self.on_save())
-        
-        self.bind("<Control-Shift-S>", lambda e: self.on_save_as())
-        self.bind("<Control-Shift-s>", lambda e: self.on_save_as())
-        
+        def _handle(key):
+            """Devuelve handler que bloquea en modo PMDF si pmdf_block=True."""
+            blocked_in_pmdf = key in ('o', 'p', 'r')
+            def handler(e):
+                if blocked_in_pmdf and self._pmdf_mode:
+                    return "break"
+                actions = {
+                    'o':  self.on_open_file,
+                    'p':  self.on_open_patch,
+                    's':  self.on_save,
+                    'S':  self.on_save_as,
+                    't':  self.on_open_subparts_editor,
+                    'd':  self.on_open_3d_viewer,
+                    'h':  self.on_open_bone_editor,
+                    'r':  self.on_open_character_editor,
+                    'n':  self.on_open_normalizador,
+                    'i':  lambda: self.on_import_part() if self._blob else None,
+                    'O':  self.on_open_file_secondary,
+                    'P':  self.on_open_patch_secondary,
+                    'D':  self.on_visualize_secondary,
+                }
+                fn = actions.get(key)
+                if fn:
+                    fn()
+                return "break"
+            return handler
+
+        # Archivo principal
+        for k in ('o', 'O'):
+            self.bind_all(f"<Control-{k}>", _handle('o'))
+        for k in ('p', 'P'):
+            self.bind_all(f"<Control-{k}>", _handle('p'))
+        for k in ('s', 'S'):
+            self.bind_all(f"<Control-{k}>", _handle('s'))
+        self.bind_all("<Control-Shift-S>", _handle('S'))
+        self.bind_all("<Control-Shift-s>", _handle('S'))
+
         # Tools
-        self.bind("<Control-t>", lambda e: self.on_open_subparts_editor())
-        self.bind("<Control-T>", lambda e: self.on_open_subparts_editor())
-        
-        self.bind("<Control-d>", lambda e: self.on_open_3d_viewer())
-        self.bind("<Control-D>", lambda e: self.on_open_3d_viewer())
-        
-        self.bind("<Control-h>", lambda e: self.on_open_bone_editor())
-        self.bind("<Control-H>", lambda e: self.on_open_bone_editor())
-        
-        self.bind("<Control-r>", lambda e: self.on_open_character_editor())
-        self.bind("<Control-R>", lambda e: self.on_open_character_editor())
-        
-        self.bind("<Control-n>", lambda e: self.on_open_normalizador())
-        self.bind("<Control-N>", lambda e: self.on_open_normalizador())
-        
+        for k in ('t', 'T'):
+            self.bind_all(f"<Control-{k}>", _handle('t'))
+        for k in ('d', 'D'):
+            self.bind_all(f"<Control-{k}>", _handle('d'))
+        for k in ('h', 'H'):
+            self.bind_all(f"<Control-{k}>", _handle('h'))
+        for k in ('r', 'R'):
+            self.bind_all(f"<Control-{k}>", _handle('r'))
+        for k in ('n', 'N'):
+            self.bind_all(f"<Control-{k}>", _handle('n'))
+        for k in ('i', 'I'):
+            self.bind_all(f"<Control-{k}>", _handle('i'))
+
         # Archivo Secundario
-        self.bind("<Control-Shift-O>", lambda e: self.on_open_file_secondary())
-        self.bind("<Control-Shift-o>", lambda e: self.on_open_file_secondary())
-        
-        self.bind("<Control-Shift-P>", lambda e: self.on_open_patch_secondary())
-        self.bind("<Control-Shift-p>", lambda e: self.on_open_patch_secondary())
-        
-        self.bind("<Control-Shift-D>", lambda e: self.on_visualize_secondary())
-        self.bind("<Control-Shift-d>", lambda e: self.on_visualize_secondary())
-        
-        # Importar Parte
-        self.bind("<Control-i>", lambda e: self.on_import_part() if self._blob else None)
-        self.bind("<Control-I>", lambda e: self.on_import_part() if self._blob else None)
+        self.bind_all("<Control-Shift-O>", _handle('O'))
+        self.bind_all("<Control-Shift-o>", _handle('O'))
+        self.bind_all("<Control-Shift-P>", _handle('P'))
+        self.bind_all("<Control-Shift-p>", _handle('P'))
+        self.bind_all("<Control-Shift-D>", _handle('D'))
+        self.bind_all("<Control-Shift-d>", _handle('D'))
     
     def on_close(self):
         """Confirmación antes de cerrar la aplicación."""
-        if messagebox.askyesno("Salir", "¿Estas seguro de que deseas cerrar la aplicacion?"):
+        if messagebox.askyesno(t("dialogs.salir_titulo"), t("dialogs.salir_msg")):
             self.destroy()
     
     def on_show_about(self):
         """Muestra la ventana Acerca de."""
         AboutWindow(self)
 
+    def on_open_lang_window(self):
+        LangWindow(self)
+
     @error_window_ui
     def on_open_subparts_editor(self):
         """Abre el editor de SubParts con intercambio de ventanas."""
         # Validación previa: verificar que al menos un archivo esté cargado
         if not self._path and not self._path2:
-            messagebox.showinfo("Información", "Abre al menos un archivo para editar")
+            messagebox.showinfo(t("dialogs.info"), t("dialogs.abrir_al_menos_uno"))
             return
 
         self.withdraw()
@@ -271,6 +296,9 @@ class PmdlPartsApp(ctk.CTk):
     def on_open_3d_viewer(self):
         """Abre el visor 3D con intercambio de ventanas."""
         if self.window_viewer_3d is None or not self.window_viewer_3d.winfo_exists():
+            if not self._blob and not self._blob2:
+                messagebox.showinfo(t("dialogs.info"), t("dialogs.abrir_pmdl_primero"))
+                return
             # Preparar datos
             pmdl_data = None
             texture_path = None
@@ -335,6 +363,9 @@ class PmdlPartsApp(ctk.CTk):
     def on_open_bone_editor(self):
         """Abre el Editor de Huesos con intercambio de ventanas."""
         if self.window_bone_editor is None or not self.window_bone_editor.winfo_exists():
+            if not self._blob:
+                messagebox.showinfo(t("dialogs.info"), t("dialogs.abrir_pmdl_principal"))
+                return
             # Recoger bytes del PMDL activo
             pmdl_bytes  = None
             bones_data  = None
@@ -441,60 +472,33 @@ class PmdlPartsApp(ctk.CTk):
         self.focus_force()
 
     def _return_from_3d_viewer(self, skip_unsaved_check=False):
-        # Cierra el visor 3D y regresa a la ventana principal
         if self.window_viewer_3d and self.window_viewer_3d.winfo_exists():
             if (not skip_unsaved_check and
                     hasattr(self.window_viewer_3d, 'has_unsaved_changes') and
                     self.window_viewer_3d.has_unsaved_changes):
-                respuesta = messagebox.askyesnocancel(
-                    "Cambios sin guardar",
-                    "Hay cambios sin guardar en el editor de UVs.\n¿Deseas aplicar los cambios antes de cerrar?",
-                    icon="warning"
-                )
-                if respuesta is None:
-                    # Cancelar — no cerrar
+                if not messagebox.askyesno(
+                    "Sin guardar",
+                    "¿Seguro que deseas cerrar sin guardar los cambios?"
+                ):
                     return
-                if respuesta:
-                    # Sí — aplicar cambios
-                    modified_pmdl = self.window_viewer_3d.get_modified_pmdl_data()
-                    if modified_pmdl:
-                        self._blob = bytearray(modified_pmdl)
-                        if self.patch_bridge.is_from_patch():
-                            try:
-                                analyzer = self.patch_bridge.get_patch_analyzer()
-                                if analyzer and hasattr(analyzer, 'character_data'):
-                                    analyzer.character_data['pmdl_blob'] = bytes(self._blob)
-                                    analyzer.save_patch()
-                                    print("✓ Cambios de UVs guardados en el parche automáticamente")
-                            except Exception as e:
-                                print(f"Error al guardar cambios de UVs en parche: {e}")
-                        try:
-                            self._hdr = parse_header(self._blob)
-                            self._parts = parse_parts_index(self._blob, self._hdr)
-                            if hasattr(self, 'parts_table'):
-                                self.parts_table.populate(self._parts)
-                                self.parts_table.update_part_count(self._hdr.part_count)
-                        except Exception as e:
-                            print(f"Error al re-analizar PMDL: {e}")
-                # No — descartar cambios, cerrar sin aplicar
 
             self.window_viewer_3d.cleanup()
             self.window_viewer_3d.destroy()
         self.window_viewer_3d = None
 
-        # Mostrar ventana principal
         self.deiconify()
         self.focus_force()
     
     def on_open_character_editor(self):
+        if self._pmdf_mode:
+            return
+
         # Abre el Character Editor como sub-herramienta
         if self.window_character_editor is None or not self.window_character_editor.winfo_exists():
-            # Ocultar ventana principal
             self.withdraw()
             
             has_patch = self.patch_bridge.is_from_patch()
             
-            # Abrir Character Editor completo (herramienta independiente)
             self.window_character_editor = CharacterEditorUI(
                 self,
                 is_secondary=False,
@@ -504,17 +508,13 @@ class PmdlPartsApp(ctk.CTk):
             
             if has_patch:
                 analyzer = self.patch_bridge.get_patch_analyzer()
-                patch_path = self.patch_bridge.get_patch_path()
-                
-                if analyzer and patch_path:
-                    # Cargar el parche en el Character Editor
-                    if self.window_character_editor.load_character_from_path(patch_path):
-                        pass
+                if analyzer:
+                    # Usar el analyzer en memoria (no recargar desde disco)
+                    self.window_character_editor.analyzer = analyzer
+                    self.window_character_editor.display_texture()
+                    self.window_character_editor.enable_buttons()
             
-            # Bind para cerrar con ESC
             self.window_character_editor.bind("<Escape>", lambda e: self._return_from_character_editor())
-            
-            # Bind para cuando se cierre con X
             self.window_character_editor.protocol("WM_DELETE_WINDOW", self._return_from_character_editor)
         else:
             self.window_character_editor.focus()
@@ -523,11 +523,17 @@ class PmdlPartsApp(ctk.CTk):
         self.lift()
     
     def _on_load_pmdl_from_patch(self, analyzer):
+        from app.logic_patch.character_ui import FaceAnalyzerWrapper
+
+        if isinstance(analyzer, FaceAnalyzerWrapper):
+            self._on_load_pmdf_from_face(analyzer)
+            return
+
         # Extraer PMDL del parche
         pmdl_data = self.patch_bridge.extract_pmdl_from_patch(analyzer)
         
         if not pmdl_data:
-            messagebox.showerror("Error", "No se pudo extraer el PMDL del parche")
+            messagebox.showerror(t("dialogs.error"), t("dialogs.error_extraer_pmdl"))
             return
         
         # Guardar contexto del parche
@@ -561,14 +567,124 @@ class PmdlPartsApp(ctk.CTk):
         self.parts_table.show_top_controls(self._hdr.part_count, self.on_import_part)
         self.parts_table.populate(self._parts)
         
-        self.status_var.set(f"PMDL cargado desde parche: {os.path.basename(patch_path)} · Los ijue30s")
+        self.status_var.set(t("status.pmdl_desde_parche", name=os.path.basename(patch_path)))
+
+    def _on_load_pmdf_from_face(self, face_analyzer):
+        """Carga un PMDF (cara extra) en el editor en modo PMDF."""
+        from app.logic_patch.character_ui import FaceAnalyzerWrapper
+        pmdl_data = face_analyzer.get_pmdl_data()
+        if not pmdl_data:
+            messagebox.showerror(t("dialogs.error"), t("dialogs.error_extraer_pmdf"))
+            return
+
+        try:
+            hdr = parse_header(pmdl_data)
+            parts = parse_parts_index(pmdl_data, hdr)
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo parsear el PMDF:\n{e}")
+            return
+
+        # Guardar contexto del parche principal (si viene de uno)
+        patch_path = face_analyzer.file_path
+        self.patch_bridge.set_patch_context(patch_path, face_analyzer, is_secondary=False)
+
+        self._return_from_character_editor()
+
+        self._blob = pmdl_data
+        self._hdr = hdr
+        self._parts = parts
+        self._path = f"[PMDF]{patch_path}::{face_analyzer.face_name}"
+
+        # Estado modo PMDF
+        self._pmdf_mode = True
+        self._pmdf_face_name = face_analyzer.face_name
+        self._pmdf_parent_analyzer = face_analyzer.parent_analyzer
+
+        # Actualizar entry de ruta
+        self.path_entry.configure(state="normal")
+        self.path_entry.delete(0, tk.END)
+        self.path_entry.insert(0, f"[PMDF] {face_analyzer.face_name}")
+        self.path_entry.configure(state="disabled")
+        self.tooltip_path_entry.change_text(
+            f"PMDF '{face_analyzer.face_name}' extraído de: {patch_path}"
+        )
+
+        # Poblar tabla
+        self.parts_table.show_top_controls(self._hdr.part_count, self.on_import_part)
+        self.parts_table.populate(self._parts)
+
+        self.status_var.set(t("status.pmdf_cargado", name=face_analyzer.face_name))
+
+        # Activar modo PMDF en la UI
+        self._enter_pmdf_mode()
+
+    def _enter_pmdf_mode(self):
+        if self._menu_archivo_btn and self._menu_archivo_btn.winfo_exists():
+            self._menu_archivo_btn.pack_forget()
+        self.parts_table.set_pmdf_mode(True, self.on_save_pmdf)
+
+    def _exit_pmdf_mode(self):
+        self._pmdf_mode = False
+        self._pmdf_face_name = None
+        self._pmdf_parent_analyzer = None
+        if self._menu_archivo_btn and self._menu_archivo_btn.winfo_exists():
+            # Insertar antes del primer hijo visible del menubar
+            children = [w for w in self.menubar.winfo_children()
+                        if w is not self._menu_archivo_btn and w.winfo_ismapped()]
+            if children:
+                self._menu_archivo_btn.pack(side="left", padx=1, pady=1, before=children[0])
+            else:
+                self._menu_archivo_btn.pack(side="left", padx=1, pady=1)
+        self.parts_table.set_pmdf_mode(False, None)
+
+    @error_window_ui
+    def on_save_pmdf(self):
+        """Guarda el PMDF editado de vuelta al parche en memoria y abre el Character Editor."""
+        if not self._pmdf_mode or not self._pmdf_face_name or not self._pmdf_parent_analyzer:
+            return
+
+        # Sincronizar UI → memoria
+        ui_data = self.parts_table.get_ui_data()
+        sync_parts_from_ui(self._blob, self._hdr, self._parts, ui_data)
+
+        # Empujar cambios al parent_analyzer (CharacterAnalyzer real)
+        success = self._pmdf_parent_analyzer.set_face_data(self._pmdf_face_name, bytes(self._blob))
+        if not success:
+            messagebox.showerror(t("dialogs.error"), t("dialogs.error_guardar_pmdf"))
+            return
+
+        face_name = self._pmdf_face_name
+        parent_analyzer = self._pmdf_parent_analyzer
+        patch_path = parent_analyzer.file_path
+
+        self.status_var.set(t("status.pmdf_guardado", name=face_name))
+
+        # Salir de modo PMDF y limpiar editor
+        self._exit_pmdf_mode()
+        self.patch_bridge.clear_patch_context()
+        self.on_close_pmdl_main()
+
+        # Abrir Character Editor con el parche actualizado en memoria
+        self.withdraw()
+        self.window_character_editor = CharacterEditorUI(
+            self,
+            is_secondary=False,
+            on_open_in_editor_callback=self._on_load_pmdl_from_patch,
+            from_patch=False
+        )
+        self.window_character_editor.analyzer = parent_analyzer
+        self.window_character_editor.display_texture()
+        self.window_character_editor.enable_buttons()
+
+        self.window_character_editor.bind("<Escape>", lambda e: self._return_from_character_editor())
+        self.window_character_editor.protocol("WM_DELETE_WINDOW", self._return_from_character_editor)
     
     def _on_load_pmdl_from_patch_secondary(self, analyzer):
         # Extraer PMDL del parche
         pmdl_data = self.patch_bridge_secondary.extract_pmdl_from_patch(analyzer)
         
         if not pmdl_data:
-            messagebox.showerror("Error", "No se pudo extraer el PMDL del parche secundario")
+            messagebox.showerror(t("dialogs.error"), t("dialogs.error_extraer_pmdl_sec"))
             return
         
         # Guardar contexto del parche secundario
@@ -603,7 +719,7 @@ class PmdlPartsApp(ctk.CTk):
         self.parts2_table.show_top_controls(self._hdr2.part_count)
         self.parts2_table.populate(self._parts2)
         
-        self.status_var.set(f"PMDL secundario cargado desde parche: {os.path.basename(patch_path)} · Los ijue30s")
+        self.status_var.set(t("status.pmdl_sec_desde_parche", name=os.path.basename(patch_path)))
     
     def _return_from_character_editor(self):
         """Cierra Character Editor y regresa a la ventana principal."""
@@ -617,6 +733,8 @@ class PmdlPartsApp(ctk.CTk):
     
     def on_open_patch(self):
         """Abre un parche principal en el Character Editor."""
+        if self._pmdf_mode:
+            return
         file_path = filedialog.askopenfilename(
             title="Seleccionar archivo de parche",
             filetypes=[
@@ -647,7 +765,7 @@ class PmdlPartsApp(ctk.CTk):
         
         # Cargar parche automáticamente
         if not self.window_character_editor.load_character_from_path(file_path):
-            messagebox.showerror("Error", "No se pudo cargar el parche")
+            messagebox.showerror(t("dialogs.error"), t("dialogs.error_cargar_parche"))
             self._return_from_character_editor()
 
     @error_window_ui
@@ -682,13 +800,13 @@ class PmdlPartsApp(ctk.CTk):
         
         # Cargar parche automáticamente
         if not self.window_character_editor.load_character_from_path(file_path):
-            messagebox.showerror("Error", "No se pudo cargar el parche secundario")
+            messagebox.showerror(t("dialogs.error"), t("dialogs.error_cargar_parche_sec"))
             self._return_from_character_editor()
 
     def on_visualize_secondary(self):
         """Abre el visualizador 3D con el PMDL secundario."""
         if self._blob2 is None or self._hdr2 is None or not self._parts2:
-            messagebox.showinfo("Info", "Abre primero un PMDL secundario.")
+            messagebox.showinfo(t("dialogs.info"), t("dialogs.abrir_pmdl_sec_primero"))
             return
         
         # Preparar datos del PMDL secundario
@@ -720,6 +838,8 @@ class PmdlPartsApp(ctk.CTk):
     @error_window_ui
     def on_open_file(self):
         """Abre y carga un archivo PMDL principal."""
+        if self._pmdf_mode:
+            return
         path = filedialog.askopenfilename(
             title="Selecciona un archivo .pmdl",
             filetypes=[("Pmdl files", "*.pmdl"), ("Todos los archivos", "*.*")]
@@ -754,7 +874,7 @@ class PmdlPartsApp(ctk.CTk):
         # Actualizar tabla
         self.parts_table.show_top_controls(self._hdr.part_count, self.on_import_part)
         self.parts_table.populate(self._parts)
-        self.status_var.set(f"Archivo cargado: {os.path.basename(path)}")
+        self.status_var.set(t("status.archivo_cargado", name=os.path.basename(path)))
     
     # ------------ Ediciones en memoria ------------
     
@@ -763,28 +883,28 @@ class PmdlPartsApp(ctk.CTk):
         if self._parts and 0 <= part_index < len(self._parts):
             current = self._parts[part_index].part_id
             self._parts[part_index].part_id = (current & 0xFF00) | (new_low_byte & 0x00FF)
-            self.status_var.set(f"Parte {part_index:02d}: Profundidad = {new_low_byte:02X}")
+            self.status_var.set(t("status.parte_profundidad", index=f"{part_index:02d}", val=f"{new_low_byte:02X}"))
     
     def on_part_opacity_changed(self, part_index: int, new_percent: int):
         """Callback: cambio de opacidad."""
         if self._parts and 0 <= part_index < len(self._parts):
             from app.core import opacity_u16_from_percent
             self._parts[part_index].opacity = opacity_u16_from_percent(new_percent)
-            self.status_var.set(f"Parte {part_index:02d}: Opacidad = {new_percent}%")
+            self.status_var.set(t("status.parte_opacidad", index=f"{part_index:02d}", val=new_percent))
     
     def on_part_flag_changed(self, part_index: int, new_label: str):
         """Callback: cambio de función."""
         if self._parts and 0 <= part_index < len(self._parts):
             value = FLAG_MAP_LABEL_TO_VALUE.get(new_label, 0x00)
             self._parts[part_index].special_flag = value
-            self.status_var.set(f"Parte {part_index:02d}: Función = '{new_label}' (0x{value:02X})")
+            self.status_var.set(t("status.parte_funcion", index=f"{part_index:02d}", label=new_label, val=f"{value:02X}"))
     
     # ------------ Exportar parte ------------
     
     def on_export_part(self, part_index: int):
         """Exporta una parte como archivo .tttpart con encabezado de metadatos."""
         if self._blob is None or self._hdr is None or not self._parts or not self._path:
-            messagebox.showinfo("Info", "Abre primero un archivo .pmdl.")
+            messagebox.showinfo(t("dialogs.info"), t("dialogs.abrir_pmdl_primero"))
             return
         
         if not (0 <= part_index < len(self._parts)):
@@ -832,8 +952,8 @@ class PmdlPartsApp(ctk.CTk):
             with open(out_path, "wb") as f:
                 f.write(part_with_header)
             
-            messagebox.showinfo("Exportado", f"Parte {part_index:02d} exportada con metadatos en:\n{out_path}")
-            self.status_var.set(f"Parte {part_index:02d} exportada.")
+            messagebox.showinfo(t("dialogs.exportado"), t("dialogs.parte_exportada", index=f"{part_index:02d}", path=out_path))
+            self.status_var.set(t("status.parte_exportada", index=f"{part_index:02d}"))
         
         except Exception as e:
             raise ValueError(f"No se pudo exportar la parte:\n{e}")
@@ -841,7 +961,7 @@ class PmdlPartsApp(ctk.CTk):
     def on_delete_part(self, part_index: int):
         """Elimina una parte del PMDL."""
         if self._blob is None or self._hdr is None or not self._parts:
-            messagebox.showinfo("Info", "Abre primero un archivo .pmdl o parche.")
+            messagebox.showinfo(t("dialogs.info"), t("dialogs.abrir_pmdl_o_parche"))
             return
         
         try:
@@ -852,8 +972,8 @@ class PmdlPartsApp(ctk.CTk):
             self.parts_table.update_part_count(self._hdr.part_count)
             
             self._refresh_patch_texture()
-            self.status_var.set("Parte borrada correctamente · Los ijue30s")
-            messagebox.showinfo("Borrado", "Parte eliminada correctamente.")
+            self.status_var.set(t("status.parte_borrada"))
+            messagebox.showinfo(t("dialogs.borrado"), t("dialogs.parte_eliminada"))
         
         except Exception as e:
             raise ValueError(f"No se pudo borrar la parte:\n{e}")
@@ -864,12 +984,16 @@ class PmdlPartsApp(ctk.CTk):
     def on_save(self):
         """Guarda los cambios en el archivo original o parche."""
         if self._blob is None or self._hdr is None or not self._parts:
-            messagebox.showinfo("Info", "Abre primero un archivo .pmdl o parche.")
+            messagebox.showinfo(t("dialogs.info"), t("dialogs.abrir_pmdl_o_parche"))
             return
         
         # Sincronizar datos de UI a memoria
         ui_data = self.parts_table.get_ui_data()
         sync_parts_from_ui(self._blob, self._hdr, self._parts, ui_data)
+
+        if self._pmdf_mode:
+            self.on_save_pmdf()
+            return
         
         # Si viene de un parche, manejar guardado a través del Character Editor
         if self.patch_bridge.is_from_patch():
@@ -878,13 +1002,10 @@ class PmdlPartsApp(ctk.CTk):
         
         # Guardado normal de PMDL
         if not self._path:
-            messagebox.showinfo("Info", "El archivo no tiene ruta de origen. Usa 'Guardar Como'.")
+            messagebox.showinfo(t("dialogs.info"), t("dialogs.sin_ruta_origen"))
             return
         
-        confirm = messagebox.askyesno(
-            "Confirmar guardado",
-            "¿Estás seguro de que deseas guardar el archivo?"
-        )
+        confirm = messagebox.askyesno(t("dialogs.confirmar_guardado"), t("dialogs.confirmar_guardado_msg"))
         if not confirm:
             return
         
@@ -893,8 +1014,8 @@ class PmdlPartsApp(ctk.CTk):
             with open(self._path, "wb") as f:
                 f.write(self._blob)
             
-            self.status_var.set("Cambios guardados.")
-            messagebox.showinfo("Listo", "Cambios guardados en el .pmdl.")
+            self.status_var.set(t("status.cambios_guardados"))
+            messagebox.showinfo(t("dialogs.listo"), t("dialogs.cambios_guardados"))
         
         except Exception as e:
             raise ValueError(f"No se pudo guardar el archivo:\n{e}")
@@ -903,12 +1024,16 @@ class PmdlPartsApp(ctk.CTk):
     def on_save_as(self):
         """Guarda el PMDL con un nuevo nombre."""
         if self._blob is None or self._hdr is None or not self._parts:
-            messagebox.showinfo("Info", "Abre primero un archivo .pmdl o parche.")
+            messagebox.showinfo(t("dialogs.info"), t("dialogs.abrir_pmdl_o_parche"))
             return
         
         # Sincronizar datos de UI a memoria
         ui_data = self.parts_table.get_ui_data()
         sync_parts_from_ui(self._blob, self._hdr, self._parts, ui_data)
+
+        if self._pmdf_mode:
+            self.on_save_pmdf()
+            return
         
         # Si viene de un parche, manejar guardado a través del Character Editor
         if self.patch_bridge.is_from_patch():
@@ -940,8 +1065,8 @@ class PmdlPartsApp(ctk.CTk):
             self.path_entry.insert(0, os.path.basename(out_path))
             self.path_entry.configure(state="disabled")
             
-            self.status_var.set(f"Guardado como: {os.path.basename(out_path)}")
-            messagebox.showinfo("Listo", f"Guardado como:\n{out_path}")
+            self.status_var.set(t("status.guardado_como", name=os.path.basename(out_path)))
+            messagebox.showinfo(t("dialogs.listo"), t("dialogs.guardado_como", path=out_path))
         
         except Exception as e:
             raise ValueError(f"No se pudo guardar:\n{e}")
@@ -951,7 +1076,7 @@ class PmdlPartsApp(ctk.CTk):
     def on_import_part(self):
         """Importa una o más partes desde archivos .tttpart (con o sin encabezado)."""
         if self._blob is None or self._hdr is None or self._parts is None:
-            messagebox.showinfo("Info", "Abre primero un archivo .pmdl.")
+            messagebox.showinfo(t("dialogs.info"), t("dialogs.abrir_pmdl_primero"))
             return
 
         in_paths = filedialog.askopenfilenames(
@@ -1016,13 +1141,13 @@ class PmdlPartsApp(ctk.CTk):
         resumen = "\n".join(resultados)
         if errores:
             resumen += "\n\nErrores:\n" + "\n".join(errores)
-        messagebox.showinfo("Importación completada", resumen if resumen else "Sin resultados.")
+        messagebox.showinfo(t("dialogs.importacion_completada"), resumen if resumen else t("dialogs.sin_resultados"))
     
     def _save_to_patch(self):
         """Guarda el PMDL actualizado en el parche original."""
         # Actualizar PMDL en el parche
         if not self.patch_bridge.update_pmdl_in_patch(self._blob):
-            messagebox.showerror("Error", "No se pudo actualizar el PMDL en el parche")
+            messagebox.showerror(t("dialogs.error"), t("dialogs.error_actualizar_pmdl"))
             return
         
         # Ocultar ventana principal
@@ -1053,7 +1178,7 @@ class PmdlPartsApp(ctk.CTk):
         """Guarda el PMDL actualizado en un nuevo archivo de parche."""
         # Actualizar PMDL en el parche
         if not self.patch_bridge.update_pmdl_in_patch(self._blob):
-            messagebox.showerror("Error", "No se pudo actualizar el PMDL en el parche")
+            messagebox.showerror(t("dialogs.error"), t("dialogs.error_actualizar_pmdl"))
             return
         
         # Ocultar ventana principal
@@ -1166,16 +1291,16 @@ class PmdlPartsApp(ctk.CTk):
         self.parts2_table.show_top_controls(self._hdr2.part_count)
         self.parts2_table.populate(self._parts2)
         
-        self.status_var.set("PMDL secundario cargado · Los ijue30s")
+        self.status_var.set(t("status.pmdl_sec_cargado"))
     
     def on_add_part_from_secondary(self, part_index: int):
         """Agrega una parte del PMDL secundario al principal."""
         if self._blob is None or self._hdr is None or not self._parts:
-            messagebox.showinfo("Info", "Abre primero un PMDL principal o parche.")
+            messagebox.showinfo(t("dialogs.info"), t("dialogs.abrir_pmdl_o_parche"))
             return
         
         if self._blob2 is None or self._hdr2 is None or not self._parts2 or self._path2 is None:
-            messagebox.showinfo("Info", "Importa primero un PMDL secundario.")
+            messagebox.showinfo(t("dialogs.info"), t("dialogs.importar_sec_primero"))
             return
         
         if not (0 <= part_index < len(self._parts2)):
@@ -1200,18 +1325,33 @@ class PmdlPartsApp(ctk.CTk):
             self._refresh_patch_texture()
             
             if normalize_enabled:
-                msg = f"Parte agregada con normalización de grosor.\nOffset=0x{new_offset:X}\nLongitud=0x{new_length:X}"
+                msg = t("dialogs.parte_agregada_norm", offset=f"{new_offset:X}", length=f"{new_length:X}")
             else:
-                msg = f"Parte agregada SIN normalización (toggle desactivado).\nOffset=0x{new_offset:X}\nLongitud=0x{new_length:X}\n\n⚠️ ADVERTENCIA: Podría estar fuera de escala."
+                msg = t("dialogs.parte_agregada_sin_norm", offset=f"{new_offset:X}", length=f"{new_length:X}")
             
-            self.status_var.set("Parte agregada desde secundario · Los ijue30s")
-            messagebox.showinfo("Listo", msg)
+            self.status_var.set(t("status.parte_agregada"))
+            messagebox.showinfo(t("dialogs.listo"), msg)
         
         except Exception as e:
             raise ValueError(f"No se pudo agregar la parte desde el secundario:\n{e}")
     
     def on_close_pmdl_main(self):
         """Cierra el PMDL principal y limpia la interfaz."""
+        if self._pmdf_mode:
+            self._exit_pmdf_mode()
+            self.patch_bridge.clear_patch_context()
+
+        # Cerrar ventanas dependientes del PMDL principal
+        if self.window_viewer_3d and self.window_viewer_3d.winfo_exists():
+            self._return_from_3d_viewer(skip_unsaved_check=True)
+        if self.window_subparts and self.window_subparts.winfo_exists():
+            self._return_from_subparts()
+        if self.window_bone_editor and self.window_bone_editor.winfo_exists():
+            self.window_bone_editor.destroy()
+            self.window_bone_editor = None
+
+        self.patch_bridge.clear_patch_context()
+
         # Limpiar estado
         self._blob = None
         self._hdr = None
@@ -1228,10 +1368,18 @@ class PmdlPartsApp(ctk.CTk):
         self.parts_table.clear()
         self.parts_table.hide_top_controls()
         
-        self.status_var.set("PMDL principal cerrado · Los ijue30s")
+        self.status_var.set(t("status.pmdl_cerrado"))
     
     def on_close_pmdl_secondary(self):
         """Cierra el PMDL secundario y limpia la interfaz."""
+        # Cerrar visor 3D si estaba mostrando el secundario
+        if self.window_viewer_3d and self.window_viewer_3d.winfo_exists():
+            try:
+                if getattr(self.window_viewer_3d, 'is_secondary', False):
+                    self._return_from_3d_viewer(skip_unsaved_check=True)
+            except Exception:
+                pass
+
         # Limpiar estado
         self._blob2 = None
         self._hdr2 = None
@@ -1251,7 +1399,7 @@ class PmdlPartsApp(ctk.CTk):
         self.parts2_table.clear()
         self.parts2_table.hide_top_controls()
         
-        self.status_var.set("PMDL secundario cerrado · Los ijue30s")
+        self.status_var.set(t("status.pmdl_sec_cerrado"))
 
 
 def run():

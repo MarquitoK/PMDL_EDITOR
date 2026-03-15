@@ -182,13 +182,35 @@ class CharacterAnalyzer:
             
             # Actualizar offset del pMdl en el índice
             self.write_offset(0x10, self.pmdl_info['end'])
-            
+
+            # Resincronizar texture_info desde el índice (puede haber sido desplazada)
+            self._refresh_texture_info()
+
             return True
             
         except Exception as e:
             print(f"Error al actualizar PMDL: {e}")
             return False
     
+    def _refresh_texture_info(self):
+        texture_start = self.read_offset(0x30)
+        texture_end   = self.read_offset(0x34)
+        if texture_start < texture_end and texture_end <= len(self.file_data):
+            palette_start = texture_start + 0x80 + 0x10000
+            if palette_start + 0x400 <= len(self.file_data):
+                self.texture_info = {
+                    'start':          texture_start,
+                    'end':            texture_end,
+                    'size':           texture_end - texture_start,
+                    'header_size':    0x80,
+                    'indices_offset': texture_start + 0x80,
+                    'indices_size':   0x10000,
+                    'palette_offset': palette_start,
+                    'palette_size':   0x400,
+                    'width':          256,
+                    'height':         256,
+                }
+
     def _update_index_offsets(self, old_pmdl_end, size_diff):
         """
         Actualiza todos los offsets del índice que apuntan a datos después del pMdl.
@@ -244,56 +266,46 @@ class CharacterAnalyzer:
         return None
     
     def import_texture(self, input_path):
-        """
-        Importa una textura desde un archivo de imagen.
-        Ajusta dinámicamente el tamaño del archivo.
-        """
         if not self.texture_info:
             return False
-        
+
         try:
-            # Leer nueva textura
-            with open(input_path, 'rb') as f:
-                new_texture_data = f.read()
-            
-            new_size = len(new_texture_data)
-            old_size = self.texture_info['size']
             old_start = self.texture_info['start']
-            old_end = self.texture_info['end']
-            
-            size_diff = new_size - old_size
-            
-            if size_diff == 0:
-                # Tamaño igual
-                self.file_data[old_start:old_end] = new_texture_data
-                
-            elif size_diff > 0:
-                # Expandir
-                new_file_data = bytearray(len(self.file_data) + size_diff)
-                new_file_data[0:old_start] = self.file_data[0:old_start]
-                new_file_data[old_start:old_start + new_size] = new_texture_data
-                new_file_data[old_start + new_size:] = self.file_data[old_end:]
-                self.file_data = new_file_data
-                self._update_texture_offsets(old_end, size_diff)
-                
+            old_end   = self.texture_info['end']
+            old_size  = self.texture_info['size']
+
+            ext = os.path.splitext(input_path)[1].lower()
+
+            if ext in ('.atex', '.unk'):
+                with open(input_path, 'rb') as f:
+                    raw_data = f.read()
+
+                raw_payload = len(raw_data) - 0x80
+                expected_payload = 0x10000 + 0x400
+
+                if raw_payload != expected_payload:
+                    raise ValueError(
+                        f"Tamaño de textura RAW incompatible: "
+                        f"se esperan {expected_payload} bytes de payload, hay {raw_payload}."
+                    )
+
+                payload_start = old_start + 0x80
+                self.file_data[payload_start:payload_start + expected_payload] = raw_data[0x80:]
+                return True
+
             else:
-                # Reducir
-                new_file_data = bytearray(len(self.file_data) + size_diff)
-                new_file_data[0:old_start] = self.file_data[0:old_start]
-                new_file_data[old_start:old_start + new_size] = new_texture_data
-                new_file_data[old_start + new_size:] = self.file_data[old_end:]
-                self.file_data = new_file_data
-                self._update_texture_offsets(old_end, size_diff)
-            
-            # Actualizar información de textura
-            self.texture_info['size'] = new_size
-            self.texture_info['end'] = old_start + new_size
-            
-            # Actualizar offset de textura en el índice
-            self.write_offset(0x34, self.texture_info['end'])
-            
-            return True
-            
+                from app.utils.atex_reader import png_to_atex
+                original_header = bytes(self.file_data[old_start:old_start + 0x80])
+                new_texture_data = png_to_atex(input_path, original_header)
+
+                new_size = len(new_texture_data)
+                if new_size != old_size:
+                    raise ValueError(
+                        f"Tamaño de textura generada ({new_size}) no coincide con el bloque original ({old_size})."
+                    )
+                self.file_data[old_start:old_end] = new_texture_data
+                return True
+
         except Exception as e:
             print(f"Error al importar textura: {e}")
             return False

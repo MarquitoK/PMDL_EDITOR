@@ -310,10 +310,12 @@ class PMDLViewerApp(ctk.CTkToplevel):
                 with open(filepath, 'rb') as f:
                     raw = f.read()
                 img = atex_to_pil(raw)
+                if img.width != img.height:
+                    messagebox.showerror("Error", f"La textura debe ser cuadrada.\nDimensiones: {img.width}x{img.height}")
+                    return
                 with tempfile.NamedTemporaryFile(mode='wb', suffix='.png', delete=False) as tmp:
                     img.save(tmp.name)
                     png_path = tmp.name
-                # Borrar el temporal previo si era nuestro
                 if self._temp_texture_owned and self.temp_texture_path and os.path.exists(self.temp_texture_path):
                     try: os.unlink(self.temp_texture_path)
                     except: pass
@@ -322,6 +324,17 @@ class PMDLViewerApp(ctk.CTkToplevel):
                 filepath = png_path
             except Exception as e:
                 messagebox.showerror("Error", f"No se pudo leer la textura RAW:\n{e}")
+                return
+        else:
+            try:
+                from PIL import Image as _Img
+                with _Img.open(filepath) as _im:
+                    w, h = _im.size
+                if w != h:
+                    messagebox.showerror("Error", f"La textura debe ser cuadrada.\nDimensiones: {w}x{h}")
+                    return
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo leer la imagen:\n{e}")
                 return
 
         if GLViewport and hasattr(self, 'gl_viewport'):
@@ -1027,12 +1040,38 @@ class PMDLViewerApp(ctk.CTkToplevel):
                 if title.startswith("* "):
                     self.title(title[2:])
                 self.reload_pmdl_from_file(skip_uv_reload=True)
+                if self.pmdl_origin == 'inherited':
+                    self._sync_to_parent()
+                    messagebox.showinfo("Guardado", "Cambios de UVs guardados correctamente.")
             else:
                 messagebox.showerror("Error", "No se pudieron guardar las UVs")
         except Exception as e:
             messagebox.showerror("Error", f"Error al guardar UVs: {e}")
             import traceback
             traceback.print_exc()
+
+    def _sync_to_parent(self):
+        """Propaga el PMDL modificado al controlador principal inmediatamente."""
+        modified = self.get_modified_pmdl_data()
+        if not modified:
+            return
+        controller = self.master
+        try:
+            from app.core import parse_header, parse_parts_index
+            controller._blob  = bytearray(modified)
+            controller._hdr   = parse_header(controller._blob)
+            controller._parts = parse_parts_index(controller._blob, controller._hdr)
+            if hasattr(controller, 'parts_table'):
+                controller.parts_table.populate(controller._parts)
+                controller.parts_table.update_part_count(controller._hdr.part_count)
+            if hasattr(controller, 'patch_bridge') and controller.patch_bridge.is_from_patch():
+                controller.patch_bridge.update_pmdl_in_patch(controller._blob)
+                analyzer = controller.patch_bridge.get_patch_analyzer()
+                if analyzer:
+                    analyzer.find_pmdl_and_texture()
+            print("✓ Cambios de UVs propagados al editor principal")
+        except Exception as e:
+            print(f"Error al propagar UVs al editor principal: {e}")
 
     def mark_as_modified(self):
         """Marca que hay cambios sin guardar (llamado desde canvas)"""
@@ -1042,13 +1081,9 @@ class PMDLViewerApp(ctk.CTkToplevel):
             self.title("* " + title)
 
     def _on_close_request(self):
-        """Intercepta el cierre de ventana para preguntar si hay cambios sin guardar"""
         if self.has_unsaved_changes:
             from tkinter import messagebox as _mb
-            if not _mb.askyesno(
-                "Cambios sin guardar",
-                "Hay cambios sin guardar en el editor de UVs.\n¿Salir de todas formas? Los cambios se perderán."
-            ):
+            if not _mb.askyesno("Sin guardar", "¿Seguro que deseas cerrar sin guardar los cambios?"):
                 return
         if hasattr(self.master, '_return_from_3d_viewer'):
             self.master._return_from_3d_viewer(skip_unsaved_check=True)
