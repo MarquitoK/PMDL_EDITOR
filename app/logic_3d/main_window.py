@@ -1027,12 +1027,38 @@ class PMDLViewerApp(ctk.CTkToplevel):
                 if title.startswith("* "):
                     self.title(title[2:])
                 self.reload_pmdl_from_file(skip_uv_reload=True)
+                # Propagar al editor principal si el PMDL es heredado
+                if self.pmdl_origin == 'inherited':
+                    self._sync_to_parent()
             else:
                 messagebox.showerror("Error", "No se pudieron guardar las UVs")
         except Exception as e:
             messagebox.showerror("Error", f"Error al guardar UVs: {e}")
             import traceback
             traceback.print_exc()
+
+    def _sync_to_parent(self):
+        """Propaga el PMDL modificado al controlador principal inmediatamente."""
+        modified = self.get_modified_pmdl_data()
+        if not modified:
+            return
+        controller = self.master
+        try:
+            from app.core import parse_header, parse_parts_index
+            controller._blob  = bytearray(modified)
+            controller._hdr   = parse_header(controller._blob)
+            controller._parts = parse_parts_index(controller._blob, controller._hdr)
+            if hasattr(controller, 'parts_table'):
+                controller.parts_table.populate(controller._parts)
+                controller.parts_table.update_part_count(controller._hdr.part_count)
+            if hasattr(controller, 'patch_bridge') and controller.patch_bridge.is_from_patch():
+                controller.patch_bridge.update_pmdl_in_patch(controller._blob)
+                analyzer = controller.patch_bridge.get_patch_analyzer()
+                if analyzer:
+                    analyzer.find_pmdl_and_texture()
+            print("✓ Cambios de UVs propagados al editor principal")
+        except Exception as e:
+            print(f"Error al propagar UVs al editor principal: {e}")
 
     def mark_as_modified(self):
         """Marca que hay cambios sin guardar (llamado desde canvas)"""
