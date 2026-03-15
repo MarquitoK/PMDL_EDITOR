@@ -138,6 +138,25 @@ class AboutWindow(ctk.CTkToplevel):
             command=lambda: self._open_url("https://www.youtube.com/@migeru_ao")
         )
         migeru_btn.pack(pady=(0, 12))
+
+        hiro_frame = ctk.CTkFrame(scroll_frame, corner_radius=8)
+        hiro_frame.pack(fill="x", padx=5, pady=(0, 10))
+
+        ctk.CTkLabel(
+            hiro_frame,
+            text="Por la nomenclatura utilizada\npara la identificación de huesos.",
+            font=("Segoe UI", 10),
+            text_color=("gray50", "gray60")
+        ).pack(pady=(0, 8))
+
+        ctk.CTkButton(
+            hiro_frame,
+            text="🦴 Hiro Tex",
+            width=170,
+            height=30,
+            font=("Segoe UI", 11),
+            command=lambda: self._open_url("https://www.youtube.com/@Hiro_Tex")
+        ).pack(pady=(0, 12))
         
         self.transient(parent)
         self.grab_set()

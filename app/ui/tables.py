@@ -2,6 +2,7 @@ import tkinter as tk
 import customtkinter as ctk
 from typing import List, Callable
 from app.core import PartIndexEntry, FLAG_MAP_VALUE_TO_LABEL, percent_from_opacity_u16
+from app.utils.lang import t
 
 
 class PartsTable(ctk.CTkScrollableFrame):
@@ -28,7 +29,10 @@ class PartsTable(ctk.CTkScrollableFrame):
         self._close_btn = None
         
         # Encabezados (fila 1)
-        headers = ["Capa", "Nombre", "Tamaño", "Opacidad", "Función", "Exportar Parte"]
+        headers = [
+            t("tables.col_capa"), t("tables.col_nombre"), t("tables.col_tamano"),
+            t("tables.col_opacidad"), t("tables.col_funcion"), t("tables.col_exportar")
+        ]
         for col, text in enumerate(headers):
             lbl = ctk.CTkLabel(self, text=text, font=("Segoe UI", 12))
             lbl.grid(row=1, column=col, padx=(6, 4), pady=(4, 4), sticky="w")
@@ -61,20 +65,18 @@ class PartsTable(ctk.CTkScrollableFrame):
         
         # Contador de partes (a la izquierda)
         self._parts_count_label = ctk.CTkLabel(
-            self._controls_frame, text=f"Partes: {part_count}", font=("Segoe UI", 12)
+            self._controls_frame, text=t("tables.partes_count", count=part_count), font=("Segoe UI", 12)
         )
         self._parts_count_label.pack(side="left", padx=(0, 8))
-        
-        # Botón Importar Parte
+
         self._top_import_btn = ctk.CTkButton(
-            self._controls_frame, text="Importar Parte", width=120, height=24,
+            self._controls_frame, text=t("tables.importar_parte"), width=120, height=24,
             font=("Segoe UI", 12), command=on_import_part_cb
         )
         self._top_import_btn.pack(side="left", padx=(0, 8))
-        
-        # Botón Cerrar PMDL
+
         self._close_btn = ctk.CTkButton(
-            self._controls_frame, text="Cerrar PMDL", width=100, height=24,
+            self._controls_frame, text=t("tables.cerrar_pmdl"), width=100, height=24,
             font=("Segoe UI", 12), fg_color="#DC2626", hover_color="#B91C1C",
             command=self._on_close_pmdl
         )
@@ -95,7 +97,7 @@ class PartsTable(ctk.CTkScrollableFrame):
     def update_part_count(self, part_count: int):
         """Actualiza el contador de partes."""
         if self._parts_count_label is not None:
-            self._parts_count_label.configure(text=f"Partes: {part_count}")
+            self._parts_count_label.configure(text=t("tables.partes_count", count=part_count))
     
     def clear(self):
         """Limpia todas las filas de la tabla."""
@@ -142,7 +144,7 @@ class PartsTable(ctk.CTkScrollableFrame):
             depth_entry.grid(row=row, column=0, padx=(6, 4), pady=(2, 2), sticky="w")
             
             # Nombre
-            name_lbl = ctk.CTkLabel(self, text=f"Parte_{i}", font=("Segoe UI", 12), fg_color=bg_color)
+            name_lbl = ctk.CTkLabel(self, text=t("tables.parte_label", index=i), font=("Segoe UI", 12), fg_color=bg_color)
             name_lbl.grid(row=row, column=1, padx=(6, 4), pady=(2, 2), sticky="w")
             
             # Tamaño
@@ -181,7 +183,7 @@ class PartsTable(ctk.CTkScrollableFrame):
             action_frame = ctk.CTkFrame(self, fg_color="transparent")
             action_frame.grid(row=row, column=5, padx=(6, 4), pady=(2, 2), sticky="w")
             
-            export_btn = ctk.CTkButton(action_frame, text="Exportar", width=60, font=("Segoe UI", 12),
+            export_btn = ctk.CTkButton(action_frame, text=t("tables.btn_exportar"), width=60, font=("Segoe UI", 12),
                                        command=lambda idx=i: self._on_export(idx))
             export_btn.pack(side="left", padx=(0, 6))
             
@@ -310,24 +312,23 @@ class PartsTable(ctk.CTkScrollableFrame):
     
     def _on_close_pmdl(self):
         from tkinter import messagebox
-        if messagebox.askyesno("Cerrar PMDL", "¿Estás seguro de que deseas cerrar el PMDL principal?\nSe perderán todos los cambios no guardados."):
+        if messagebox.askyesno(t("tables.confirm_cerrar_titulo"), t("tables.confirm_cerrar_msg")):
             if callable(self.on_close_pmdl):
                 self.on_close_pmdl()
 
     def set_pmdf_mode(self, active: bool, on_save_pmdf_cb):
-        """Cambia el botón cerrar por Guardar PMDF (verde) al entrar en modo PMDF."""
         if self._close_btn is None or not self._close_btn.winfo_exists():
             return
         if active:
             self._close_btn.configure(
-                text="💾 Guardar PMDF",
+                text=t("tables.guardar_pmdf"),
                 fg_color="#16A34A",
                 hover_color="#15803D",
                 command=on_save_pmdf_cb
             )
         else:
             self._close_btn.configure(
-                text="Cerrar PMDL",
+                text=t("tables.cerrar_pmdl"),
                 fg_color="#DC2626",
                 hover_color="#B91C1C",
                 command=self._on_close_pmdl
@@ -349,7 +350,10 @@ class SecondaryPartsTable(ctk.CTkScrollableFrame):
         self._close_btn = None
         
         # Encabezados (fila 1)
-        headers = ["Capa", "Nombre", "Tamaño", "Opacidad", "Función", "Agregar"]
+        headers = [
+            t("tables.col_capa"), t("tables.col_nombre"), t("tables.col_tamano"),
+            t("tables.col_opacidad"), t("tables.col_funcion"), t("tables.col_agregar")
+        ]
         for col, text in enumerate(headers):
             lbl = ctk.CTkLabel(self, text=text, font=("Segoe UI", 12))
             lbl.grid(row=1, column=col, padx=(6, 4), pady=(4, 4), sticky="w")
@@ -381,13 +385,12 @@ class SecondaryPartsTable(ctk.CTkScrollableFrame):
         
         # Contador de partes
         self._parts_count_label = ctk.CTkLabel(
-            self._controls_frame, text=f"Partes: {part_count}", font=("Segoe UI", 12)
+            self._controls_frame, text=t("tables.partes_count", count=part_count), font=("Segoe UI", 12)
         )
         self._parts_count_label.pack(side="left", padx=(0, 8))
         
-        # Botón Cerrar PMDL Secundario
         self._close_btn = ctk.CTkButton(
-            self._controls_frame, text="Cerrar PMDL", width=100, height=24,
+            self._controls_frame, text=t("tables.cerrar_pmdl"), width=100, height=24,
             font=("Segoe UI", 12), fg_color="#DC2626", hover_color="#B91C1C",
             command=self._on_close_pmdl_secondary
         )
@@ -407,7 +410,7 @@ class SecondaryPartsTable(ctk.CTkScrollableFrame):
     def update_part_count(self, part_count: int):
         """Actualiza el contador de partes."""
         if self._parts_count_label is not None:
-            self._parts_count_label.configure(text=f"Partes: {part_count}")
+            self._parts_count_label.configure(text=t("tables.partes_count", count=part_count))
     
     def clear(self):
         """Limpia todas las filas de la tabla."""
@@ -449,7 +452,7 @@ class SecondaryPartsTable(ctk.CTkScrollableFrame):
             capa_lbl.grid(row=row, column=0, padx=(6, 4), pady=(2, 2), sticky="w")
             
             # Nombre
-            name_lbl = ctk.CTkLabel(self, text=f"Parte_{i}", font=("Segoe UI", 12), fg_color=bg_color)
+            name_lbl = ctk.CTkLabel(self, text=t("tables.parte_label", index=i), font=("Segoe UI", 12), fg_color=bg_color)
             name_lbl.grid(row=row, column=1, padx=(6, 4), pady=(2, 2), sticky="w")
             
             # Tamaño
@@ -466,16 +469,14 @@ class SecondaryPartsTable(ctk.CTkScrollableFrame):
                                     font=("Segoe UI", 12), fg_color=bg_color)
             func_lbl.grid(row=row, column=4, padx=(6, 4), pady=(2, 2), sticky="w")
             
-            # Botón Agregar
-            add_btn = ctk.CTkButton(self, text="Agregar", width=76, font=("Segoe UI", 12),
+            add_btn = ctk.CTkButton(self, text=t("tables.col_agregar"), width=76, font=("Segoe UI", 12),
                                     command=lambda idx=i: self.on_add_part(idx))
             add_btn.grid(row=row, column=5, padx=(6, 4), pady=(2, 2), sticky="w")
             
             self._rows_widgets.append([capa_lbl, name_lbl, size_lbl, pct_lbl, func_lbl, add_btn])
     
     def _on_close_pmdl_secondary(self):
-        """Callback para cerrar el PMDL secundario."""
         from tkinter import messagebox
-        if messagebox.askyesno("Cerrar PMDL Secundario", "¿Estás seguro de que deseas cerrar el PMDL secundario?"):
+        if messagebox.askyesno(t("tables.confirm_cerrar_sec_titulo"), t("tables.confirm_cerrar_sec_msg")):
             if callable(self.on_close_pmdl):
                 self.on_close_pmdl()
