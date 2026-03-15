@@ -20,7 +20,6 @@
     "abrir_parche_sec": "Abrir Patch  Secundário",
     "visualizar": "Visualizar"
   },
-
   "layout": {
     "ruta_pmdl": "Rota .pMdl",
     "ruta_pmdl_tooltip": "Caminho do arquivo .pMdl carregado",
@@ -30,7 +29,6 @@
     "normalizar_tooltip": "Ativado: Ajusta a escala do modelo principal e das partes importadas para que a espessura das partes fique uniforme. (Recomendado)\n\nDesativado: As partes importadas de outros modelos podem ter tamanho ou espessura inesperados, ficando planas ou muito esticadas. (Use apenas se souber o que está fazendo)",
     "status_default": "Criado por Los ijue30s"
   },
-
   "tables": {
     "col_capa": "Capa",
     "col_nombre": "Nome",
@@ -50,7 +48,6 @@
     "confirm_cerrar_sec_titulo": "Fechar pMdl Secundario",
     "confirm_cerrar_sec_msg": "Tem certeza de que deseja fechar o pMdl secundário?"
   },
-
   "status": {
     "default": "Criado por Los ijue30s",
     "archivo_cargado": "Arquivo carregado: {name}",
@@ -72,7 +69,6 @@
     "parte_opacidad": "Parte {index}: Opacidade = {val}%",
     "parte_funcion": "Parte {index}: Função = '{label}' (0x{val})"
   },
-
   "dialogs": {
     "info": "Info",
     "error": "Erro",
@@ -106,7 +102,6 @@
     "error_cargar_parche_sec": "Não foi possível carregar o patch secundário",
     "error_actualizar_pmdl": "Não foi possível atualizar o pMdl no patch"
   },
-
   "lang_window": {
     "titulo": "Seleccionar Idioma",
     "descripcion": "Escolha o idioma do aplicativo:",
@@ -116,6 +111,56 @@
     "reinicio_msg": "É necessário reiniciar para aplicar as alterações.",
     "btn_ok": "OK",
     "btn_cancelar_reinicio": "Cancelar"
+  },
+  "ui_subparts": {
+    "titulo": "Pmdl Editor - Subpartes",
+    "subparte": "Subparte",
+    "configuracion": "Configuração",
+    "n_huesos": "N° de ossos",
+    "ids": "IDs (HEX)",
+    "unk": "UNK (HEX)",
+    "accion": "Ações",
+    "btn_guardar": "Salvar alterações",
+    "btn_mover_arriba": "Mover para cima",
+    "btn_mover_abajo": "Mover para baixo",
+    "btn_remap_id": "Remapear ID",
+    "btn_edit_vert": "Editar vértices",
+    "btn_parte": "Parte",
+    "pos": "Posição",
+    "vert": "Vértices",
+    "size": "Tamanho",
+    "btn_select": "Selecione",
+    "ctx_export": "Exportar seleções",
+    "ctx_import": "Substituir Subparte",
+    "ctx_insert": "Inserir Subpartes",
+    "ctx_delete": "Excluir Subpartes",
+    "ctx_add": "Adicionar seleções"
+  },
+  "ui_remap_id": {
+    "btn_1": "Buscar ID 1 e substituir por ID 2",
+    "btn_2": "Substituir tudo por ID 1",
+    "btn_3": "Substituir ID 1 na coluna ID 2",
+    "save": "Aplicar alterações",
+    "error_id1": "ID 1 não está no intervalo (0-FF)",
+    "error_id2": "ID 2 não está entre 1 e 4"
+  },
+  "ui_edit_vert": {
+    "titulo": "Pmdl Editor - Subparte N°:",
+    "influencia": "Peso",
+    "btn_exportar": "Exportar dados",
+    "btn_importar": "Importar dados",
+    "btn_save": "Salvar alterações",
+    "ruta": "Caminho",
+    "mesg_pmdl_normalizar": "O modelo deve estar normalizado para usar isso",
+    "msg_guardado": "Dados salvos com sucesso",
+    "dlg_json": "Selecionar JSON",
+    "dlg_export": "Salvar dados dos vértices",
+    "msg_dt_load": "Dados carregados",
+    "error_json": "O JSON não contém uma subparte",
+    "error_fila": "Erro em uma linha",
+    "error_uv": "As UVs devem estar no intervalo de 0 a 255",
+    "t_correcto": "Sucesso",
+    "t_warning": "Aviso"
   },
   "character_editor": {
     "titulo": "Editor de Personagens - DBZ TTT - by Los ijue30s",

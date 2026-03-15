@@ -9,6 +9,7 @@ from app.logic_sub_parts_pmdl.quant16_converter import game16_to_float, float_to
     procesar_pesos, ESCALA
 from app.utils.icon import set_app_icon
 from app.utils.ui_error_window import error_window_ui
+from app.utils.lang import t
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -18,8 +19,9 @@ class VertexEditor(ctk.CTkToplevel):
     def __init__(self, parent, data_subpart:dict, idsubpart:str, namepmdl:str, path:str, **kwargs):
         super().__init__(parent)
         self.escala = ESCALA
+        self.name_peso = t('ui_edit_vert.influencia')
 
-        self.title(f"Pmdl Editor - Subpart N°: ** {idsubpart} ** - {namepmdl}")
+        self.title(f"{t('ui_edit_vert.titulo')} ** {idsubpart} ** - {namepmdl}")
         self.geometry("920x520")
         self.attributes("-toolwindow", True)
         self.resizable(False, False)
@@ -64,21 +66,21 @@ class VertexEditor(ctk.CTkToplevel):
 
         ctk.CTkButton(
             self.btn_frame,
-            text="Export datos",
+            text=t('ui_edit_vert.btn_exportar'),
             width=120,
             command=self.on_export_data
         ).pack(side="left", padx=5)
 
         ctk.CTkButton(
             self.btn_frame,
-            text="Importar datos",
+            text=t('ui_edit_vert.btn_importar'),
             width=120,
             command=self.on_import_data
         ).pack(side="left", padx=5)
 
         ctk.CTkButton(
             self.btn_frame,
-            text="Guardar cambios",
+            text=t('ui_edit_vert.btn_save'),
             width=140,
             command=self.on_save_change
         ).pack(side="left", padx=5)
@@ -89,13 +91,13 @@ class VertexEditor(ctk.CTkToplevel):
 
         self.path_label = ctk.CTkLabel(
             self.path_frame,
-            text=f"Ruta: {path}",
+            text=f"{t('ui_edit_vert.ruta')}: {path}",
             anchor="w",   # texto alineado a la izquierda dentro del label
         )
         self.path_label.pack(side="left", fill="x", expand=True)
 
         if self.grosor != (512.0, 512.0, 512.0):
-            messagebox.showinfo("Advertencia", "El modelo debe estar normalizado para usar esto", parent=self)
+            messagebox.showinfo(t('ui_edit_vert.t_warning'), t('ui_edit_vert.mesg_pmdl_normalizar'), parent=self)
             return
 
 
@@ -105,7 +107,7 @@ class VertexEditor(ctk.CTkToplevel):
             "ID",
             "X", "Y", "Z",
             "UV X", "UV Y",
-            "Peso 1", "Peso 2", "Peso 3", "Peso 4"
+            f"{self.name_peso} 1", f"{self.name_peso} 2", f"{self.name_peso} 3", f"{self.name_peso} 4"
         ]
 
         for col, text in enumerate(headers):
@@ -252,7 +254,7 @@ class VertexEditor(ctk.CTkToplevel):
     @error_window_ui
     def on_save_change(self):
         if self.grosor != (512.0, 512.0, 512.0):
-            messagebox.showinfo("Advertencia", "El modelo debe estar normalizado para usar esto", parent=self)
+            messagebox.showinfo(t('ui_edit_vert.t_warning'), t('ui_edit_vert.mesg_pmdl_normalizar'), parent=self)
             return
 
         result = []
@@ -263,7 +265,7 @@ class VertexEditor(ctk.CTkToplevel):
                 x, y, z = float(row[1].get()), float(row[2].get()), float(row[3].get())
                 u, v = int(row[4].get()), int(row[5].get())
                 if not (0 <= u <= 255 and 0 <= v <= 255):
-                    raise ValueError("Las uv deben estar dentro del rango de 0 a 255")
+                    raise ValueError(t('ui_edit_vert.error_uv'))
 
                 weights = []
                 for w in row[6:10]:
@@ -281,7 +283,7 @@ class VertexEditor(ctk.CTkToplevel):
                 })
 
             except ValueError:
-                raise ValueError("Error en fila")
+                raise ValueError(t('ui_edit_vert.error_fila'))
 
         # print("Vertices editados:")
         # for v in result:
@@ -388,7 +390,7 @@ class VertexEditor(ctk.CTkToplevel):
                 })
 
             except ValueError:
-                raise "Error en una fila"
+                raise ValueError(t('ui_edit_vert.error_fila'))
 
         # # convertir tuplas a listas
         # for v in result:
@@ -397,7 +399,7 @@ class VertexEditor(ctk.CTkToplevel):
 
         ruta = filedialog.asksaveasfilename(
             parent=self,
-            title="Guardar datos de los vertices",
+            title=t('ui_edit_vert.dlg_export'),
             defaultextension=".json",
             filetypes=[("Archivos de json", "*.json"), ("Todos", "*.*")]
         )
@@ -415,17 +417,17 @@ class VertexEditor(ctk.CTkToplevel):
         with open(ruta, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4)
 
-        messagebox.showinfo("Guardado", "Se guardaron los datos", parent=self)
+        messagebox.showinfo(t('ui_edit_vert.t_correcto'), t('ui_edit_vert.msg_guardado'), parent=self)
 
     @error_window_ui
     def on_import_data(self):
         if self.grosor != (512.0, 512.0, 512.0):
-            messagebox.showinfo("Advertencia", "El modelo debe estar normalizado para usar esto", parent=self)
+            messagebox.showinfo(t('ui_edit_vert.t_warning'), t('ui_edit_vert.mesg_pmdl_normalizar'), parent=self)
             return
 
         ruta = filedialog.askopenfilename(
             parent=self,
-            title="Seleccionar JSON",
+            title=t('ui_edit_vert.dlg_json'),
             filetypes=[("JSON", "*.json"), ("Todos", "*.*")]
         )
 
@@ -436,7 +438,7 @@ class VertexEditor(ctk.CTkToplevel):
             data = json.load(f)
 
         if data["type"].strip().lower() != "subpart":
-            raise ValueError("El json no contiene una subpart")
+            raise ValueError(t('ui_edit_vert.error_json'))
 
         # asegurar usar un decimal
         for v in data["vertices"]:
@@ -451,5 +453,5 @@ class VertexEditor(ctk.CTkToplevel):
         self.id_bones = [int(x, 16) for x in data["id_bones"]]
         self.unk = data["unk"]
 
-        messagebox.showinfo("Cargado", "Datos cargados", parent=self)
+        messagebox.showinfo(t('ui_edit_vert.t_correcto'), t('ui_edit_vert.msg_dt_load'), parent=self)
 

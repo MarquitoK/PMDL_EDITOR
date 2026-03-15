@@ -20,7 +20,6 @@
     "abrir_parche_sec": "Open Secondary Patch",
     "visualizar": "Visualize"
   },
-
   "layout": {
     "ruta_pmdl": "Path .pMdl",
     "ruta_pmdl_tooltip": "Path to the loaded .pMdl file",
@@ -30,7 +29,6 @@
     "normalizar_tooltip": "On: Adjusts the scale of the main model and imported parts so the thickness of the parts stays consistent. (Recommended)\n\nOff: Parts imported from other models may end up with unexpected size or thickness, making them look flat or overly stretched. (Use only if you know what you're doing)",
     "status_default": "Created by Los ijue30s"
   },
-
   "tables": {
     "col_capa": "Layer",
     "col_nombre": "Name",
@@ -50,7 +48,6 @@
     "confirm_cerrar_sec_titulo": "Close Secondary pMdl ",
     "confirm_cerrar_sec_msg": "Are you sure you want to close the secondary pMdl?"
   },
-
   "status": {
     "default": "Created by Los ijue30s",
     "archivo_cargado": "File uploaded: {name}",
@@ -72,7 +69,6 @@
     "parte_opacidad": "Parte {index}: Opacity = {val}%",
     "parte_funcion": "Parte {index}: Function = '{label}' (0x{val})"
   },
-
   "dialogs": {
     "info": "Info",
     "error": "Error",
@@ -106,7 +102,6 @@
     "error_cargar_parche_sec": "Failed to load the secondary patch",
     "error_actualizar_pmdl": "Failed to update the pMdl in the patch"
   },
-
   "lang_window": {
     "titulo": "Select Language",
     "descripcion": "Choose the application language:",
@@ -117,7 +112,56 @@
     "btn_ok": "OK",
     "btn_cancelar_reinicio": "Cancel"
   },
-  
+  "ui_subparts": {
+    "titulo": "Pmdl Editor - Sub-Parts",
+    "subparte": "Sub-Part",
+    "configuracion": "Configuration",
+    "n_huesos": "N° of bones",
+    "ids": "IDs (HEX)",
+    "unk": "UNK (HEX)",
+    "accion": "Actions",
+    "btn_guardar": "Save changes",
+    "btn_mover_arriba": "Move up",
+    "btn_mover_abajo": "Move down",
+    "btn_remap_id": "Remap ID",
+    "btn_edit_vert": "Edit vertices",
+    "btn_parte": "Part",
+    "pos": "Position",
+    "vert": "Vertices",
+    "size": "Size",
+    "btn_select": "Select",
+    "ctx_export": "Export selections",
+    "ctx_import": "Replace Sub-Part",
+    "ctx_insert": "Insert Sub-Parts",
+    "ctx_delete": "Delete Sub-Parts",
+    "ctx_add": "Add selections"
+  },
+  "ui_remap_id": {
+    "btn_1": "Search ID 1 and replace with ID 2",
+    "btn_2": "Replace all with ID 1",
+    "btn_3": "Replace ID 1 in ID 2 column",
+    "save": "Apply changes",
+    "error_id1": "ID 1 is not in the range (0-FF)",
+    "error_id2": "ID 2 is not between 1 and 4"
+  },
+  "ui_edit_vert": {
+    "titulo": "Pmdl Editor - Subpart N°:",
+    "influencia": "Weight",
+    "btn_exportar": "Export data",
+    "btn_importar": "Import data",
+    "btn_save": "Save changes",
+    "ruta": "Path",
+    "mesg_pmdl_normalizar": "The model must be normalized to use this",
+    "msg_guardado": "Data saved successfully",
+    "dlg_json": "Select JSON",
+    "dlg_export": "Save vertex data",
+    "msg_dt_load": "Data loaded",
+    "error_json": "The JSON does not contain a sub-part",
+    "error_fila": "Error in a row",
+    "error_uv": "UVs must be within the range of 0 to 255",
+    "t_correcto": "Success",
+    "t_warning": "Warning"
+  },
   "character_editor": {
     "titulo": "DBZ TTT Character Editor",
     "titulo_sec": "DBZ TTT Character Editor (Secondary)",

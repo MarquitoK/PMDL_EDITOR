@@ -3,6 +3,7 @@ import customtkinter as ctk
 from app.utils.icon import set_app_icon
 from app.utils.ui_error_window import error_window_ui
 from app.utils.window import center_to_window
+from app.utils.lang import t
 
 GRID_FONT = ("Consolas", 15)
 class RemapBones(ctk.CTkToplevel):
@@ -80,13 +81,13 @@ class RemapBones(ctk.CTkToplevel):
             font=GRID_FONT)
         self.entry_b.grid(row=1, column=1, padx=5, pady=(0,10))
 
-        self.btn_add = ctk.CTkButton(self.frame_right, text="Buscar ID 1 y remplazar por ID 2", command=self.buscar_reemplazar)
+        self.btn_add = ctk.CTkButton(self.frame_right, text=t('ui_remap_id.btn_1'), command=self.buscar_reemplazar)
         self.btn_add.grid(row=2, column=0, columnspan=2, pady=5, padx=10, sticky="ew")
 
-        self.btn_update = ctk.CTkButton(self.frame_right, text="Remplazar todo por ID 1", command=self.reemplazar_todo)
+        self.btn_update = ctk.CTkButton(self.frame_right, text=t('ui_remap_id.btn_2'), command=self.reemplazar_todo)
         self.btn_update.grid(row=3, column=0, columnspan=2, pady=5, padx=10, sticky="ew")
 
-        self.btn_delete = ctk.CTkButton(self.frame_right, text="Remplazar ID 1, en la columna ID 2", command=self.reemplazar_columna)
+        self.btn_delete = ctk.CTkButton(self.frame_right, text=t('ui_remap_id.btn_3'), command=self.reemplazar_columna)
         self.btn_delete.grid(row=4, column=0, columnspan=2, pady=5, padx=10, sticky="ew")
 
         self.frame_right.grid_columnconfigure((0,1), weight=1)
@@ -100,7 +101,7 @@ class RemapBones(ctk.CTkToplevel):
 
         self.btn_apply = ctk.CTkButton(
             self.frame_bottom,
-            text="Aplicar cambios",
+            text=t('ui_remap_id.save'),
             command=self.aplicar_cambios
         )
         self.btn_apply.pack(fill="x", padx=10, pady=10)
@@ -115,7 +116,7 @@ class RemapBones(ctk.CTkToplevel):
             return
         id_1 = int(id_1, 16)
         if not (0 <= id_1 <= 0xFF):
-            raise ValueError("0 <= ID 1 <= 0xFF")
+            raise ValueError("0 >= ID 1 <= 0xFF")
 
         data = self.get_table_values()
 
@@ -138,10 +139,10 @@ class RemapBones(ctk.CTkToplevel):
         id_2 = int(id_2, 16)
 
         if not (0 <= id_1 <= 0xFF):
-            raise ValueError("0 <= ID 1 <= 0xFF")
+            raise ValueError("0 >= ID 1 <= 0xFF")
 
         if not (0 <= id_2 <= 0xFF):
-            raise ValueError("0 <= ID 2 <= 0xFF")
+            raise ValueError("0 >= ID 2 <= 0xFF")
 
         data = self.get_table_values()
 
@@ -165,10 +166,10 @@ class RemapBones(ctk.CTkToplevel):
         col_index = int(id_2) - 1
 
         if not (0 <= id_1 <= 0xFF):
-            raise ValueError("0 <= ID 1 <= 0xFF")
+            raise ValueError(t("ui_remap_id.error_id1"))
 
         if not (0 <= col_index <= 3):  # columnas 0..3
-            raise ValueError("1 <= Columna <= 4")
+            raise ValueError(t("ui_remap_id.error_id2"))
 
         data = self.get_table_values()
 
