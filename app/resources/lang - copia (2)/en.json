@@ -165,7 +165,7 @@
     "pmdl_exportado": "pMdl exported:\n{path}",
     "pmdl_importado": "pMdl imported successfully",
     "personaje_guardado": "Character saved successfully",
-    "personaje_guardado_en": "Character saved in:\n{path}",
+    "personaje_guardado_en": "Character saved:\n{path}",
     "confirmar_guardar": "Save changes to the original file?",
     "confirmar_eliminar_pmdf": "Delete the PMDF from slot '{slot}'?\n\nThe slot will become empty. This action cannot be undone\nuntil you save the patch.",
     "pmdf_importado_msg": "PMDF imported into slot '{slot}'.\n\nRemember to save the patch to apply the changes.",

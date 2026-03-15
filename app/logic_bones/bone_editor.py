@@ -9,6 +9,7 @@ from tkinter import filedialog, messagebox
 import os
 
 from app.utils.icon import set_app_icon
+from app.utils.lang import t
 
 try:
     import numpy as np
@@ -26,13 +27,13 @@ except ImportError:
 class BonePickerDialog(ctk.CTkToplevel):
     def __init__(self, parent, used_ids: set, names: dict):
         super().__init__(parent)
-        self.title("Elegir ID del nuevo hueso")
+        self.title(t("bone_editor.picker_titulo"))
         self.resizable(False, True)
         self.result = None
         self.grab_set()
         set_app_icon(self)
 
-        ctk.CTkLabel(self, text="Selecciona el ID del nuevo hueso:",
+        ctk.CTkLabel(self, text=t("bone_editor.picker_descripcion"),
                      font=ctk.CTkFont(size=12, weight="bold")
                      ).pack(padx=12, pady=(12, 4), anchor="w")
 
@@ -52,10 +53,10 @@ class BonePickerDialog(ctk.CTkToplevel):
 
         btn_row = ctk.CTkFrame(self, fg_color="transparent")
         btn_row.pack(fill="x", padx=8, pady=8)
-        ctk.CTkButton(btn_row, text="Aceptar", command=self._ok,
+        ctk.CTkButton(btn_row, text=t("bone_editor.btn_aceptar"), command=self._ok,
                       fg_color=("#28a745","#1e7e34")
                       ).pack(side="left", padx=4, expand=True, fill="x")
-        ctk.CTkButton(btn_row, text="Cancelar", command=self.destroy,
+        ctk.CTkButton(btn_row, text=t("bone_editor.btn_cancelar"), command=self.destroy,
                       fg_color=("gray65","gray30")
                       ).pack(side="left", padx=4, expand=True, fill="x")
 
@@ -72,7 +73,7 @@ class BonePickerDialog(ctk.CTkToplevel):
     def _ok(self):
         v = self._var.get()
         if v == -1:
-            messagebox.showwarning("Sin selección", "Elige un hueso de la lista.", parent=self)
+            messagebox.showwarning(t("bone_editor.sin_seleccion"), t("bone_editor.elige_hueso"), parent=self)
             return
         self.result = v
         self.destroy()
@@ -289,7 +290,7 @@ else:
     class BoneViewport(tk.Frame):
         def __init__(self, master, on_bone_picked=None, **kwargs):
             super().__init__(master, bg="#1a1a2e", **kwargs)
-            tk.Label(self, text="OpenGL no disponible\npip install pyopengltk PyOpenGL",
+            tk.Label(self, text=t("bone_editor.error_opengl"),
                      bg="#1a1a2e", fg="gray", justify="center").pack(expand=True)
         def set_bones(self, _): pass
         def update_bones(self, _): pass
@@ -574,7 +575,7 @@ class BonePropertiesPanel(ctk.CTkFrame):
     def __init__(self, master, on_apply, **kwargs):
         super().__init__(master, **kwargs)
         self.on_apply=on_apply; self._bone=None
-        ctk.CTkLabel(self,text="Propiedades",font=ctk.CTkFont(size=13,weight="bold")
+        ctk.CTkLabel(self,text=t("bone_editor.propiedades"),font=ctk.CTkFont(size=13,weight="bold")
                      ).pack(anchor="w",padx=10,pady=(10,2))
         # Frame para info del hueso (permite sub-labels con colores distintos)
         self._info_frame = tk.Frame(self, bg="#1e1e2e")
@@ -582,7 +583,7 @@ class BonePropertiesPanel(ctk.CTkFrame):
         self.after(0, self._show_placeholder)
         ctk.CTkFrame(self,height=1,fg_color=("gray70","gray30")).pack(fill="x",padx=8,pady=4)
 
-        ctk.CTkLabel(self,text="Posición Global del Hueso",
+        ctk.CTkLabel(self,text=t("bone_editor.posicion_global"),
                      font=ctk.CTkFont(size=11,weight="bold")
                      ).pack(anchor="w",padx=10,pady=(6,4))
         xyz_frame=ctk.CTkFrame(self,fg_color="transparent")
@@ -596,7 +597,7 @@ class BonePropertiesPanel(ctk.CTkFrame):
             e.pack(side="left", fill="x", expand=True, ipady=4)
             setattr(self, attr, e)
 
-        self.btn_apply=ctk.CTkButton(self,text="✔ Aplicar posición",command=self._apply,
+        self.btn_apply=ctk.CTkButton(self,text=t("bone_editor.btn_aplicar_pos"),command=self._apply,
                                      height=30,font=ctk.CTkFont(size=13),
                                      fg_color=("#28a745","#1e7e34"),
                                      hover_color=("#218838","#155724"),state="disabled")
@@ -605,11 +606,11 @@ class BonePropertiesPanel(ctk.CTkFrame):
         ctk.CTkFrame(self,height=1,fg_color=("gray70","gray30")).pack(fill="x",padx=8,pady=4)
         btn_row=ctk.CTkFrame(self,fg_color="transparent")
         btn_row.pack(fill="x",padx=10,pady=4)
-        self.btn_add=ctk.CTkButton(btn_row,text="➕ Hijo",command=self._add_child,
+        self.btn_add=ctk.CTkButton(btn_row,text=t("bone_editor.btn_hijo"),command=self._add_child,
                                    height=30,font=ctk.CTkFont(size=13),
                                    fg_color=("#3B8ED0","#1F6AA5"),state="disabled",width=90)
         self.btn_add.pack(side="left",padx=(0,4))
-        self.btn_del=ctk.CTkButton(btn_row,text="🗑 Eliminar",command=self._delete,
+        self.btn_del=ctk.CTkButton(btn_row,text=t("bone_editor.btn_eliminar"),command=self._delete,
                                    height=30,font=ctk.CTkFont(size=13),
                                    fg_color=("#dc3545","#a71d2a"),
                                    hover_color=("#c82333","#8b1623"),
@@ -629,7 +630,7 @@ class BonePropertiesPanel(ctk.CTkFrame):
         # Línea 1: "Hueso:" en negrita + ID y nombre en amarillo
         row1 = tk.Frame(self._info_frame, bg="#1e1e2e")
         row1.pack(anchor="w", fill="x")
-        head = f"Hueso {bid:02X}" + (" -" if name else "")
+        head = f"{t('bone_editor.hueso')} {bid:02X}" + (" -" if name else "")
         tk.Label(row1, text=head, bg="#1e1e2e", fg="white",
                  font=("Segoe UI", 10, "bold")).pack(side="left")
         if name:
@@ -640,26 +641,26 @@ class BonePropertiesPanel(ctk.CTkFrame):
         row2 = tk.Frame(self._info_frame, bg="#1e1e2e")
         row2.pack(anchor="w", fill="x", pady=(2, 0))
         if bone['padre_idx'] is None:
-            tk.Label(row2, text="Padre", bg="#1e1e2e", fg="white",
+            tk.Label(row2, text=t("bone_editor.padre"), bg="#1e1e2e", fg="white",
                      font=("Segoe UI", 9, "bold")).pack(side="left")
-            tk.Label(row2, text=" - (Raiz)", bg="#1e1e2e", fg="#aaaaaa",
+            tk.Label(row2, text=f" - ({t('bone_editor.raiz')})", bg="#1e1e2e", fg="#aaaaaa",
                      font=("Segoe UI", 9)).pack(side="left")
         else:
-            tk.Label(row2, text="Hijo de:", bg="#1e1e2e", fg="white",
+            tk.Label(row2, text=t("bone_editor.hijo_de"), bg="#1e1e2e", fg="white",
                      font=("Segoe UI", 9, "bold")).pack(side="left")
             p_idx = bone['padre_idx']
             if bones_data and p_idx < len(bones_data):
                 pid   = bones_data[p_idx]['bone_id']
                 psk   = f"sk_{pid:02X}"
                 pname = names.get(psk, "")
-                phead = f" Hueso {pid:02X}" + (" -" if pname else "")
+                phead = f" {t('bone_editor.hueso')} {pid:02X}" + (" -" if pname else "")
                 tk.Label(row2, text=phead, bg="#1e1e2e", fg="white",
                          font=("Segoe UI", 9)).pack(side="left")
                 if pname:
                     tk.Label(row2, text=f" {pname}", bg="#1e1e2e", fg="#FFD700",
                              font=("Segoe UI", 9, "bold")).pack(side="left")
             else:
-                tk.Label(row2, text=" Hueso ?", bg="#1e1e2e", fg="white",
+                tk.Label(row2, text=f" {t('bone_editor.hueso')} ?", bg="#1e1e2e", fg="white",
                          font=("Segoe UI", 9)).pack(side="left")
 
         px, py, pz = bone['pos']
@@ -673,15 +674,15 @@ class BonePropertiesPanel(ctk.CTkFrame):
             w.destroy()
         r1 = tk.Frame(self._info_frame, bg="#1e1e2e")
         r1.pack(anchor="w", fill="x")
-        tk.Label(r1, text="Editor de Huesos", bg="#1e1e2e", fg="#FFD700",
+        tk.Label(r1, text=t("bone_editor.titulo_placeholder"), bg="#1e1e2e", fg="#FFD700",
                  font=("Segoe UI", 10, "bold")).pack(side="left")
-        tk.Label(r1, text=" (Beta) - By ", bg="#1e1e2e", fg="white",
+        tk.Label(r1, text=f" (Beta) - {t('bone_editor.by')} ", bg="#1e1e2e", fg="white",
                  font=("Segoe UI", 10)).pack(side="left")
         r2 = tk.Frame(self._info_frame, bg="#1e1e2e")
         r2.pack(anchor="w", fill="x", pady=(1,0))
         tk.Label(r2, text="Los ijue30s", bg="#1e1e2e", fg="#FFD700",
                  font=("Segoe UI", 10)).pack(side="left")
-        tk.Label(r2, text=" con la colaboración de ", bg="#1e1e2e", fg="white",
+        tk.Label(r2, text=f" {t('bone_editor.colaboracion')} ", bg="#1e1e2e", fg="white",
                  font=("Segoe UI", 10)).pack(side="left")
         r3 = tk.Frame(self._info_frame, bg="#1e1e2e")
         r3.pack(anchor="w", fill="x", pady=(1,0))
@@ -700,7 +701,7 @@ class BonePropertiesPanel(ctk.CTkFrame):
         try:
             head = tuple(float(e.get()) for e in (self.entry_x,self.entry_y,self.entry_z))
             self.on_apply(self._bone['idx'], head, action="move")
-        except ValueError: messagebox.showerror("Error","Ingresa valores numéricos válidos.")
+        except ValueError: messagebox.showerror(t("bone_editor.error"), t("bone_editor.error_valores"))
 
     def _add_child(self):
         if self._bone: self.on_apply(self._bone['idx'],None,action="add_child")
@@ -849,7 +850,7 @@ def exportar_pmdl_con_huesos(pmdl_bytes: bytearray, bones_data: list) -> bytearr
 class BoneEditor(ctk.CTkToplevel):
     def __init__(self, parent, pmdl_bytes=None, bones_names=None):
         super().__init__(parent)
-        self.title("Editor de Huesos"); self.geometry("1100x680"); self.minsize(900, 560)
+        self.title(t("bone_editor.titulo")); self.geometry("1100x680"); self.minsize(900, 560)
         set_app_icon(self)
         self.pmdl_bytes=bytearray(pmdl_bytes) if pmdl_bytes else None
         self.bones_data=[]; self.bones_names=bones_names or {}
@@ -867,15 +868,15 @@ class BoneEditor(ctk.CTkToplevel):
 
         top=ctk.CTkFrame(self,corner_radius=0,height=46)
         top.grid(row=0,column=0,sticky="ew"); top.grid_propagate(False)
-        ctk.CTkButton(top,text="📂 Abrir PMDL",command=self._open_file,
+        ctk.CTkButton(top,text=t("bone_editor.btn_abrir_pmdl"),command=self._open_file,
                       width=120,height=32,font=ctk.CTkFont(size=12)
                       ).pack(side="left",padx=10,pady=7)
-        ctk.CTkButton(top,text="💾 Guardar cambios",command=self._guardar,
+        ctk.CTkButton(top,text=t("bone_editor.btn_guardar"),command=self._guardar,
                       width=145,height=32,font=ctk.CTkFont(size=12),
                       fg_color=("#28a745","#1e7e34"),hover_color=("#218838","#155724")
                       ).pack(side="left",padx=4,pady=7)
         ctk.CTkLabel(top,
-                     text="Ctrl+Z · Ctrl+Y  ·  Clic: seleccionar · Rueda: zoom · Medio: rotar · Der: pan",
+                     text=t("bone_editor.controles"),
                      font=ctk.CTkFont(size=10),text_color=("gray55","gray55")
                      ).pack(side="left",padx=14)
 
@@ -889,7 +890,7 @@ class BoneEditor(ctk.CTkToplevel):
         # Panel izquierdo: jerarquía
         tree_frame=ctk.CTkFrame(self._paned,corner_radius=6)
         tree_frame.grid_rowconfigure(1,weight=1); tree_frame.grid_columnconfigure(0,weight=1)
-        ctk.CTkLabel(tree_frame,text="Jerarquía de huesos",
+        ctk.CTkLabel(tree_frame,text=t("bone_editor.jerarquia"),
                      font=ctk.CTkFont(size=12,weight="bold")
                      ).grid(row=0,column=0,sticky="w",padx=10,pady=(6,2))
         self.tree=BoneTree(tree_frame,on_bone_selected=self._on_bone_selected,corner_radius=4)
@@ -1011,7 +1012,7 @@ class BoneEditor(ctk.CTkToplevel):
 
     # ── Carga ─────────────────────────────────────────────────────────────
     def _open_file(self):
-        path=filedialog.askopenfilename(title="Abrir PMDL",
+        path=filedialog.askopenfilename(title=t("bone_editor.btn_abrir_pmdl"),
             filetypes=[("PMDL","*.pmdl"),("PMDF","*.pmdf"),("Todos","*.*")])
         if not path: return
         with open(path,'rb') as f: self.pmdl_bytes=bytearray(f.read())
@@ -1025,7 +1026,7 @@ class BoneEditor(ctk.CTkToplevel):
         from app.logic_3d.bones.bones_reader import leer_armature_pmdl, cargar_nombres_huesos
         bones=leer_armature_pmdl(self.pmdl_bytes)
         if not bones:
-            messagebox.showwarning("Editor de Huesos","Este PMDL no tiene huesos."); return
+            messagebox.showwarning(t("bone_editor.titulo"), t("bone_editor.sin_huesos")); return
         # #6: adjuntar el bloque raw original a cada hueso para preservarlo al exportar
         cantidad = struct.unpack_from('<I', self.pmdl_bytes, 0x08)[0]
         offset   = struct.unpack_from('<I', self.pmdl_bytes, 0x50)[0]
@@ -1101,10 +1102,10 @@ class BoneEditor(ctk.CTkToplevel):
             has_children = any(b['padre_idx'] == bone_idx for b in self.bones_data)
             bid = bone['bone_id']
             if has_children:
-                msg = f"¿Eliminar Hueso {bid:02X} y todos sus hijos?"
+                msg = t("bone_editor.confirmar_eliminar_hijos", bid=f"{bid:02X}")
             else:
-                msg = f"¿Eliminar Hueso {bid:02X}?"
-            if messagebox.askyesno("Confirmar", msg):
+                msg = t("bone_editor.confirmar_eliminar", bid=f"{bid:02X}")
+            if messagebox.askyesno(t("bone_editor.confirmar"), msg):
                 self._push_history()
                 self._delete_subtree(bone_idx)
                 self._reindex()
@@ -1119,7 +1120,7 @@ class BoneEditor(ctk.CTkToplevel):
     def _add_child_with_picker(self, parent_idx):
         used={b['bone_id'] for b in self.bones_data}
         if len(used)>=0xFF:
-            messagebox.showwarning("Sin IDs","No hay IDs disponibles (00-FE)."); return
+            messagebox.showwarning(t("bone_editor.sin_ids"), t("bone_editor.error_sin_ids")); return
         dlg=BonePickerDialog(self,used,self.bones_names)
         self.wait_window(dlg)
         if dlg.result is None: return
@@ -1241,37 +1242,37 @@ class BoneEditor(ctk.CTkToplevel):
     # ── Guardar ───────────────────────────────────────────────────────────
     def _guardar(self):
         if not self.pmdl_bytes:
-            messagebox.showerror("Error","No hay ningún PMDL cargado."); return
+            messagebox.showerror(t("bone_editor.error"), t("bone_editor.error_no_pmdl")); return
         if not self.bones_data:
-            messagebox.showerror("Error","No hay huesos para guardar."); return
+            messagebox.showerror(t("bone_editor.error"), t("bone_editor.error_no_huesos")); return
         try:
             self.pmdl_bytes = exportar_pmdl_con_huesos(self.pmdl_bytes, self.bones_data)
             self.has_unsaved = False
         except Exception as e:
-            messagebox.showerror("Error", str(e)); return
+            messagebox.showerror(t("bone_editor.error"), str(e)); return
 
         if self.pmdl_origin == 'explicit':
             # Guardar directamente al archivo que abrió el usuario
             path = self.pmdl_explicit_path
             if not path:
                 path = filedialog.asksaveasfilename(
-                    title="Guardar PMDL",
+                    title=t("bone_editor.guardar_pmdl"),
                     defaultextension=".pmdl",
                     filetypes=[("PMDL","*.pmdl"),("PMDF","*.pmdf"),("Todos","*.*")]
                 )
                 if not path: return
                 self.pmdl_explicit_path = path
             if messagebox.askyesno(
-                "Confirmar sobreescritura",
-                f"¿Reemplazar el archivo original?\n{path}"
+                t("bone_editor.confirmar_sobreescritura"),
+                t("bone_editor.confirmar_reemplazar", path=path)
             ):
                 with open(path, 'wb') as f:
                     f.write(self.pmdl_bytes)
-                messagebox.showinfo("Guardado", f"PMDL guardado en:\n{path}")
+                messagebox.showinfo(t("bone_editor.guardado"), t("bone_editor.pmdl_guardado_en", path=path))
             else:
                 # Guardar como nuevo archivo
                 new_path = filedialog.asksaveasfilename(
-                    title="Guardar PMDL como",
+                    title=t("bone_editor.guardar_pmdl_como"),
                     defaultextension=".pmdl",
                     filetypes=[("PMDL","*.pmdl"),("PMDF","*.pmdf"),("Todos","*.*")]
                 )
@@ -1279,10 +1280,10 @@ class BoneEditor(ctk.CTkToplevel):
                     with open(new_path, 'wb') as f:
                         f.write(self.pmdl_bytes)
                     self.pmdl_explicit_path = new_path
-                    messagebox.showinfo("Guardado", f"PMDL guardado en:\n{new_path}")
+                    messagebox.showinfo(t("bone_editor.guardado"), t("bone_editor.pmdl_guardado_en", path=new_path))
         else:
             # inherited: los cambios quedan en memoria, el app_controller los recoge al cerrar
-            messagebox.showinfo("Guardado", "Cambios aplicados al PMDL en memoria.")
+            messagebox.showinfo(t("bone_editor.guardado"), t("bone_editor.cambios_en_memoria"))
 
     def get_modified_pmdl(self):
         # Solo devuelve el PMDL al editor principal si fue heredado (no abierto explícitamente)
@@ -1293,8 +1294,8 @@ class BoneEditor(ctk.CTkToplevel):
     def _on_close(self):
         if getattr(self, 'has_unsaved', False):
             if not messagebox.askyesno(
-                "Cambios sin guardar",
-                "Hay cambios sin guardar.\n\u00bfSalir de todas formas?",
+                t("bone_editor.cambios_sin_guardar"),
+                t("bone_editor.confirmar_salir"),
                 default="no"
             ):
                 return

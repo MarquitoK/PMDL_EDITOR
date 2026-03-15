@@ -296,9 +296,6 @@ class PmdlPartsApp(ctk.CTk):
     def on_open_3d_viewer(self):
         """Abre el visor 3D con intercambio de ventanas."""
         if self.window_viewer_3d is None or not self.window_viewer_3d.winfo_exists():
-            if not self._blob and not self._blob2:
-                messagebox.showinfo(t("dialogs.info"), t("dialogs.abrir_pmdl_primero"))
-                return
             # Preparar datos
             pmdl_data = None
             texture_path = None
@@ -363,9 +360,6 @@ class PmdlPartsApp(ctk.CTk):
     def on_open_bone_editor(self):
         """Abre el Editor de Huesos con intercambio de ventanas."""
         if self.window_bone_editor is None or not self.window_bone_editor.winfo_exists():
-            if not self._blob:
-                messagebox.showinfo(t("dialogs.info"), t("dialogs.abrir_pmdl_principal"))
-                return
             # Recoger bytes del PMDL activo
             pmdl_bytes  = None
             bones_data  = None

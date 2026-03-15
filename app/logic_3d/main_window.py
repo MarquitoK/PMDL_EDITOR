@@ -19,6 +19,7 @@ from .gl_viewport import GLViewport
 from app.logic_uvs.canvas import UVCanvas
 from app.logic_uvs.parser import PmdlParser
 from app.utils.icon import set_app_icon
+from app.utils.lang import t
 
 ESCALA: float =  0.00051875
 
@@ -26,7 +27,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
     def __init__(self, parent, pmdl_data=None, texture_path=None, is_secondary=False):
         super().__init__(parent)
         
-        self.title("Vista 3D - PMDL Viewer" + (" (Secundario)" if is_secondary else ""))
+        self.title(t("vista_3d.titulo_sec") if is_secondary else t("vista_3d.titulo"))
         self.geometry("1280x720")
         
         self.pmdl_data = None
@@ -60,6 +61,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
         self.protocol("WM_DELETE_WINDOW", self._on_close_request)
         set_app_icon(self)
         self.setup_ui()
+        self.after(300, self._initial_gl_refresh)
         
         # Bindings globales para Undo/Redo
         self.bind_all("<Control-z>", self._global_undo)
@@ -84,7 +86,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
         top_frame.grid_columnconfigure(1, weight=1)
         
         self.btn_cargar = ctk.CTkButton(
-            top_frame, text="Abrir PMDL", 
+            top_frame, text=t("vista_3d.btn_abrir_pmdl"), 
             command=self.cargar_archivo,
             width=150, height=40,
             font=ctk.CTkFont(size=14, weight="bold")
@@ -98,7 +100,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
         labels_frame.grid(row=0, column=1, padx=20, sticky="w")
         
         self.lbl_archivo = ctk.CTkLabel(
-            labels_frame, text="No hay archivo cargado",
+            labels_frame, text=t("vista_3d.no_archivo"),
             font=ctk.CTkFont(size=13),
             text_color=("gray60", "gray40")
         )
@@ -116,7 +118,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
         self.render_mode_frame.grid(row=0, column=2, padx=10)
         
         self.btn_bones = ctk.CTkButton(
-            self.render_mode_frame, text="Huesos",
+            self.render_mode_frame, text=t("vista_3d.btn_huesos"),
             command=self.toggle_bones,
             width=80, height=35,
             font=ctk.CTkFont(size=11),
@@ -128,7 +130,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
         ctk.CTkLabel(self.render_mode_frame, text="", width=10).grid(row=0, column=1)
         
         self.btn_solid = ctk.CTkButton(
-            self.render_mode_frame, text="Sólido",
+            self.render_mode_frame, text=t("vista_3d.btn_solido"),
             command=lambda: self.set_render_mode("solid"),
             width=80, height=35,
             font=ctk.CTkFont(size=11),
@@ -138,7 +140,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
         self.btn_solid.grid(row=0, column=2, padx=2)
         
         self.btn_texture = ctk.CTkButton(
-            self.render_mode_frame, text="Textura",
+            self.render_mode_frame, text=t("vista_3d.btn_textura"),
             command=lambda: self.set_render_mode("texture"),
             width=80, height=35,
             font=ctk.CTkFont(size=11),
@@ -147,7 +149,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
         self.btn_texture.grid(row=0, column=3, padx=2)
         
         self.btn_wireframe = ctk.CTkButton(
-            self.render_mode_frame, text="Wireframe",
+            self.render_mode_frame, text=t("vista_3d.btn_wireframe"),
             command=lambda: self.set_render_mode("wireframe"),
             width=80, height=35,
             font=ctk.CTkFont(size=11),
@@ -159,7 +161,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
         self.current_render_mode = "texture"
         
         self.btn_textura = ctk.CTkButton(
-            top_frame, text="Importar Textura",
+            top_frame, text=t("vista_3d.btn_importar_textura"),
             command=self.importar_textura,
             width=150, height=40,
             font=ctk.CTkFont(size=13),
@@ -170,7 +172,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
         
         # Botón Editar UVs
         self.btn_edit_uvs = ctk.CTkButton(
-            top_frame, text="✏️ Editar UVs",
+            top_frame, text=t("vista_3d.btn_editar_uvs"),
             command=self.toggle_uv_panel,
             width=130, height=40,
             font=ctk.CTkFont(size=13),
@@ -190,7 +192,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
         left_frame.grid_columnconfigure(0, weight=1)
         
         lbl_titulo = ctk.CTkLabel(
-            left_frame, text="Partes",
+            left_frame, text=t("vista_3d.partes"),
             font=ctk.CTkFont(size=14, weight="bold")
         )
         lbl_titulo.grid(row=0, column=0, padx=15, pady=(15, 10), sticky="w")
@@ -253,7 +255,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
             
             self.lbl_controles = ctk.CTkLabel(
                 info_frame,
-                text="Scroll: Zoom • Rueda presionada: Rotar • Shift+Rueda: Mover • Click Der: Mover • Click Izq: Seleccionar • ç o /: Aislar",
+                text=t("vista_3d.controles_todo"),
                 font=ctk.CTkFont(size=11),
                 text_color=("gray40", "gray60")
             )
@@ -261,7 +263,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
         else:
             error_label = ctk.CTkLabel(
                 right_frame,
-                text="⚠️ PyOpenGL no instalado\npip install pyopengltk PyOpenGL",
+                text=t("vista_3d.error_pyopengl"),
                 font=ctk.CTkFont(size=14),
                 text_color="orange"
             )
@@ -292,7 +294,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
     
     def importar_textura(self):
         filepath = filedialog.askopenfilename(
-            title="Seleccionar textura",
+            title=t("vista_3d.sel_textura"),
             filetypes=[
                 ("Imágenes PNG", "*.png"),
                 ("Texturas RAW", "*.atex *.unk"),
@@ -311,7 +313,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
                     raw = f.read()
                 img = atex_to_pil(raw)
                 if img.width != img.height:
-                    messagebox.showerror("Error", f"La textura debe ser cuadrada.\nDimensiones: {img.width}x{img.height}")
+                    messagebox.showerror(t("vista_3d.error"), t("vista_3d.error_textura_cuadrada", w=img.width, h=img.height))
                     return
                 with tempfile.NamedTemporaryFile(mode='wb', suffix='.png', delete=False) as tmp:
                     img.save(tmp.name)
@@ -323,7 +325,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
                 self._temp_texture_owned = True
                 filepath = png_path
             except Exception as e:
-                messagebox.showerror("Error", f"No se pudo leer la textura RAW:\n{e}")
+                messagebox.showerror(t("vista_3d.error"), t("vista_3d.error_leer_raw", e=e))
                 return
         else:
             try:
@@ -331,10 +333,10 @@ class PMDLViewerApp(ctk.CTkToplevel):
                 with _Img.open(filepath) as _im:
                     w, h = _im.size
                 if w != h:
-                    messagebox.showerror("Error", f"La textura debe ser cuadrada.\nDimensiones: {w}x{h}")
+                    messagebox.showerror(t("vista_3d.error"), t("vista_3d.error_textura_cuadrada", w=w, h=h))
                     return
             except Exception as e:
-                messagebox.showerror("Error", f"No se pudo leer la imagen:\n{e}")
+                messagebox.showerror(t("vista_3d.error"), t("vista_3d.error_leer_imagen", e=e))
                 return
 
         if GLViewport and hasattr(self, 'gl_viewport'):
@@ -359,11 +361,11 @@ class PMDLViewerApp(ctk.CTkToplevel):
                     self.uv_canvas.load_texture(self.temp_texture_path)
                     self.load_uvs_for_selected_part()
             else:
-                messagebox.showerror("Error", "No se pudo cargar la textura")
+                messagebox.showerror(t("vista_3d.error"), t("vista_3d.error_cargar_textura"))
     
     def cargar_archivo(self):
         filepath = filedialog.askopenfilename(
-            title="Seleccionar archivo PMDL/PMDF",
+            title=t("vista_3d.sel_archivo_pmdl"),
             filetypes=[
                 ("Archivos PMDL", "*.pmdl"),
                 ("Archivos PMDF", "*.pmdf"),
@@ -378,7 +380,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
         info, error = analizar_pmdl(filepath)
         
         if error:
-            messagebox.showerror("Error", error)
+            messagebox.showerror(t("vista_3d.error"), error)
             return
         
         self.pmdl_data = info
@@ -398,7 +400,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
             for p in info['partes']
         )
         self.lbl_stats.configure(
-            text=f"{info['cantidad_partes']} partes • {total_verts} vértices"
+            text=t("vista_3d.stats", partes=info['cantidad_partes'], verts=total_verts)
         )
         
         # Cargar huesos desde los bytes crudos del archivo
@@ -423,12 +425,12 @@ class PMDLViewerApp(ctk.CTkToplevel):
             info, error = analizar_pmdl(self.temp_pmdl_path)
             
             if error:
-                messagebox.showerror("Error", error)
+                messagebox.showerror(t("vista_3d.error"), error)
                 return
             
             self.pmdl_data = info
             self.lbl_archivo.configure(
-                text=f"✅ Modelo desde editor ({info['tipo']})",
+                text=f"✅ {t('vista_3d.modelo_editor')} ({info['tipo']})",
                 text_color=("green", "lightgreen")
             )
             
@@ -439,7 +441,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
                 for p in info['partes']
             )
             self.lbl_stats.configure(
-                text=f"{info['cantidad_partes']} partes • {total_verts} vértices"
+                text=t("vista_3d.stats", partes=info['cantidad_partes'], verts=total_verts)
             )
             
             # Cargar textura si se proporcionó
@@ -458,7 +460,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
             self._load_bones(pmdl_data)
         
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo cargar el modelo: {e}")
+            messagebox.showerror(t("vista_3d.error"), t("vista_3d.error_cargar_modelo", e=e))
     
     def poblar_lista_partes(self):
         for widget in self.partes_frame.winfo_children():
@@ -468,7 +470,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
         
         btn_todo = ctk.CTkButton(
             self.partes_frame,
-            text="TODO",
+            text=t("vista_3d.btn_todo"),
             command=lambda: self.seleccionar_parte(-1),
             height=40,
             font=ctk.CTkFont(size=13, weight="bold"),
@@ -481,7 +483,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
         for parte in self.pmdl_data['partes']:
             btn_parte = ctk.CTkButton(
                 self.partes_frame,
-                text=f"Parte {parte['indice']:02d}",
+                text=t("vista_3d.parte_label", idx=f'{parte["indice"]:02d}'),
                 command=lambda idx=parte['indice']: self.seleccionar_parte(idx),
                 height=36,
                 font=ctk.CTkFont(size=13),
@@ -512,7 +514,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
             mesh_data = self.procesar_todo()
             self.gl_viewport.set_mesh_data(mesh_data, viewing_mode='all', part_index=-1)
             self.lbl_controles.configure(
-                text="🖱️ Scroll: Zoom • Rueda presionada: Rotar • Shift+Rueda: Mover • Click Izq: Seleccionar • ç o /: Aislar"
+                text=t("vista_3d.controles_todo")
             )
         else:
             if indice < len(self.pmdl_data['partes']):
@@ -522,7 +524,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
                 self.gl_viewport.set_mesh_data(mesh_data, viewing_mode='single', part_index=indice)
                 self.gl_viewport.isolated_part_index = indice
                 self.lbl_controles.configure(
-                    text=f"🖱️ Scroll: Zoom • Rueda presionada: Rotar • Shift+Rueda: Mover • Click Izq: Seleccionar subparte • ç o /: Regresar"
+                    text=t("vista_3d.controles_parte")
                 )
         
         # Guardar parte seleccionada y actualizar UVs si el panel está visible
@@ -866,7 +868,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
         header.grid_columnconfigure(1, weight=1)  # coord_label expande
         
         title = ctk.CTkLabel(
-            header, text="Editor de UVs",
+            header, text=t("vista_3d.editor_uvs"),
             font=ctk.CTkFont(size=16, weight="bold")
         )
         title.grid(row=0, column=0, padx=(15, 8), pady=12, sticky="w")
@@ -935,7 +937,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
         footer.grid(row=2, column=0, sticky="ew", padx=0, pady=0)
         
         self.btn_save_uvs = ctk.CTkButton(
-            footer, text="💾 Guardar Cambios",
+            footer, text=t("vista_3d.btn_guardar_cambios"),
             command=self.save_uvs,
             height=40,
             font=ctk.CTkFont(size=13, weight="bold"),
@@ -1020,14 +1022,14 @@ class PMDLViewerApp(ctk.CTkToplevel):
     def save_uvs(self):
         """Guarda los cambios de UVs y recarga el modelo 3D"""
         if not self.uv_parser or not self.temp_pmdl_path:
-            messagebox.showerror("Error", "No hay UVs para guardar")
+            messagebox.showerror(t("vista_3d.error"), t("vista_3d.error_no_uvs"))
             return
 
         # Si es pmdl externo, confirmar antes de sobreescribir
         if self.pmdl_origin == 'explicit' and self.pmdl_explicit_path:
             if not messagebox.askyesno(
-                "Confirmar",
-                f"Se reemplazará el archivo:\n{self.pmdl_explicit_path}\n\n¿Continuar?",
+                t("vista_3d.confirmar"),
+                t("vista_3d.confirmar_reemplazar", path=self.pmdl_explicit_path),
                 icon="warning"
             ):
                 return
@@ -1042,11 +1044,11 @@ class PMDLViewerApp(ctk.CTkToplevel):
                 self.reload_pmdl_from_file(skip_uv_reload=True)
                 if self.pmdl_origin == 'inherited':
                     self._sync_to_parent()
-                    messagebox.showinfo("Guardado", "Cambios de UVs guardados correctamente.")
+                    messagebox.showinfo(t("vista_3d.guardado"), t("vista_3d.uvs_guardadas"))
             else:
-                messagebox.showerror("Error", "No se pudieron guardar las UVs")
+                messagebox.showerror(t("vista_3d.error"), t("vista_3d.error_guardar_uvs"))
         except Exception as e:
-            messagebox.showerror("Error", f"Error al guardar UVs: {e}")
+            messagebox.showerror(t("vista_3d.error"), t("vista_3d.error_guardar_uvs_e", e=e))
             import traceback
             traceback.print_exc()
 
@@ -1083,7 +1085,7 @@ class PMDLViewerApp(ctk.CTkToplevel):
     def _on_close_request(self):
         if self.has_unsaved_changes:
             from tkinter import messagebox as _mb
-            if not _mb.askyesno("Sin guardar", "¿Seguro que deseas cerrar sin guardar los cambios?"):
+            if not _mb.askyesno(t("vista_3d.sin_guardar"), t("vista_3d.confirmar_cerrar_sin_guardar")):
                 return
         if hasattr(self.master, '_return_from_3d_viewer'):
             self.master._return_from_3d_viewer(skip_unsaved_check=True)
@@ -1183,17 +1185,17 @@ class PMDLViewerApp(ctk.CTkToplevel):
         is_root = bone["padre_idx"] is None
         pos     = bone["pos_visor"]
         nl = chr(10)
-        segs = [(f"Hueso {bone_id:02X}", "bold_white"), (nl, "normal_white")]
+        segs = [(f"{t('vista_3d.hueso')} {bone_id:02X}", "bold_white"), (nl, "normal_white")]
         if renamed:
             segs += [(renamed, "bold_yellow"), (nl, "normal_white")]
         if is_root:
-            segs += [("Hueso Padre", "bold_white"), (" - (Raiz)", "light_gray"), (nl, "normal_white")]
+            segs += [(t("vista_3d.hueso_padre"), "bold_white"), (f" - ({t('vista_3d.raiz')})", "light_gray"), (nl, "normal_white")]
         else:
             padre = self.gl_viewport.bones_data[bone["padre_idx"]]
             pid   = padre["bone_id"]
             psk   = f"sk_{pid:02X}"
             pname = self.gl_viewport.bones_names.get(psk, "") if hasattr(self.gl_viewport, "bones_names") else ""
-            segs += [("Hijo de: ", "bold_white"), (f"Hueso {pid:02X}", "normal_white"), (nl, "normal_white")]
+            segs += [(f"{t('vista_3d.hijo_de')} ", "bold_white"), (f"{t('vista_3d.hueso')} {pid:02X}", "normal_white"), (nl, "normal_white")]
             if pname:
                 segs += [(pname, "yellow"), (nl, "normal_white")]
         segs += [("X:", "bold_white"), (f" {pos[0]:.3f}" + nl, "normal_white")]
@@ -1203,3 +1205,10 @@ class PMDLViewerApp(ctk.CTkToplevel):
 
     def clear_bone_info(self):
         self._write_info([])
+
+    def _initial_gl_refresh(self):
+        if hasattr(self, 'gl_viewport') and self.gl_viewport and self.gl_viewport.winfo_exists():
+            try:
+                self.gl_viewport.trigger_mini_rotation()
+            except Exception:
+                pass
