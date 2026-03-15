@@ -1,9 +1,9 @@
+import configparser
 import json
 import os
-import sys
 
 _LANG_DIR = os.path.join(os.path.dirname(__file__), "..", "resources", "lang")
-_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "config.json")
+_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "config.ini")
 
 AVAILABLE_LANGS = {
     "es": "Español",
@@ -17,23 +17,23 @@ _current_lang: str = "es"
 
 
 def _load_config() -> str:
+    cfg = configparser.ConfigParser()
     try:
-        with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return data.get("lang", "es")
+        cfg.read(_CONFIG_PATH, encoding="utf-8")
+        return cfg.get("general", "lang", fallback="es")
     except Exception:
         return "es"
 
 
 def save_lang(lang_code: str):
+    cfg = configparser.ConfigParser()
     try:
-        config = {}
-        if os.path.exists(_CONFIG_PATH):
-            with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
-                config = json.load(f)
-        config["lang"] = lang_code
+        cfg.read(_CONFIG_PATH, encoding="utf-8")
+        if not cfg.has_section("general"):
+            cfg.add_section("general")
+        cfg.set("general", "lang", lang_code)
         with open(_CONFIG_PATH, "w", encoding="utf-8") as f:
-            json.dump(config, f, indent=2, ensure_ascii=False)
+            cfg.write(f)
     except Exception as e:
         print(f"[lang] Error guardando config: {e}")
 
@@ -74,6 +74,8 @@ def _resolve(data: dict, parts: list):
 
 
 def t(key: str, **kwargs) -> str:
+    if not _fallback:
+        init()
     parts = key.split(".")
     val = _resolve(_strings, parts)
     if val is None:
