@@ -29,7 +29,7 @@ class AboutWindow(ctk.CTkToplevel):
         
         version_label = ctk.CTkLabel(
             scroll_frame,
-            text="Versión 1.4.2",
+            text="Versión 1.4.5",
             font=("Segoe UI", 13),
             text_color=("gray50", "gray60")
         )

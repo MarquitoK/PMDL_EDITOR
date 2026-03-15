@@ -26,7 +26,7 @@ from app.logic_bones import BoneEditor
 from app.utils.ui_error_window import error_window_ui
 from app.utils.icon import set_app_icon
 
-APP_TITLE = "Pmdl Editor (TTT) · By Los ijue30s · v1.4.2"
+APP_TITLE = "Pmdl Editor (TTT) · By Los ijue30s · v1.4.5"
 GEOMETRY = (1070, 600)
 
 
@@ -469,48 +469,20 @@ class PmdlPartsApp(ctk.CTk):
         self.focus_force()
 
     def _return_from_3d_viewer(self, skip_unsaved_check=False):
-        # Cierra el visor 3D y regresa a la ventana principal
         if self.window_viewer_3d and self.window_viewer_3d.winfo_exists():
             if (not skip_unsaved_check and
                     hasattr(self.window_viewer_3d, 'has_unsaved_changes') and
                     self.window_viewer_3d.has_unsaved_changes):
-                respuesta = messagebox.askyesnocancel(
-                    "Cambios sin guardar",
-                    "Hay cambios sin guardar en el editor de UVs.\n¿Deseas aplicar los cambios antes de cerrar?",
-                    icon="warning"
-                )
-                if respuesta is None:
-                    # Cancelar — no cerrar
+                if not messagebox.askyesno(
+                    "Sin guardar",
+                    "¿Seguro que deseas cerrar sin guardar los cambios?"
+                ):
                     return
-                if respuesta:
-                    # Sí — aplicar cambios
-                    modified_pmdl = self.window_viewer_3d.get_modified_pmdl_data()
-                    if modified_pmdl:
-                        self._blob = bytearray(modified_pmdl)
-                        if self.patch_bridge.is_from_patch():
-                            try:
-                                analyzer = self.patch_bridge.get_patch_analyzer()
-                                if analyzer and hasattr(analyzer, 'character_data'):
-                                    analyzer.character_data['pmdl_blob'] = bytes(self._blob)
-                                    analyzer.save_patch()
-                                    print("✓ Cambios de UVs guardados en el parche automáticamente")
-                            except Exception as e:
-                                print(f"Error al guardar cambios de UVs en parche: {e}")
-                        try:
-                            self._hdr = parse_header(self._blob)
-                            self._parts = parse_parts_index(self._blob, self._hdr)
-                            if hasattr(self, 'parts_table'):
-                                self.parts_table.populate(self._parts)
-                                self.parts_table.update_part_count(self._hdr.part_count)
-                        except Exception as e:
-                            print(f"Error al re-analizar PMDL: {e}")
-                # No — descartar cambios, cerrar sin aplicar
 
             self.window_viewer_3d.cleanup()
             self.window_viewer_3d.destroy()
         self.window_viewer_3d = None
 
-        # Mostrar ventana principal
         self.deiconify()
         self.focus_force()
     

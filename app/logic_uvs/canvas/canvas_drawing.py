@@ -17,8 +17,9 @@ class UVCanvasDrawing:
     def load_texture(self, texture_path):
         try:
             self.texture_image = Image.open(texture_path)
+            # Siempre redimensionar a 256x256 — el espacio lógico de las UVs es 0-255
             self.texture_base = self.texture_image.convert("RGBA").resize(
-                (512, 512), Image.Resampling.NEAREST)
+                (256, 256), Image.Resampling.NEAREST)
             self._texture_cache_size  = None
             self._texture_cache_photo = None
             self.redraw_texture()
