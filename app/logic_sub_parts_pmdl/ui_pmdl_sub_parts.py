@@ -1296,12 +1296,20 @@ class UiSubparts(ctk.CTkToplevel):
         )
 
     def on_huesos_changed(self, value: str):
+        unk_vaules = {
+            "01" : 0x12004301,
+            "02" : 0x1200C301,
+            "03" : 0x12014301,
+            "04" : 0x1201C301
+        }
         # activa los demas entry dependiendo de la cantidad de huesos
         for i in range(4):
             if i < int(value):
                 self.entry_huesos[i].configure(state="normal")
             else:
                 self.entry_huesos[i].configure(state="disabled")
+        self.entry_unk.delete(0, "end")
+        self.entry_unk.insert(0, f"{unk_vaules[value]:X}")
 
     @error_window_ui
     def on_save_part(self):
