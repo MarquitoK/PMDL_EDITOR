@@ -3,28 +3,53 @@ import sys
 import tkinter as tk
 from tkinter import messagebox as _mb
 
+_icon_path_cache: str = ""
+
 
 def _get_icon_path() -> str:
+    global _icon_path_cache
+    if _icon_path_cache:
+        return _icon_path_cache
     if getattr(sys, 'frozen', False):
         base = sys._MEIPASS
     else:
         base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    return os.path.join(base, "app", "resources", "icon.ico")
+    _icon_path_cache = os.path.join(base, "app", "resources", "icon.ico")
+    return _icon_path_cache
 
 
 def set_app_icon(window) -> None:
     icon_path = _get_icon_path()
+    if not os.path.exists(icon_path):
+        return
+
+    if isinstance(window, tk.Tk) and not isinstance(window, tk.Toplevel):
+        try:
+            window.wm_iconbitmap(icon_path)
+        except Exception as e:
+            print(f"[icon] {e}")
+        return
+
+    _after_id = [None]
 
     def _apply():
+        _after_id[0] = None
         try:
-            if os.path.exists(icon_path):
-                window.iconbitmap(icon_path)
-        except Exception as e:
-            print(f"[icon] No se pudo aplicar ícono: {e}")
+            if window.winfo_exists():
+                window.wm_iconbitmap(icon_path)
+        except Exception:
+            pass
 
-    # Aplicar inmediato + diferido para cubrir el race condition de CTkToplevel
-    _apply()
-    window.after(200, _apply)
+    def _on_destroy(event=None):
+        if _after_id[0] is not None:
+            try:
+                window.after_cancel(_after_id[0])
+            except Exception:
+                pass
+            _after_id[0] = None
+
+    _after_id[0] = window.after(250, _apply)
+    window.bind("<Destroy>", _on_destroy, add="+")
 
 
 def _make_icon_parent(master=None) -> tk.Toplevel:
@@ -35,7 +60,7 @@ def _make_icon_parent(master=None) -> tk.Toplevel:
     top.attributes("-alpha", 0)
     try:
         if os.path.exists(icon_path):
-            top.iconbitmap(icon_path)
+            top.wm_iconbitmap(icon_path)
     except Exception:
         pass
     return top
