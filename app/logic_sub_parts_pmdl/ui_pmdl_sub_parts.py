@@ -21,8 +21,9 @@ from app.utils.icon import set_app_icon
 from app.utils.thickness_normalizer import normalizar_pmdl_completo, preparar_parte_externa_para_insercion, leer_grosor, \
     normalizar_subparte
 from app.utils.ui_error_window import error_window_ui
+from app.utils.lang import t
 
-APP_TITLE = "Pmdl Editor - SubPartes"
+APP_TITLE = lambda: t("ui_subparts.titulo")
 UI_FONT = ("Segoe UI", 12)
 GRID_FONT = ("Consolas", 15)
 SEL_COLOR = "#1F538D"
@@ -284,16 +285,16 @@ class MultiSelectTable(ctk.CTkFrame):
         )
 
         menu.add_command(
-            label="Exportar selecciones",
+            label=t("ui_subparts.ctx_export"),
             command=self._export_subparts
         )
 
         if self.path == 0:
-            menu.add_command(label="Reemplazar Subparte", command=self._import_subparts)
-            menu.add_command(label="Insertar Subpartes", command=self._insert_subparts)
-            menu.add_command(label="Borrar Subpartes", command=self._delete_subparts)
+            menu.add_command(label=t("ui_subparts.ctx_import"), command=self._import_subparts)
+            menu.add_command(label=t("ui_subparts.ctx_insert"), command=self._insert_subparts)
+            menu.add_command(label=t("ui_subparts.ctx_delete"), command=self._delete_subparts)
         else:
-            menu.add_command(label="Agregar selecciones", command=self._add_subparts)
+            menu.add_command(label=t("ui_subparts.ctx_add"), command=self._add_subparts)
 
         menu.tk_popup(event.x_root, event.y_root)
 
@@ -325,7 +326,7 @@ class MultiSelectTable(ctk.CTkFrame):
         if len(row_idx) == 1:
             filename = f"{base}_parte_{part_idx:02}_subparte_{row_idx[0]:02}.tttsubpart"
             out_path = filedialog.asksaveasfilename(
-                title="Exportar Subparte",
+                title=t("ui_subparts.ctx_export"),
                 defaultextension=".tttsubpart",
                 initialfile=filename,
                 filetypes=[("TTT SubPart", "*.tttsubpart"), ("Todos los archivos", "*.*")]
@@ -365,7 +366,7 @@ class MultiSelectTable(ctk.CTkFrame):
 
         out_path = filedialog.askdirectory(
             parent=self.master.master,
-            title="Exportar Subpartes en directorio",
+            title=t("ui_subparts.ctx_export"),
         )
 
         if not out_path:
@@ -410,7 +411,7 @@ class MultiSelectTable(ctk.CTkFrame):
         if not chunk:
             path_subpart = filedialog.askopenfilename(
                 parent=self.master.master,
-                title="Reemplazar Subparte",
+                title=t("ui_subparts.ctx_import"),
                 initialdir=".",
                 filetypes=[("Archivos SubPart", "*.tttsubpart"),
                            ("Todos los archivos", "*.*")]
@@ -593,7 +594,7 @@ class MultiSelectTable(ctk.CTkFrame):
         paths_subpart = sorted(
             filedialog.askopenfilenames(
                 parent=self.master.master,
-                title="Importar Subparte",
+                title=t("ui_subparts.ctx_insert"),
                 filetypes=[
                     ("Archivos SubPart", "*.tttsubpart"),
                     ("Todos los archivos", "*.*")
@@ -954,7 +955,7 @@ class MultiSelectTable(ctk.CTkFrame):
 
         ui = self.master.master # clase UiSubparts
         ui.label_name_part.configure(text=f"Pmdl {self.path + 1}: {self.path_name}")
-        ui.label_name_subpart.configure(text=f"SubParte: {row_idx:02}")
+        ui.label_name_subpart.configure(text=f'{t("ui_subparts.subparte")}: {row_idx:02}')
         # ui.tooltip_label_namepart.change_text(path)
 
         entry = self._get_subparts()[
@@ -987,10 +988,9 @@ class UiSubparts(ctk.CTkToplevel):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
 
-        self.title(APP_TITLE)
+        self.title(APP_TITLE())
         self.geometry("1200x600")
         center_window(self, 1200, 600)
-        set_app_icon(self)
 
         # self.protocol("WM_DELETE_WINDOW", self._disable_close)
 
@@ -1013,7 +1013,7 @@ class UiSubparts(ctk.CTkToplevel):
         self._index_opt_left = 0
         self._index_opt_right = 0
 
-        headers = ["N°", "Posicion", "Vertices", "N° huesos", "Size"]
+        headers = ["N°", t("ui_subparts.pos"), t("ui_subparts.vert"), t("ui_subparts.n_huesos"), t("ui_subparts.size")]
 
         # =========================
         # CONTENEDOR IZQUIERDO
@@ -1066,7 +1066,7 @@ class UiSubparts(ctk.CTkToplevel):
 
         self.label_name_subpart = ctk.CTkLabel(
             header,
-            text="SubParte: --",
+            text=f'{t("ui_subparts.subparte")}: --',
             font=("Segoe UI", 14)
         )
         self.label_name_subpart.pack()
@@ -1082,14 +1082,14 @@ class UiSubparts(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             card_cfg,
-            text="Configuración",
+            text=t("ui_subparts.configuracion"),
             font=("Segoe UI", 14, "bold")
         ).grid(row=0, column=0, columnspan=2, pady=(8, 12))
 
         # N° huesos
         ctk.CTkLabel(
             card_cfg,
-            text="N° huesos:",
+            text=t("ui_subparts.n_huesos"),
             font=("Segoe UI", 13)
         ).grid(row=1, column=0, sticky="w", padx=10)
 
@@ -1105,7 +1105,7 @@ class UiSubparts(ctk.CTkToplevel):
         # IDS
         ctk.CTkLabel(
             card_cfg,
-            text="IDs (HEX):",
+            text=t("ui_subparts.ids"),
             font=("Segoe UI", 13)
         ).grid(row=2, column=0, sticky="nw", padx=10, pady=(10, 0))
 
@@ -1126,7 +1126,7 @@ class UiSubparts(ctk.CTkToplevel):
         # UNK
         ctk.CTkLabel(
             card_cfg,
-            text="UNK (Hex):",
+            text=t("ui_subparts.unk"),
             font=("Segoe UI", 13)
         ).grid(row=3, column=0, sticky="w", padx=10, pady=10)
 
@@ -1148,13 +1148,13 @@ class UiSubparts(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             card_actions,
-            text="Acciones",
+            text=t("ui_subparts.accion"),
             font=("Segoe UI", 14, "bold")
         ).pack(pady=(8, 12))
 
         self.btn_save_part = ctk.CTkButton(
             card_actions,
-            text="Guardar cambios",
+            text=t("ui_subparts.btn_guardar"),
             width=120,
             command=self.on_save_part
         )
@@ -1163,7 +1163,7 @@ class UiSubparts(ctk.CTkToplevel):
 
         self.btn_mov_up = ctk.CTkButton(
             card_actions,
-            text="Mover arriba",
+            text=t("ui_subparts.btn_mover_arriba"),
             width=120,
             command=self.mov_up
         )
@@ -1173,7 +1173,7 @@ class UiSubparts(ctk.CTkToplevel):
 
         self.btn_mov_down = ctk.CTkButton(
             card_actions,
-            text="Mover abajo",
+            text=t("ui_subparts.btn_mover_abajo"),
             width=120,
             command=self.mov_down
         )
@@ -1183,7 +1183,7 @@ class UiSubparts(ctk.CTkToplevel):
 
         self.btn_remap = ctk.CTkButton(
             card_actions,
-            text="Remap ID",
+            text=t("ui_subparts.btn_remap_id"),
             width=120,
             command=self.on_options_remap
         )
@@ -1191,7 +1191,7 @@ class UiSubparts(ctk.CTkToplevel):
 
         self.btn_vertex_ed = ctk.CTkButton(
             card_actions,
-            text="Editar vertices",
+            text=t("ui_subparts.btn_edit_vert"),
             width=120,
             command=self.on_ed_vertex
         )
@@ -1256,7 +1256,7 @@ class UiSubparts(ctk.CTkToplevel):
                 self._blobs2[f"{id_part}"] = data_part
 
             # capa_v = self.master._parts[id_part].part_id if pmdl == 0 else self.master._parts2[id_part].part_id
-            name_parts.append(f"Parte: {id_part:02}")
+            name_parts.append(f'{t("ui_subparts.btn_parte")}: {id_part:02}')
 
         if pmdl == 0:
             self.opt_left.configure(values=name_parts)

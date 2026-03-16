@@ -189,7 +189,17 @@
     "error_fila": "Error in a row",
     "error_uv": "UVs must be within the range of 0 to 255",
     "t_correcto": "Success",
-    "t_warning": "Warning"
+    "t_warning": "Warning",
+    "col_id": "ID",
+    "col_x": "X",
+    "col_y": "Y",
+    "col_z": "Z",
+    "col_uv_x": "UV X",
+    "col_uv_y": "UV Y",
+    "col_peso_1": "Weight 1",
+    "col_peso_2": "Weight 2",
+    "col_peso_3": "Weight 3",
+    "col_peso_4": "Weight 4"
   },
   "character_editor": {
     "titulo": "DBZ TTT Character Editor",

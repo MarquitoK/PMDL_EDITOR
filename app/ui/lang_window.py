@@ -1,10 +1,22 @@
 import sys
 import os
-import subprocess
 import customtkinter as ctk
 from app.utils.lang import t, save_lang, get_current_lang, AVAILABLE_LANGS
 from app.utils.window import center_window
 from app.utils.icon import set_app_icon
+
+# Mensajes de cierre en cada idioma (hardcodeados para mostrarse en el idioma destino)
+_CLOSE_MSGS = {
+    "es": ("Idioma guardado", "El idioma fue guardado.\nCierra y vuelve a abrir la aplicación para aplicar los cambios."),
+    "en": ("Language saved", "The language has been saved.\nClose and reopen the application to apply the changes."),
+    "pt_br": ("Idioma salvo", "O idioma foi salvo.\nFeche e abra novamente o aplicativo para aplicar as alterações."),
+}
+
+_CLOSE_BTN = {
+    "es": "Cerrar aplicación",
+    "en": "Close application",
+    "pt_br": "Fechar aplicativo",
+}
 
 
 class LangWindow(ctk.CTkToplevel):
@@ -47,46 +59,28 @@ class LangWindow(ctk.CTkToplevel):
             self.destroy()
             return
 
+        save_lang(chosen)
         self.destroy()
-        self._show_restart_dialog(chosen)
+        self._show_close_dialog(chosen)
 
-    def _show_restart_dialog(self, lang_code: str):
+    def _show_close_dialog(self, lang_code: str):
+        title, msg = _CLOSE_MSGS.get(lang_code, _CLOSE_MSGS["es"])
+        btn_text = _CLOSE_BTN.get(lang_code, _CLOSE_BTN["es"])
+
         dlg = ctk.CTkToplevel(self.master)
-        dlg.title(t("lang_window.reinicio_titulo"))
+        dlg.title(title)
         dlg.resizable(False, False)
         dlg.grab_set()
+        dlg.protocol("WM_DELETE_WINDOW", lambda: None)
         set_app_icon(dlg)
-        center_window(dlg, 340, 140)
+        center_window(dlg, 360, 150)
 
         ctk.CTkLabel(
-            dlg, text=t("lang_window.reinicio_msg"),
-            font=("Segoe UI", 12), wraplength=300
+            dlg, text=msg,
+            font=("Segoe UI", 12), wraplength=320
         ).pack(pady=(24, 16))
 
-        btn_frame = ctk.CTkFrame(dlg, fg_color="transparent")
-        btn_frame.pack()
-
-        def _ok():
-            save_lang(lang_code)
-            dlg.destroy()
-            _restart_app()
-
         ctk.CTkButton(
-            btn_frame, text=t("lang_window.btn_ok"), width=90,
-            command=_ok
-        ).pack(side="left", padx=8)
-
-        ctk.CTkButton(
-            btn_frame, text=t("lang_window.btn_cancelar_reinicio"), width=90,
-            fg_color="gray40", hover_color="gray30",
-            command=dlg.destroy
-        ).pack(side="left", padx=8)
-
-
-def _restart_app():
-    if getattr(sys, 'frozen', False):
-        # Exe compilado: relanzar el propio ejecutable
-        subprocess.Popen([sys.executable])
-    else:
-        subprocess.Popen([sys.executable, os.path.abspath(sys.argv[0])])
-    sys.exit(0)
+            dlg, text=btn_text, width=160,
+            command=self.master.destroy
+        ).pack()

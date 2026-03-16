@@ -184,7 +184,17 @@
     "error_fila": "Error en una fila",
     "error_uv": "Las uv deben estar dentro del rango de 0 a 255",
     "t_correcto": "Correcto",
-    "t_warning": "Advertencia"
+    "t_warning": "Advertencia",
+	"col_id": "ID",
+	"col_x": "X",
+	"col_y": "Y",
+	"col_z": "Z",
+	"col_uv_x": "UV X",
+	"col_uv_y": "UV Y",
+	"col_peso_1": "Peso 1",
+	"col_peso_2": "Peso 2",
+	"col_peso_3": "Peso 3",
+	"col_peso_4": "Peso 4"
   },
   "character_editor": {
     "titulo": "Editor de Personajes - DBZ TTT - by Los ijue30s",

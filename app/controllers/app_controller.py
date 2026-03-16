@@ -253,25 +253,26 @@ class PmdlPartsApp(ctk.CTk):
             messagebox.showinfo(t("dialogs.info"), t("dialogs.abrir_al_menos_uno"))
             return
 
-        self.withdraw()
-
-        if self.window_subparts is None or not self.window_subparts.winfo_exists():
-            # Crear ventana de subparts
-            self.window_subparts = UiSubparts(self)
-
-            # Bind para volver con ESC
-            self.window_subparts.bind("<Escape>", lambda e: self._return_from_subparts())
-
-            # Bind para cuando se cierre la ventana
-            self.window_subparts.protocol("WM_DELETE_WINDOW", self._return_from_subparts)
-
-            # Cargar subparts en la UI automáticamente
-            self.window_subparts.get_data_subpart()
-            self.window_subparts.get_data_subpart(1)
-        else:
-            # Si ya existe, traerla al frente
+        if self.window_subparts is not None and self.window_subparts.winfo_exists():
             self.window_subparts.focus()
             self.window_subparts.lift()
+            return
+
+        self.withdraw()
+        self.after(10, self._create_subparts_window)
+
+    def _create_subparts_window(self):
+        self.window_subparts = UiSubparts(self)
+        self.window_subparts.bind("<Escape>", lambda e: self._return_from_subparts())
+        self.window_subparts.protocol("WM_DELETE_WINDOW", self._return_from_subparts)
+        set_app_icon(self.window_subparts)
+        self.window_subparts.after(300, self._load_subparts_data)
+
+    def _load_subparts_data(self):
+        if self.window_subparts is None or not self.window_subparts.winfo_exists():
+            return
+        self.window_subparts.get_data_subpart()
+        self.window_subparts.get_data_subpart(1)
 
     def on_open_pmdl_editor(self):
         """Mostrar el editor PMDL."""
