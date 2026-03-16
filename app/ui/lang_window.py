@@ -4,6 +4,7 @@ import subprocess
 import customtkinter as ctk
 from app.utils.lang import t, save_lang, get_current_lang, AVAILABLE_LANGS
 from app.utils.window import center_window
+from app.utils.icon import set_app_icon
 
 
 class LangWindow(ctk.CTkToplevel):
@@ -12,6 +13,7 @@ class LangWindow(ctk.CTkToplevel):
         self.title(t("lang_window.titulo"))
         self.resizable(False, False)
         self.grab_set()
+        set_app_icon(self)
         center_window(self, 300, 200)
 
         self._selected = get_current_lang()
@@ -53,6 +55,7 @@ class LangWindow(ctk.CTkToplevel):
         dlg.title(t("lang_window.reinicio_titulo"))
         dlg.resizable(False, False)
         dlg.grab_set()
+        set_app_icon(dlg)
         center_window(dlg, 340, 140)
 
         ctk.CTkLabel(
@@ -81,7 +84,9 @@ class LangWindow(ctk.CTkToplevel):
 
 
 def _restart_app():
-    python = sys.executable
-    script = os.path.abspath(sys.argv[0])
-    subprocess.Popen([python, script])
+    if getattr(sys, 'frozen', False):
+        # Exe compilado: relanzar el propio ejecutable
+        subprocess.Popen([sys.executable])
+    else:
+        subprocess.Popen([sys.executable, os.path.abspath(sys.argv[0])])
     sys.exit(0)

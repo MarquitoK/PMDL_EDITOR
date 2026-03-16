@@ -29,7 +29,7 @@ import app.utils.lang as lang
 from app.utils.lang import t
 from app.ui.lang_window import LangWindow
 
-APP_TITLE = "Pmdl Editor (TTT) · By Los ijue30s · v1.4.5"
+APP_TITLE = "Pmdl Editor (TTT) · By Los ijue30s · v1.4.6"
 GEOMETRY = (1070, 600)
 
 

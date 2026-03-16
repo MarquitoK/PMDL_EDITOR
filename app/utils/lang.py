@@ -1,9 +1,9 @@
 import configparser
 import json
 import os
+import sys
 
 _LANG_DIR = os.path.join(os.path.dirname(__file__), "..", "resources", "lang")
-_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "config.ini")
 
 AVAILABLE_LANGS = {
     "es": "Español",
@@ -16,23 +16,33 @@ _fallback: dict = {}
 _current_lang: str = "es"
 
 
+def _get_config_path() -> str:
+    # En exe compilado, sys.executable es el .exe; en script, usamos su directorio
+    if getattr(sys, 'frozen', False):
+        base = os.path.dirname(sys.executable)
+    else:
+        base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    return os.path.join(base, "config.ini")
+
+
 def _load_config() -> str:
     cfg = configparser.ConfigParser()
     try:
-        cfg.read(_CONFIG_PATH, encoding="utf-8")
+        cfg.read(_get_config_path(), encoding="utf-8")
         return cfg.get("general", "lang", fallback="es")
     except Exception:
         return "es"
 
 
 def save_lang(lang_code: str):
+    path = _get_config_path()
     cfg = configparser.ConfigParser()
     try:
-        cfg.read(_CONFIG_PATH, encoding="utf-8")
+        cfg.read(path, encoding="utf-8")
         if not cfg.has_section("general"):
             cfg.add_section("general")
         cfg.set("general", "lang", lang_code)
-        with open(_CONFIG_PATH, "w", encoding="utf-8") as f:
+        with open(path, "w", encoding="utf-8") as f:
             cfg.write(f)
     except Exception as e:
         print(f"[lang] Error guardando config: {e}")

@@ -1,19 +1,18 @@
 import os
+import sys
 import tkinter as tk
 from tkinter import messagebox as _mb
 
 
 def _get_icon_path() -> str:
-    base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if getattr(sys, 'frozen', False):
+        base = sys._MEIPASS
+    else:
+        base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     return os.path.join(base, "app", "resources", "icon.ico")
 
 
 def set_app_icon(window) -> None:
-    """
-    Aplica el ícono a una ventana CTk / Toplevel.
-    Usa after(200) para ejecutarse DESPUÉS de que CTkToplevel
-    termine su propia inicialización (que borra el ícono heredado).
-    """
     icon_path = _get_icon_path()
 
     def _apply():
@@ -23,6 +22,8 @@ def set_app_icon(window) -> None:
         except Exception as e:
             print(f"[icon] No se pudo aplicar ícono: {e}")
 
+    # Aplicar inmediato + diferido para cubrir el race condition de CTkToplevel
+    _apply()
     window.after(200, _apply)
 
 
