@@ -21,10 +21,8 @@ from app.utils.icon import set_app_icon
 from app.utils.thickness_normalizer import normalizar_pmdl_completo, preparar_parte_externa_para_insercion, leer_grosor, \
     normalizar_subparte
 from app.utils.ui_error_window import error_window_ui
-import app.utils.lang as lang
-from app.utils.lang import t
 
-APP_TITLE = t("ui_subparts.titulo")
+APP_TITLE = "Pmdl Editor - SubPartes"
 UI_FONT = ("Segoe UI", 12)
 GRID_FONT = ("Consolas", 15)
 SEL_COLOR = "#1F538D"
@@ -286,16 +284,16 @@ class MultiSelectTable(ctk.CTkFrame):
         )
 
         menu.add_command(
-            label=t('ui_subparts.ctx_export'),
+            label="Exportar selecciones",
             command=self._export_subparts
         )
 
         if self.path == 0:
-            menu.add_command(label=t('ui_subparts.ctx_import'), command=self._import_subparts)
-            menu.add_command(label=t('ui_subparts.ctx_insert'), command=self._insert_subparts)
-            menu.add_command(label=t('ui_subparts.ctx_delete'), command=self._delete_subparts)
+            menu.add_command(label="Reemplazar Subparte", command=self._import_subparts)
+            menu.add_command(label="Insertar Subpartes", command=self._insert_subparts)
+            menu.add_command(label="Borrar Subpartes", command=self._delete_subparts)
         else:
-            menu.add_command(label=t('ui_subparts.ctx_add'), command=self._add_subparts)
+            menu.add_command(label="Agregar selecciones", command=self._add_subparts)
 
         menu.tk_popup(event.x_root, event.y_root)
 
@@ -313,7 +311,7 @@ class MultiSelectTable(ctk.CTkFrame):
             os.path.basename(self.parent_app._path if self.path == 0 else self.parent_app._path2)
         )[0]
 
-        messagebox.showinfo("Informacion", f"Se exportaran las siguientes subpartes\n{row_idx}\ndel pmdl: {base}", parent=self.master.master)
+        messagebox.showinfo(t("ui_subparts.info"), t("ui_subparts.msg_exportar_aviso", idx=row_idx, base=base), parent=self.master.master)
 
         part_idx = (
             self.master.master._index_opt_left
@@ -358,7 +356,7 @@ class MultiSelectTable(ctk.CTkFrame):
             with open(out_path, "wb") as f:
                 f.write(chunk)
 
-            messagebox.showinfo("Exportado", f"SubParte {row_idx[0]:02} exportada", parent=self.master.master)
+            messagebox.showinfo(t("ui_subparts.exportado"), t("ui_subparts.msg_subparte_exportada", idx=f"{row_idx[0]:02}"), parent=self.master.master)
             return
 
         # ==============================
@@ -398,7 +396,7 @@ class MultiSelectTable(ctk.CTkFrame):
             with open(Path(out_path, filename), "wb") as f:
                 f.write(chunk)
 
-        messagebox.showinfo("Exportado", f"SubPartes\n{row_idx}\nexportadas", parent=self.master.master)
+        messagebox.showinfo(t("ui_subparts.exportado"), t("ui_subparts.msg_subpartes_exportadas", idx=row_idx), parent=self.master.master)
         # self.parent_app.status_var.set(f"SubParte {row_idx:02} exportada.")
 
     @error_window_ui
@@ -505,7 +503,7 @@ class MultiSelectTable(ctk.CTkFrame):
 
         self.select_row(row_idx[0])
 
-        messagebox.showinfo("Importado", f"SubParte importada", parent=self.master.master)
+        messagebox.showinfo(t("ui_subparts.importado"), t("ui_subparts.msg_subparte_importada"), parent=self.master.master)
 
     def import_sub_part_pmdl(self, part_idx:int, row_idx:int, chunk:bytearray, dat_chunk:list):
         """
@@ -717,7 +715,7 @@ class MultiSelectTable(ctk.CTkFrame):
 
         short = [last_parts(p, 2) for p in paths_subpart]
 
-        messagebox.showinfo("Insertado", f"SubParte insertada desde la posicion {row_idx[0] + 1:02}\n{short}", parent=self.master.master)
+        messagebox.showinfo(t("ui_subparts.insertado"), t("ui_subparts.msg_subparte_insertada", pos=f"{row_idx[0] + 1:02}", short=short), parent=self.master.master)
 
     @error_window_ui
     def _add_subparts(self):
@@ -746,8 +744,8 @@ class MultiSelectTable(ctk.CTkFrame):
         subparts_by_part_2 = self._get_subparts()
 
         if not messagebox.askokcancel(
-                "Confirmar Agregar",
-                f"Vas a agregar las siguientes subpartes: {row_idx_2}\n\n¿Deseas continuar?",
+                t("ui_subparts.confirmar_agregar"),
+                t("ui_subparts.msg_confirmar_agregar", idx=row_idx_2),
                 parent=self.master.master
         ):
             return
@@ -861,7 +859,7 @@ class MultiSelectTable(ctk.CTkFrame):
 
         self.master.master.tab_left.select_row(row_idx[0] + 1)
 
-        messagebox.showinfo("Agregada", f"SubParte agregada desde la posicion {row_idx[0] + 1:02}",
+        messagebox.showinfo(t("ui_subparts.agregada"), t("ui_subparts.msg_subparte_agregada", pos=f"{row_idx[0] + 1:02}"),
                             parent=self.master.master)
 
     @error_window_ui
@@ -875,9 +873,9 @@ class MultiSelectTable(ctk.CTkFrame):
         row_idx_old = copy.deepcopy(row_idx)
 
         if not messagebox.askokcancel(
-                "Confirmar eliminación",
-                f"Vas a eliminar las siguientes subpartes: {row_idx}\n\n¿Deseas continuar?",
-                parent=self   # ← IMPORTANTE
+                t("ui_subparts.confirmar_eliminar"),
+                t("ui_subparts.msg_confirmar_eliminar", idx=row_idx),
+                parent=self
         ):
             return
 
@@ -927,7 +925,7 @@ class MultiSelectTable(ctk.CTkFrame):
             part_idx
         )
 
-        messagebox.showinfo("Elimanado", f"SubPartes {row_idx_old} eliminadas correctamente", parent=self.master.master)
+        messagebox.showinfo(t("ui_subparts.eliminado"), t("ui_subparts.msg_subpartes_eliminadas", idx=row_idx_old), parent=self.master.master)
 
     def _uddate_blobs_ui(self):
         blob = self.master.master._blobs
@@ -956,7 +954,7 @@ class MultiSelectTable(ctk.CTkFrame):
 
         ui = self.master.master # clase UiSubparts
         ui.label_name_part.configure(text=f"Pmdl {self.path + 1}: {self.path_name}")
-        ui.label_name_subpart.configure(text=f"{t('ui_subparts.subparte')}: {row_idx:02}")
+        ui.label_name_subpart.configure(text=f"SubParte: {row_idx:02}")
         # ui.tooltip_label_namepart.change_text(path)
 
         entry = self._get_subparts()[
@@ -1015,7 +1013,7 @@ class UiSubparts(ctk.CTkToplevel):
         self._index_opt_left = 0
         self._index_opt_right = 0
 
-        headers = ["N°", t("ui_subparts.pos"), t("ui_subparts.vert"), t("ui_subparts.n_huesos"), t("ui_subparts.size")]
+        headers = ["N°", "Posicion", "Vertices", "N° huesos", "Size"]
 
         # =========================
         # CONTENEDOR IZQUIERDO
@@ -1027,7 +1025,7 @@ class UiSubparts(ctk.CTkToplevel):
 
         self.opt_left = ScrollableOptionMenu(
             self.left_container,
-            values=[f"{t('ui_subparts.btn_parte')}: 00"],
+            values=["Parte 0"],
             width=160,
             command=self.on_left_option_changed,
             name_window=os.path.basename(self.master._path) if self.master._path else "--"
@@ -1068,7 +1066,7 @@ class UiSubparts(ctk.CTkToplevel):
 
         self.label_name_subpart = ctk.CTkLabel(
             header,
-            text=f"{t('ui_subparts.subparte')}: --",
+            text="SubParte: --",
             font=("Segoe UI", 14)
         )
         self.label_name_subpart.pack()
@@ -1084,14 +1082,14 @@ class UiSubparts(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             card_cfg,
-            text=t("ui_subparts.configuracion"),
+            text="Configuración",
             font=("Segoe UI", 14, "bold")
         ).grid(row=0, column=0, columnspan=2, pady=(8, 12))
 
         # N° huesos
         ctk.CTkLabel(
             card_cfg,
-            text=t("ui_subparts.n_huesos"),
+            text="N° huesos:",
             font=("Segoe UI", 13)
         ).grid(row=1, column=0, sticky="w", padx=10)
 
@@ -1107,7 +1105,7 @@ class UiSubparts(ctk.CTkToplevel):
         # IDS
         ctk.CTkLabel(
             card_cfg,
-            text=f"{t('ui_subparts.ids')}:",
+            text="IDs (HEX):",
             font=("Segoe UI", 13)
         ).grid(row=2, column=0, sticky="nw", padx=10, pady=(10, 0))
 
@@ -1128,13 +1126,13 @@ class UiSubparts(ctk.CTkToplevel):
         # UNK
         ctk.CTkLabel(
             card_cfg,
-            text=f"{t('ui_subparts.unk')}:",
+            text="UNK (Hex):",
             font=("Segoe UI", 13)
         ).grid(row=3, column=0, sticky="w", padx=10, pady=10)
 
         self.entry_unk = ctk.CTkEntry(
             card_cfg,
-            placeholder_text="1200C301",
+            placeholder_text="01C30012",
             width=76
         )
         self.entry_unk.grid(row=3, column=1, sticky="e", padx=10, pady=10)
@@ -1150,13 +1148,13 @@ class UiSubparts(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             card_actions,
-            text=t("ui_subparts.accion"),
+            text="Acciones",
             font=("Segoe UI", 14, "bold")
         ).pack(pady=(8, 12))
 
         self.btn_save_part = ctk.CTkButton(
             card_actions,
-            text=t("ui_subparts.btn_guardar"),
+            text="Guardar cambios",
             width=120,
             command=self.on_save_part
         )
@@ -1165,7 +1163,7 @@ class UiSubparts(ctk.CTkToplevel):
 
         self.btn_mov_up = ctk.CTkButton(
             card_actions,
-            text=t("ui_subparts.btn_mover_arriba"),
+            text="Mover arriba",
             width=120,
             command=self.mov_up
         )
@@ -1175,7 +1173,7 @@ class UiSubparts(ctk.CTkToplevel):
 
         self.btn_mov_down = ctk.CTkButton(
             card_actions,
-            text=t("ui_subparts.btn_mover_abajo"),
+            text="Mover abajo",
             width=120,
             command=self.mov_down
         )
@@ -1185,7 +1183,7 @@ class UiSubparts(ctk.CTkToplevel):
 
         self.btn_remap = ctk.CTkButton(
             card_actions,
-            text=t("ui_subparts.btn_remap_id"),
+            text="Remap ID",
             width=120,
             command=self.on_options_remap
         )
@@ -1193,7 +1191,7 @@ class UiSubparts(ctk.CTkToplevel):
 
         self.btn_vertex_ed = ctk.CTkButton(
             card_actions,
-            text=t("ui_subparts.btn_edit_vert"),
+            text="Editar vertices",
             width=120,
             command=self.on_ed_vertex
         )
@@ -1209,7 +1207,7 @@ class UiSubparts(ctk.CTkToplevel):
 
         self.opt_right = ScrollableOptionMenu(
             self.right_container,
-            values=[f"{t('ui_subparts.btn_parte')}: 00"],
+            values=["Part 0"],
             width=160,
             command=self.on_rigth_option_changed,
             name_window=os.path.basename(self.master._path2) if self.master._path2 else "--"
@@ -1258,7 +1256,7 @@ class UiSubparts(ctk.CTkToplevel):
                 self._blobs2[f"{id_part}"] = data_part
 
             # capa_v = self.master._parts[id_part].part_id if pmdl == 0 else self.master._parts2[id_part].part_id
-            name_parts.append(f"{t('ui_subparts.btn_parte')}: {id_part:02}")
+            name_parts.append(f"Parte: {id_part:02}")
 
         if pmdl == 0:
             self.opt_left.configure(values=name_parts)
@@ -1296,20 +1294,12 @@ class UiSubparts(ctk.CTkToplevel):
         )
 
     def on_huesos_changed(self, value: str):
-        unk_vaules = {
-            "01" : 0x12004301,
-            "02" : 0x1200C301,
-            "03" : 0x12014301,
-            "04" : 0x1201C301
-        }
         # activa los demas entry dependiendo de la cantidad de huesos
         for i in range(4):
             if i < int(value):
                 self.entry_huesos[i].configure(state="normal")
             else:
                 self.entry_huesos[i].configure(state="disabled")
-        self.entry_unk.delete(0, "end")
-        self.entry_unk.insert(0, f"{unk_vaules[value]:X}")
 
     @error_window_ui
     def on_save_part(self):
@@ -1320,7 +1310,7 @@ class UiSubparts(ctk.CTkToplevel):
         if not row_idx:
             return
         if len(row_idx) > 1:
-            messagebox.showinfo("Advertencia", "no se puede guardar si tienes mas de una subpart seleccionada", parent=self)
+            messagebox.showinfo(t("ui_subparts.advertencia"), t("ui_subparts.msg_solo_una_guardar"), parent=self)
             return
 
         row = row_idx[0]
@@ -1390,7 +1380,7 @@ class UiSubparts(ctk.CTkToplevel):
         self.tab_left.set_table(len(subparts), self._sub_parts, part_id)
         self.tab_left.select_row(row)
 
-        messagebox.showinfo("Guardado", "cambios guardados en memoria", parent=self)
+        messagebox.showinfo(t("ui_subparts.guardado"), t("ui_subparts.msg_guardado_memoria"), parent=self)
 
     @error_window_ui
     def on_back(self):
@@ -1438,7 +1428,7 @@ class UiSubparts(ctk.CTkToplevel):
             return
 
         if len(rows) > 1:
-            messagebox.showinfo("Informacion", "solo puedes mover una subpart a la vez", parent=self)
+            messagebox.showinfo(t("ui_subparts.info"), t("ui_subparts.msg_mover_una"), parent=self)
             self.mov_up_st = True
             return
 
@@ -1483,7 +1473,7 @@ class UiSubparts(ctk.CTkToplevel):
             return
 
         if len(rows) > 1:
-            messagebox.showinfo("Informacion", "solo puedes mover una subpart a la vez", parent=self)
+            messagebox.showinfo(t("ui_subparts.info"), t("ui_subparts.msg_mover_una"), parent=self)
             self.mov_down_st = True
             return
 
@@ -1554,7 +1544,7 @@ class UiSubparts(ctk.CTkToplevel):
         table.set_table(len(self._sub_parts[part_id]), self._sub_parts, part_id)
         table.select_row(0)
 
-        messagebox.showinfo("Informacion", f"Las id fueron reemplazadas en la Parte: {part_id:02}", parent=self)
+        messagebox.showinfo(t("ui_subparts.info"), t("ui_subparts.msg_ids_reemplazadas", pid=f"{part_id:02}"), parent=self)
 
 
     @error_window_ui
@@ -1562,8 +1552,7 @@ class UiSubparts(ctk.CTkToplevel):
         part_id = self._index_opt_left
         row_idx = self.tab_left.get_selected_row_indices()
         if len(row_idx) > 1:
-            messagebox.showinfo("Advertencia",
-                                "Tienes mas de una subpart seleccionada", parent=self)
+            messagebox.showinfo(t("ui_subparts.advertencia"), t("ui_subparts.msg_mas_de_una"), parent=self)
             return
 
         if not row_idx:

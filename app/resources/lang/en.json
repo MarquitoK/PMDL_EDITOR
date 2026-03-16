@@ -20,6 +20,7 @@
     "abrir_parche_sec": "Open Secondary Patch",
     "visualizar": "Visualize"
   },
+
   "layout": {
     "ruta_pmdl": "Path .pMdl",
     "ruta_pmdl_tooltip": "Path to the loaded .pMdl file",
@@ -29,6 +30,7 @@
     "normalizar_tooltip": "On: Adjusts the scale of the main model and imported parts so the thickness of the parts stays consistent. (Recommended)\n\nOff: Parts imported from other models may end up with unexpected size or thickness, making them look flat or overly stretched. (Use only if you know what you're doing)",
     "status_default": "Created by Los ijue30s"
   },
+
   "tables": {
     "col_capa": "Layer",
     "col_nombre": "Name",
@@ -48,6 +50,7 @@
     "confirm_cerrar_sec_titulo": "Close Secondary pMdl ",
     "confirm_cerrar_sec_msg": "Are you sure you want to close the secondary pMdl?"
   },
+
   "status": {
     "default": "Created by Los ijue30s",
     "archivo_cargado": "File uploaded: {name}",
@@ -69,6 +72,7 @@
     "parte_opacidad": "Parte {index}: Opacity = {val}%",
     "parte_funcion": "Parte {index}: Function = '{label}' (0x{val})"
   },
+
   "dialogs": {
     "info": "Info",
     "error": "Error",
@@ -102,6 +106,7 @@
     "error_cargar_parche_sec": "Failed to load the secondary patch",
     "error_actualizar_pmdl": "Failed to update the pMdl in the patch"
   },
+
   "lang_window": {
     "titulo": "Select Language",
     "descripcion": "Choose the application language:",
@@ -134,7 +139,31 @@
     "ctx_import": "Replace Sub-Part",
     "ctx_insert": "Insert Sub-Parts",
     "ctx_delete": "Delete Sub-Parts",
-    "ctx_add": "Add selections"
+    "ctx_add": "Add selections",
+    "info": "Information",
+    "exportado": "Exported",
+    "importado": "Imported",
+    "insertado": "Inserted",
+    "agregada": "Added",
+    "eliminado": "Deleted",
+    "guardado": "Saved",
+    "advertencia": "Warning",
+    "confirmar_agregar": "Confirm Add",
+    "confirmar_eliminar": "Confirm Deletion",
+    "msg_exportar_aviso": "The following SubParts will be exported:\n{idx}\nfrom pmdl: {base}",
+    "msg_subparte_exportada": "SubPart {idx} exported",
+    "msg_subpartes_exportadas": "SubParts\n{idx}\nexported",
+    "msg_subparte_importada": "SubPart imported",
+    "msg_subparte_insertada": "SubPart inserted from position {pos}\n{short}",
+    "msg_confirmar_agregar": "You are about to add the following SubParts: {idx}\n\nDo you want to continue?",
+    "msg_subparte_agregada": "SubPart added from position {pos}",
+    "msg_confirmar_eliminar": "You are about to delete the following SubParts: {idx}\n\nDo you want to continue?",
+    "msg_subpartes_eliminadas": "SubParts {idx} deleted successfully",
+    "msg_solo_una_guardar": "Cannot save if more than one subpart is selected",
+    "msg_guardado_memoria": "Changes saved in memory",
+    "msg_mover_una": "You can only move one subpart at a time",
+    "msg_ids_reemplazadas": "IDs were replaced in Part: {pid}",
+    "msg_mas_de_una": "You have more than one subpart selected"
   },
   "ui_remap_id": {
     "btn_1": "Search ID 1 and replace with ID 2",
