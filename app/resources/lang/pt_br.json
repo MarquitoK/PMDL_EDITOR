@@ -20,7 +20,6 @@
     "abrir_parche_sec": "Abrir Patch  Secundário",
     "visualizar": "Visualizar"
   },
-
   "layout": {
     "ruta_pmdl": "Rota .pMdl",
     "ruta_pmdl_tooltip": "Caminho do arquivo .pMdl carregado",
@@ -30,7 +29,6 @@
     "normalizar_tooltip": "Ativado: Ajusta a escala do modelo principal e das partes importadas para que a espessura das partes fique uniforme. (Recomendado)\n\nDesativado: As partes importadas de outros modelos podem ter tamanho ou espessura inesperados, ficando planas ou muito esticadas. (Use apenas se souber o que está fazendo)",
     "status_default": "Criado por Los ijue30s"
   },
-
   "tables": {
     "col_capa": "Capa",
     "col_nombre": "Nome",
@@ -50,7 +48,6 @@
     "confirm_cerrar_sec_titulo": "Fechar pMdl Secundario",
     "confirm_cerrar_sec_msg": "Tem certeza de que deseja fechar o pMdl secundário?"
   },
-
   "status": {
     "default": "Criado por Los ijue30s",
     "archivo_cargado": "Arquivo carregado: {name}",
@@ -72,7 +69,6 @@
     "parte_opacidad": "Parte {index}: Opacidade = {val}%",
     "parte_funcion": "Parte {index}: Função = '{label}' (0x{val})"
   },
-
   "dialogs": {
     "info": "Info",
     "error": "Erro",
@@ -106,7 +102,6 @@
     "error_cargar_parche_sec": "Não foi possível carregar o patch secundário",
     "error_actualizar_pmdl": "Não foi possível atualizar o pMdl no patch"
   },
-
   "lang_window": {
     "titulo": "Seleccionar Idioma",
     "descripcion": "Escolha o idioma do aplicativo:",
@@ -140,30 +135,35 @@
     "ctx_insert": "Inserir SubPartes",
     "ctx_delete": "Excluir SubPartes",
     "ctx_add": "Adicionar seleções",
-	"info": "Informação",
-	"exportado": "Exportado",
-	"importado": "Importado",
-	"insertado": "Inserido",
-	"agregada": "Adicionada",
-	"eliminado": "Removido",
-	"guardado": "Salvo",
-	"advertencia": "Aviso",
-	"confirmar_agregar": "Confirmar adição",
-	"confirmar_eliminar": "Confirmar exclusão",
-	"msg_exportar_aviso": "As seguintes SubPartes serão exportadas:\n{idx}\ndo pmdl: {base}",
-	"msg_subparte_exportada": "SubParte {idx} exportada",
-	"msg_subpartes_exportadas": "SubPartes\n{idx}\nexportadas",
-	"msg_subparte_importada": "SubParte importada",
-	"msg_subparte_insertada": "SubParte inserida a partir da posição {pos}\n{short}",
-	"msg_confirmar_agregar": "Você vai adicionar as seguintes SubPartes: {idx}\n\nDeseja continuar?",
-	"msg_subparte_agregada": "SubParte adicionada a partir da posição {pos}",
-	"msg_confirmar_eliminar": "Você vai remover as seguintes SubPartes: {idx}\n\nDeseja continuar?",
-	"msg_subpartes_eliminadas": "SubPartes {idx} removidas com sucesso",
-	"msg_solo_una_guardar": "Não é possível salvar se você tiver mais de uma SubParte selecionada",
-	"msg_guardado_memoria": "Alterações salvas na memória",
-	"msg_mover_una": "Você só pode mover uma SubParte por vez",
-	"msg_ids_reemplazadas": "As IDs foram substituídas na Parte: {pid}",
-	"msg_mas_de_una": "Você tem mais de uma SubParte selecionada"
+    "info": "Informação",
+    "exportado": "Exportado",
+    "importado": "Importado",
+    "insertado": "Inserido",
+    "agregada": "Adicionada",
+    "eliminado": "Removido",
+    "guardado": "Salvo",
+    "advertencia": "Aviso",
+    "confirmar_agregar": "Confirmar adição",
+    "confirmar_eliminar": "Confirmar exclusão",
+    "msg_exportar_aviso": "As seguintes SubPartes serão exportadas:\n{idx}\ndo pmdl: {base}",
+    "msg_subparte_exportada": "SubParte {idx} exportada",
+    "msg_subpartes_exportadas": "SubPartes\n{idx}\nexportadas",
+    "msg_subparte_importada": "SubParte importada",
+    "msg_subparte_insertada": "SubParte inserida a partir da posição {pos}\n{short}",
+    "msg_confirmar_agregar": "Você vai adicionar as seguintes SubPartes: {idx}\n\nDeseja continuar?",
+    "msg_subparte_agregada": "SubParte adicionada a partir da posição {pos}",
+    "msg_confirmar_eliminar": "Você vai remover as seguintes SubPartes: {idx}\n\nDeseja continuar?",
+    "msg_subpartes_eliminadas": "SubPartes {idx} removidas com sucesso",
+    "msg_solo_una_guardar": "Não é possível salvar se você tiver mais de uma SubParte selecionada",
+    "msg_guardado_memoria": "Alterações salvas na memória",
+    "msg_mover_una": "Você só pode mover uma SubParte por vez",
+    "msg_ids_reemplazadas": "As IDs foram substituídas na Parte: {pid}",
+    "msg_mas_de_una": "Você tem mais de uma SubParte selecionada",
+    "file_subpart": "Arquivos de Subpartes",
+    "subpart_vacia": "A subparte importada está vazia",
+    "insert_mas": "Não é possível inserir se houver mais de uma subparte selecionada.",
+    "archivo_vacio": "O arquivo \"{path_name}\" está vazio",
+    "agregar_subpart": "Não é possível adicionar se houver mais de uma subparte selecionada no pmdl 1."
   },
   "ui_remap_id": {
     "btn_1": "Buscar ID 1 e substituir por ID 2",
@@ -190,16 +190,38 @@
     "error_uv": "As UVs devem estar no intervalo de 0 a 255",
     "t_correcto": "Sucesso",
     "t_warning": "Aviso",
-	"col_id": "ID",
-	"col_x": "X",
-	"col_y": "Y",
-	"col_z": "Z",
-	"col_uv_x": "UV X",
-	"col_uv_y": "UV Y",
-	"col_peso_1": "Peso 1",
-	"col_peso_2": "Peso 2",
-	"col_peso_3": "Peso 3",
-	"col_peso_4": "Peso 4"
+    "col_id": "ID",
+    "col_x": "X",
+    "col_y": "Y",
+    "col_z": "Z",
+    "col_uv_x": "UV X",
+    "col_uv_y": "UV Y",
+    "col_peso_1": "Peso 1",
+    "col_peso_2": "Peso 2",
+    "col_peso_3": "Peso 3",
+    "col_peso_4": "Peso 4",
+    "error_na": "Existe uma linha com todos os pesos em N/A; pelo menos um peso deve ser diferente de N/A"
+  },
+  "port_ttt": {
+    "erro_part": "O arquivo {name} não é do tipo part ou não contém um modelo 3D",
+    "error_bones": "Não existem grupos de vértices no arquivo {name}",
+    "error_faces": "O arquivo {name} não contém faces",
+    "error_peso": "O peso {w} gerou o erro: {er}",
+    "error_uv": "A UV {uv} excede o intervalo permitido (0-255) ou (0-1): {er}",
+    "error_pos": "A posição {p} gerou o erro: {er}",
+    "titulo": "Conversor de Partes",
+    "btn_cancelar": "Cancelar",
+    "process": "Processando: {mesg}",
+    "port_part": "A parte foi portada",
+    "process_succ": "Processo concluído",
+    "statust_ok": "Arquivos JSON convertidos para o formato TTTPART com sucesso",
+    "proces_cancelado": "Processo cancelado",
+    "status_cancel": "O processo de JSON para TTTPART foi cancelado",
+    "error_process": "Erro durante o processo",
+    "status_error": "Erro durante o processo de JSON para TTTPART",
+    "titulo_choose": "Selecionar arquivos JSON CUSTOM",
+    "file_json": "Arquivos JSON",
+    "all_files": "Todos os arquivos"
   },
   "character_editor": {
     "titulo": "Editor de Personagens - DBZ TTT - by Los ijue30s",

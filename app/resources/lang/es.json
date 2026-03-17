@@ -158,7 +158,12 @@
 	"msg_guardado_memoria": "Cambios guardados en memoria",
 	"msg_mover_una": "Solo puedes mover una subpart a la vez",
 	"msg_ids_reemplazadas": "Las IDs fueron reemplazadas en la Parte: {pid}",
-	"msg_mas_de_una": "Tienes más de una subpart seleccionada"
+	"msg_mas_de_una": "Tienes más de una subpart seleccionada",
+    "file_subpart": "Archivos SubPart",
+    "subpart_vacia": "La subpart importada esta vacia",
+    "insert_mas": "No se puede insertar si tienes seleccionada mas de una subparte.",
+    "archivo_vacio": "El archivo \"{path_name}\" esta vacio",
+    "agregar_subpart": "No se puede agregar si tienes seleccionada mas de una subparte en pmdl 1."
   },
   "ui_remap_id": {
     "btn_1": "Buscar ID 1 y remplazar por ID 2",
@@ -169,7 +174,7 @@
     "error_id2": "ID2 no esta entre 1 y 4"
   },
   "ui_edit_vert": {
-    "titulo": "Pmdl Editor- Subpart N°:",
+    "titulo": "Pmdl Editor- Subparte N°:",
     "influencia": "Peso",
     "btn_exportar": "Exportar datos",
     "btn_importar": "Importar datos",
@@ -194,7 +199,29 @@
 	"col_peso_1": "Peso 1",
 	"col_peso_2": "Peso 2",
 	"col_peso_3": "Peso 3",
-	"col_peso_4": "Peso 4"
+	"col_peso_4": "Peso 4",
+    "error_na": "Existe una fila con todos los pesos en N/A, al menos un peso debe ser diferente de N/A"
+  },
+  "port_ttt": {
+    "erro_part": "El archivo {name} no es tipo part o no contiene un modelo 3D",
+    "error_bones": "No existen grupos de vertices en el archivo {name}",
+    "error_faces": "El archivo {name} no contiene caras",
+    "error_peso": "El peso {w} genero el error: {er}",
+    "error_uv": "La UV {uv} supera el rango permitido (0-255) o (0-1): {er}",
+    "error_pos": "La posicion {p} genero el error: {er}",
+    "titulo": "Conversor de Partes",
+    "btn_cancelar": "Cancelar",
+    "process": "Procesando: {mesg}",
+    "port_part": "Se porteo la parte",
+    "process_succ": "Proceso terminado",
+    "statust_ok": "Archivos JSON convertidos al formato TTTPART correctamente",
+    "proces_cancelado": "Proceso cancelado",
+    "status_cancel": "Se cancelo el proceso de JSON a TTTPART",
+    "error_process": "Error durante el proceso",
+    "status_error": "Error durante el proceso de JSON a TTTPART",
+    "titulo_choose": "Seleccionar archivos JSON CUSTOM",
+    "file_json": "Archivos de json",
+    "all_files": "Todos los archivos"
   },
   "character_editor": {
     "titulo": "Editor de Personajes - DBZ TTT - by Los ijue30s",

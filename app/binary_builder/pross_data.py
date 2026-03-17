@@ -9,6 +9,7 @@ from queue import Queue
 from app.binary_builder.mesh_binary_builder import MeshBinaryBuilder
 from app.utils.ui_error_window import error_window_ui
 from app.utils.window import center_to_window
+from app.utils.lang import t
 
 
 # ===============================
@@ -52,13 +53,14 @@ class ProcesadorPartes:
 # ===============================
 class AppPortador:
 
+    @error_window_ui
     def __init__(self, parent):
         self.parent = parent
 
         rutas = filedialog.askopenfilenames(
             parent=self.parent,
-            title="Seleccionar archivos JSON CUSTOM",
-            filetypes=[("Archivos de json", "*.json"), ("Todos", "*.*")]
+            title=t("port_ttt.titulo_choose"),
+            filetypes=[(t("port_ttt.file_json"), "*.json"), (t("port_ttt.all_files"), "*.*")]
         )
 
         if not rutas:
@@ -71,8 +73,8 @@ class AppPortador:
         # ctk.set_default_color_theme("blue")
 
         self.root = ctk.CTkToplevel(self.parent)
-        self.root.geometry("450x180")
-        self.root.title("Portador de Partes")
+        self.root.geometry("552x205")
+        self.root.title(t("port_ttt.titulo"))
 
         self.root.transient(self.parent)  # encima de la principal
         self.root.grab_set()  # modal (bloquea la principal)
@@ -92,7 +94,7 @@ class AppPortador:
 
         self.btn_cancelar = ctk.CTkButton(
             self.root,
-            text="Cancelar",
+            text=t("port_ttt.btn_cancelar"),
             command=self.cancelar_proceso,
             fg_color="#8B0000",
             hover_color="#550000"
@@ -131,39 +133,39 @@ class AppPortador:
 
                 if tipo == "PROCESANDO":
                     self.label_archivo.configure(
-                        text=f"Procesando: {mensaje}"
+                        text=t("port_ttt.process", mesg=mensaje)
                     )
                     self.label_estado.configure(text="")
 
                 elif tipo == "FINALIZADO":
                     self.label_estado.configure(
-                        text="Se porteo la parte"
+                        text=t("port_ttt.port_part")
                     )
 
                 elif tipo == "DONE":
                     self.label_archivo.configure(
-                        text="Proceso terminado"
+                        text=t("port_ttt.process_succ")
                     )
                     self.label_estado.configure(text="")
                     self.btn_cancelar.configure(state="disabled")
                     winsound.MessageBeep(-1)
-                    self.parent.status_var.set("Archivos JSON convertidos al formato TTTPART correctamente")
+                    self.parent.status_var.set(t("port_ttt.statust_ok"))
                     self.root.destroy()
                     return
 
                 elif tipo == "CANCELADO":
                     self.label_archivo.configure(
-                        text="Proceso cancelado"
+                        text=t("port_ttt.proces_cancelado")
                     )
                     self.label_estado.configure(text="")
-                    self.parent.status_var.set("Se cancelo el proceso de JSON a TTTPART")
+                    self.parent.status_var.set(t("port_ttt.status_cancel"))
                     self.root.destroy()
                     return
 
                 elif tipo == "ERROR":
                     ultimo = mensaje.strip().splitlines()[-1]
                     self.label_archivo.configure(
-                        text="Error durante el proceso"
+                        text=t("port_ttt.error_process")
                     )
                     self.label_estado.configure(
                         text=f"{ultimo}"
@@ -171,7 +173,7 @@ class AppPortador:
                     print(mensaje)
                     self.btn_cancelar.configure(state="disabled")
                     winsound.MessageBeep(-1)
-                    self.parent.status_var.set("Error durante el proceso de JSON a TTTPART")
+                    self.parent.status_var.set(t("port_ttt.status_error"))
                     return
 
 

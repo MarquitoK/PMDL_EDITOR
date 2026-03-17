@@ -5,9 +5,10 @@ from collections import defaultdict, deque
 from pathlib import Path
 from app.binary_builder.triangle_strip import find_strip
 from app.logic_sub_parts_pmdl.operations import align_16, replace_id_ff
-from app.logic_sub_parts_pmdl.quant16_converter import game16_to_float, float_to_game16, procesar_pesos, \
-    procesar_vertices, ESCALA
+from app.logic_sub_parts_pmdl.quant16_converter import procesar_pesos, \
+    procesar_vertices, ESCALA, UNK_VALUES
 from app.utils.part_header import exportar_parte_con_encabezado
+from app.utils.lang import t
 
 DEBUG=False
 
@@ -26,7 +27,11 @@ class MeshBinaryBuilder:
         with open(input_path, "r", encoding="utf-8") as f:
             data = json.load(f)
             if not data.get("type", "").strip().lower() == "part":
-                raise ValueError(f"El archivo {self.path.name} no es tipo part o no contiene un modelo 3D")
+                raise ValueError(t("port_ttt.erro_part", name=self.path.name))
+            elif not data.get("id_bones"):
+                raise ValueError(t("port_ttt.error_bones", name=self.path.name))
+            elif not data.get("faces"):
+                raise ValueError(t("port_ttt.error_faces", name=self.path.name))
 
         vertices = data["vertices"]
         faces = data["faces"]
@@ -194,7 +199,7 @@ class MeshBinaryBuilder:
                 "type": "subpart",
                 "grosor": [512.0, 512.0, 512.0],
                 "id_bones": copy.deepcopy(subpart["id_bones"]),
-                "unk": 302007041
+                "unk": UNK_VALUES[len(subpart["id_bones"])-1]
             }
 
             # ordena los vertices
@@ -242,21 +247,21 @@ class MeshBinaryBuilder:
                     try:
                         out += struct.pack(">H", w)
                     except Exception as e:
-                        raise ValueError(f"El peso {w} genero el error: {e}")
+                        raise ValueError(t("port_ttt.error_peso", w=w, er=e))
 
                 # ---- uv (<B)
                 for uv in v["uv"]:
                     try:
                         out += struct.pack("<B", uv)
                     except Exception as e:
-                        raise ValueError(f"La UV {uv} supera el rango permitido (0-255) o (0-1): {e}")
+                        raise ValueError(t("port_ttt.error_uv", uv=uv, er=e))
 
                 # ---- pos (<h)
                 for p in v["pos"]:
                     try:
                         out += struct.pack("<h", p)
                     except Exception as e:
-                        ValueError(f"La posicion {p} genero el error: {e}")
+                        ValueError(t("port_ttt.error_pos", p=p, er=e))
 
 
         data_part += bytearray(44)

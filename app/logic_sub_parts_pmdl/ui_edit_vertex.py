@@ -103,7 +103,7 @@ class VertexEditor(ctk.CTkToplevel):
             "ID",
             "X", "Y", "Z",
             "UV X", "UV Y",
-            "Peso 1", "Peso 2", "Peso 3", "Peso 4"
+            f"{t('ui_edit_vert.col_peso_1')}", f"{t('ui_edit_vert.col_peso_2')}", f"{t('ui_edit_vert.col_peso_3')}", f"{t('ui_edit_vert.col_peso_4')}"
         ]
 
         for col, text in enumerate(headers):
@@ -272,13 +272,16 @@ class VertexEditor(ctk.CTkToplevel):
                         else:
                             weights.append(0)
 
+                if all(x == "N/A" for x in weights):
+                    raise ValueError(t("ui_edit_vert.error_na"))
+
                 result.append({
                     "pos": [x, y, z],
                     "uv": [u, v],
                     "weights": copy.deepcopy(weights)
                 })
 
-            except ValueError:
+            except Exception:
                 raise ValueError(t("ui_edit_vert.error_fila"))
 
         # print("Vertices editados:")
@@ -397,7 +400,7 @@ class VertexEditor(ctk.CTkToplevel):
             parent=self,
             title=t("ui_edit_vert.dlg_export"),
             defaultextension=".json",
-            filetypes=[("Archivos de json", "*.json"), ("Todos", "*.*")]
+            filetypes=[(t("port_ttt.file_json"), "*.json"), (t("port_ttt.all_files"), "*.*")]
         )
         if not ruta:
             return
@@ -424,7 +427,7 @@ class VertexEditor(ctk.CTkToplevel):
         ruta = filedialog.askopenfilename(
             parent=self,
             title=t("ui_edit_vert.dlg_json"),
-            filetypes=[("JSON", "*.json"), ("Todos", "*.*")]
+            filetypes=[(t("port_ttt.file_json"), "*.json"), (t("port_ttt.all_files"), "*.*")]
         )
 
         if not ruta:
