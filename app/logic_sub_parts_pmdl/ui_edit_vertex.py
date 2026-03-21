@@ -2,7 +2,7 @@ import copy
 import json
 import struct
 import customtkinter as ctk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, Toplevel
 from app.logic_sub_parts_pmdl.header_subpart import SpartHeader
 from app.logic_sub_parts_pmdl.operations import calc_subpart_size
 from app.logic_sub_parts_pmdl.quant16_converter import game16_to_float, float_to_game16, procesar_vertices, \
@@ -10,12 +10,63 @@ from app.logic_sub_parts_pmdl.quant16_converter import game16_to_float, float_to
 from app.utils.icon import set_app_icon
 from app.utils.lang import t
 from app.utils.ui_error_window import error_window_ui
+from app.utils.window import center_to_window
 
+
+def weight_color(value):
+    if value == "N/A":
+        return "#1f1f1f"
+
+    v = float(value)
+
+    if v <= 0.25:  # azul → cian
+        t = v / 0.25
+        r = 0
+        g = int(255 * t)
+        b = 255
+
+    elif v <= 0.5:  # cian → verde
+        t = (v - 0.25) / 0.25
+        r = 0
+        g = 255
+        b = int(255 * (1 - t))
+
+    elif v <= 0.75:  # verde → amarillo
+        t = (v - 0.5) / 0.25
+        r = int(255 * t)
+        g = 255
+        b = 0
+
+    else:  # amarillo → rojo
+        t = (v - 0.75) / 0.25
+        r = 255
+        g = int(255 * (1 - t))
+        b = 0
+
+    # 🔧 reducir brillo (tipo Blender UI)
+    factor = 0.35
+    r = int(r * factor)
+    g = int(g * factor)
+    b = int(b * factor)
+
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+WEIGHT_VALUES = ["N/A"] + [f"{i / 10:.1f}" for i in range(11)]
+WEIGHT_TEXT = [
+    t('ui_edit_vert.col_peso_1'),
+    t('ui_edit_vert.col_peso_2'),
+    t('ui_edit_vert.col_peso_3'),
+    t('ui_edit_vert.col_peso_4')
+]
 
 class VertexEditor(ctk.CTkToplevel):
     def __init__(self, parent, data_subpart:dict, idsubpart:str, namepmdl:str, path:str, **kwargs):
         super().__init__(parent)
         self.escala = ESCALA
+        self.duplicate_map = {}
+        self.rows_vertex = []
+        #almacena valor del peso en ui normalizador
+        self.val_pes = None
 
         self.title(f"{t('ui_edit_vert.titulo')} ** {idsubpart} ** - {namepmdl}")
         self.geometry("920x520")
@@ -35,9 +86,20 @@ class VertexEditor(ctk.CTkToplevel):
         self.vertices = None
         self.entries = []
 
+        # ----- BOTÓN SUPERIOR (antes del header) -----
+        self.top_frame = ctk.CTkFrame(self)
+        self.top_frame.pack(fill="x", padx=10, pady=(10, 5))
+
+        ctk.CTkButton(
+            self.top_frame,
+            text=t("ui_edit_vert.btn_edit_pesos"),
+            width=190,
+            command=self.open_dual_panel_window
+        ).pack(side="left", pady=10)
+
         # ----- HEADER FUERA DEL SCROLL -----
         self.header = ctk.CTkFrame(self)
-        self.header.pack(fill="x", padx=10, pady=(10,0))
+        self.header.pack(fill="x", padx=10, pady=(0, 0))
 
         self.create_header(self.header)
 
@@ -103,7 +165,7 @@ class VertexEditor(ctk.CTkToplevel):
             "ID",
             "X", "Y", "Z",
             "UV X", "UV Y",
-            f"{t('ui_edit_vert.col_peso_1')}", f"{t('ui_edit_vert.col_peso_2')}", f"{t('ui_edit_vert.col_peso_3')}", f"{t('ui_edit_vert.col_peso_4')}"
+            t('ui_edit_vert.col_peso_1'), t('ui_edit_vert.col_peso_2'), t('ui_edit_vert.col_peso_3'), t('ui_edit_vert.col_peso_4')
         ]
 
         for col, text in enumerate(headers):
@@ -118,45 +180,7 @@ class VertexEditor(ctk.CTkToplevel):
 
     # ----------------------------
     def load_vertices(self, vertices: list):
-        def weight_color(value):
-            if value == "N/A":
-                return "#1f1f1f"
-
-            v = float(value)
-
-            if v <= 0.25:  # azul → cian
-                t = v / 0.25
-                r = 0
-                g = int(255 * t)
-                b = 255
-
-            elif v <= 0.5:  # cian → verde
-                t = (v - 0.25) / 0.25
-                r = 0
-                g = 255
-                b = int(255 * (1 - t))
-
-            elif v <= 0.75:  # verde → amarillo
-                t = (v - 0.5) / 0.25
-                r = int(255 * t)
-                g = 255
-                b = 0
-
-            else:  # amarillo → rojo
-                t = (v - 0.75) / 0.25
-                r = 255
-                g = int(255 * (1 - t))
-                b = 0
-
-            # 🔧 reducir brillo (tipo Blender UI)
-            factor = 0.35
-            r = int(r * factor)
-            g = int(g * factor)
-            b = int(b * factor)
-
-            return f"#{r:02x}{g:02x}{b:02x}"
-
-        def update_weight_color(widget, value):
+        def update_weight_color(widget, value, row_idx=None, weight_idx=None):
             color = weight_color(value)
 
             widget.configure(
@@ -165,7 +189,24 @@ class VertexEditor(ctk.CTkToplevel):
                 button_hover_color=color
             )
 
-        WEIGHT_VALUES = ["N/A"] + [f"{i / 10:.1f}" for i in range(11)]
+            # sincronizar duplicados
+            if row_idx is not None and weight_idx is not None:
+                for idx in self.duplicate_map.get(row_idx, []):
+                    if idx == row_idx:
+                        continue
+
+                    target_widget = self.entries[idx][6 + weight_idx]
+
+                    if target_widget.cget("state") == "normal":
+                        target_widget.set(value)
+
+                        # aplicar color también
+                        c = weight_color(value)
+                        target_widget.configure(
+                            fg_color=c,
+                            button_color=c,
+                            button_hover_color=c
+                        )
 
         # ---- LIMPIAR TABLA ----
         for widget in self.table.winfo_children():
@@ -174,6 +215,28 @@ class VertexEditor(ctk.CTkToplevel):
         # ---- LIMPIAR LISTAS ----
         self.entries.clear()
         self.vertices = vertices
+        self.rows_vertex = []
+
+        # Mapa: fila -> [filas duplicadas]
+        self.duplicate_map = {}
+
+        key_map = {}
+
+        for idx, v in enumerate(vertices):
+            key = (
+                v["pos"][0],
+                v["pos"][1],
+                v["pos"][2],
+                v["uv"][0],
+                v["uv"][1]
+            )
+
+            key_map.setdefault(key, []).append(idx)
+
+        # construir acceso directo
+        for indices in key_map.values():
+            for idx in indices:
+                self.duplicate_map[idx] = indices
 
         # ---- CREAR FILAS NUEVAS ----
         for r, v in enumerate(self.vertices):
@@ -225,7 +288,10 @@ class VertexEditor(ctk.CTkToplevel):
                 )
 
                 # fix lambda referencia
-                w.configure(command=lambda v, widget=w: update_weight_color(widget, v))
+                def make_callback(row_idx, weight_idx, widget):
+                    return lambda value: update_weight_color(widget, value, row_idx, weight_idx)
+
+                w.configure(command=make_callback(r, i, w))
 
                 if i < weight_count:
                     value = weights[i]
@@ -245,6 +311,7 @@ class VertexEditor(ctk.CTkToplevel):
                 row_entries.append(w)
 
             self.entries.append(row_entries)
+            self.rows_vertex.append(row_entries)
 
     # ----------------------------
     @error_window_ui
@@ -439,6 +506,10 @@ class VertexEditor(ctk.CTkToplevel):
         if data["type"].strip().lower() != "subpart":
             raise ValueError(t("ui_edit_vert.error_json"))
 
+        if tuple(data["grosor"]) != (512.0, 512.0, 512.0):
+            messagebox.showinfo(t("ui_edit_vert.t_warning"), t("ui_edit_vert.erro_subpart_normalizada"), parent=self)
+            return
+
         # asegurar usar un decimal
         for v in data["vertices"]:
             v["weights"] = [
@@ -448,8 +519,162 @@ class VertexEditor(ctk.CTkToplevel):
 
         self.load_vertices(data["vertices"])
 
-        self.grosor = data["grosor"]
+        self.grosor = tuple(data["grosor"])
         self.id_bones = [int(x, 16) for x in data["id_bones"]]
         self.unk = data["unk"]
 
         messagebox.showinfo(t("ui_edit_vert.t_correcto"), t("ui_edit_vert.msg_dt_load"), parent=self)
+
+    def open_dual_panel_window(self):
+
+        win = ctk.CTkToplevel(self)
+        win.title(t("ui_edit_vert.btn_edit_pesos"))
+        win.geometry("350x150")
+        win.resizable(False, False)
+
+        # opcional: comportamiento modal
+        win.transient(self)
+        win.grab_set()
+        win.focus()
+
+        # ----- FRAME PRINCIPAL -----
+        main_frame = ctk.CTkFrame(win)
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # =========================
+        # 🔹 IZQUIERDA
+        # =========================
+        left_frame = ctk.CTkFrame(main_frame)
+        left_frame.pack(side="left", anchor="w")
+
+        opt_left = ctk.CTkOptionMenu(
+            left_frame,
+            values=WEIGHT_VALUES,
+            width=70
+        )
+        opt_left.pack(anchor="center", pady=5)
+
+        def apply_color(value):
+            c = weight_color(value)
+            opt_left.configure(
+                fg_color=c,
+                button_color=c,
+                button_hover_color=c
+            )
+
+        apply_color(opt_left.get())
+        opt_left.configure(command=apply_color)
+
+
+        btn_left = ctk.CTkButton(
+            left_frame,
+            text=t("ui_edit_vert.btn_apli_pesos"),
+            width=100,
+            command=lambda: self.asignar_pesos(opt_left.get())
+        )
+        btn_left.pack(anchor="center", pady=5)
+
+
+        btn_left_1 = ctk.CTkButton(
+            left_frame,
+            text=t("ui_edit_vert.btn_apli_pesos_col"),
+            width=100,
+            command=lambda: self.asignar_pesos(opt_left.get(), 4 - WEIGHT_TEXT.index(self.val_pes))
+        )
+        btn_left_1.pack(anchor="center", pady=5, padx=5)
+
+        # =========================
+        # 🔹 DERECHA
+        # =========================
+        right_frame = ctk.CTkFrame(main_frame)
+        right_frame.pack(side="right", anchor="e")
+
+        # contenedor para centrar
+        center_container = ctk.CTkFrame(right_frame, fg_color="transparent")
+        center_container.pack(expand=True)
+
+        opt_right = ctk.CTkOptionMenu(
+            center_container,
+            values=WEIGHT_TEXT,
+            width=100,
+            command=self.set_val_pes
+        )
+        opt_right.pack(pady=10)
+        opt_right._command(WEIGHT_TEXT[0])
+
+        # botones inferiores juntos
+        btns_frame = ctk.CTkFrame(center_container, fg_color="transparent")
+        btns_frame.pack()
+
+        btn_ok = ctk.CTkButton(
+            btns_frame,
+            text=t("ui_edit_vert.btn_left"),
+            width=80,
+            command=lambda: self.mover_pesos(4 - WEIGHT_TEXT.index(self.val_pes), 1, opt_right)
+        )
+        btn_ok.pack(side="left", padx=5, pady=5)
+
+        btn_cancel = ctk.CTkButton(
+            btns_frame,
+            text=t("ui_edit_vert.btn_rigth"),
+            width=80,
+            command=lambda: self.mover_pesos(4 - WEIGHT_TEXT.index(self.val_pes), -1, opt_right)
+        )
+        btn_cancel.pack(side="left", padx=5, pady=5)
+
+        # opcional: centrar respecto al parent
+        center_to_window(win, self)
+
+        return win
+
+    def set_val_pes(self, value):
+        self.val_pes = value
+
+    def asignar_pesos(self, value, colw=None):
+        for row in self.rows_vertex:
+            for col in range(1, 5):
+
+                # aplicar a una sola columna si colw no es None
+                if colw is not None and col != colw:
+                    continue
+
+                widget = row[-col]
+
+                if widget.cget("state") == "normal":
+                    widget.set(value)
+                    widget._command(value)
+
+    def mover_pesos(self, colw:int, direc:int, option):
+        res = colw+direc
+        print(res)
+        if res > 4 or res < 1:
+            return
+
+        for row in self.rows_vertex:
+            widget = row[-colw]
+
+            if widget.cget("state") == "disabled":
+                return
+
+            widget_2 = row[-(res)]
+            if widget_2.cget("state") == "disabled":
+                return
+
+            value = widget.get()
+            if value == "N/A":
+                continue
+            # widget._command("N/A")
+
+            widget_2.set(value)
+            widget_2._command(value)
+            # widget.set("N/A")
+
+        # cambiar color en columna anterior
+        for row in self.rows_vertex:
+            widget = row[-colw]
+            widget.set("N/A")
+            widget._command("N/A")
+
+        # cambiar option weight
+        option.set(WEIGHT_TEXT[-(res)])
+        option._command(WEIGHT_TEXT[-(res)])

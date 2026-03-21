@@ -200,7 +200,13 @@
     "col_peso_2": "Peso 2",
     "col_peso_3": "Peso 3",
     "col_peso_4": "Peso 4",
-    "error_na": "Existe uma linha com todos os pesos em N/A; pelo menos um peso deve ser diferente de N/A"
+    "error_na": "Existe uma linha com todos os pesos em N/A; pelo menos um peso deve ser diferente de N/A",
+    "erro_subpart_normalizada": "O arquivo não contém uma subparte normalizada",
+    "btn_edit_pesos": "Normalizar / Propagar Pesos",
+    "btn_apli_pesos": "Aplicar a todos",
+    "btn_apli_pesos_col": "Aplicar à coluna",
+    "btn_left": "<-- Esquerda",
+    "btn_rigth": "Direita -->"
   },
   "port_ttt": {
     "erro_part": "O arquivo {name} não é do tipo part ou não contém um modelo 3D",

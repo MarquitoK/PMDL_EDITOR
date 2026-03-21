@@ -200,7 +200,13 @@
     "col_peso_2": "Weight 2",
     "col_peso_3": "Weight 3",
     "col_peso_4": "Weight 4",
-    "error_na": "There is a row with all weights as N/A; at least one weight must be different from N/A"
+    "error_na": "There is a row with all weights as N/A; at least one weight must be different from N/A",
+    "erro_subpart_normalizada": "The file does not contain a normalized sub-part",
+    "btn_edit_pesos": "Normalize / Propagate Weights",
+    "btn_apli_pesos": "Apply to all",
+    "btn_apli_pesos_col": "Apply to column",
+    "btn_left": "<-- Left",
+    "btn_rigth": "Right -->"
   },
   "port_ttt": {
     "erro_part": "The file {name} is not a part type or does not contain a 3D model",
