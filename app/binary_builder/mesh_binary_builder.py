@@ -10,7 +10,7 @@ from app.logic_sub_parts_pmdl.quant16_converter import procesar_pesos, \
 from app.utils.part_header import exportar_parte_con_encabezado
 from app.utils.lang import t
 
-DEBUG=False
+DEBUG=True
 
 
 class MeshBinaryBuilder:
@@ -180,16 +180,58 @@ class MeshBinaryBuilder:
             print("Parte dividida.")
 
     def build_subpartes(self, file_path: Path | str, max_tris: int):
+        def normalize_weights(data_v, max_weights=4):
+            counts = [0] * max_weights
+
+            # guardar tamaño original
+            original_sizes = []
+
+            for row in data_v:
+                w = row.get("weights", [])
+                original_sizes.append(len(w))
+                row["weights"] = (w + ["N/A"] * max_weights)[:max_weights]
+
+            # contar
+            for row in data_v:
+                for i, val in enumerate(row["weights"]):
+                    if val != "N/A":
+                        counts[i] += 1
+
+            # procesar duplicados
+            for row in data_v:
+                w = row["weights"]
+
+                seen = {}
+                for i, val in enumerate(w):
+                    if val == "N/A":
+                        continue
+                    seen.setdefault(val, []).append(i)
+
+                for val, indices in seen.items():
+                    if len(indices) > 1:
+                        best_idx = min(indices, key=lambda idx: counts[idx])
+
+                        for idx in indices:
+                            if idx != best_idx:
+                                w[idx] = "N/A"
+                                counts[idx] -= 1
+
+            # restaurar tamaño original
+            for row, size in zip(data_v, original_sizes):
+                row["weights"] = row["weights"][:size]
+
+            return data_v
+
         self.separar_modelo_json(
             input_path=file_path,
             max_tris=max_tris  # afecta la cantidad de subpartes
         )
 
         self.subpartes_v_ordenado = []
-        if DEBUG: print("buscando strip")
         # self.strips_dict = self.calcular_strips_paralelo()
 
         for i, subpart in enumerate(self.subparts_dict):
+            if DEBUG: print(f"buscando strip de subparte: {i + 1}")
             strip = find_strip(subpart["faces"])
             # strip = self.strips_dict[i]
 
@@ -206,6 +248,7 @@ class MeshBinaryBuilder:
             for st in strip:
                 pos_vertex.append(copy.deepcopy(subpart["vertices"][st]))
 
+            pos_vertex = normalize_weights(pos_vertex)
             data["vertices"] = pos_vertex
             procesar_vertices(self.grosor, self.escala, data["vertices"], False)
             procesar_pesos(data["vertices"], False)

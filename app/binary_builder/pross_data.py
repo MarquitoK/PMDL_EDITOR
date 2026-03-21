@@ -36,7 +36,7 @@ class ProcesadorPartes:
             try:
                 time.sleep(1)
                 mesh = MeshBinaryBuilder()
-                mesh.make_part(ruta, 23)
+                mesh.make_part(ruta, 80)
 
                 self.queue.put(("FINALIZADO", nombre))
 
