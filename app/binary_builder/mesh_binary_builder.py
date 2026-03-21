@@ -10,7 +10,7 @@ from app.logic_sub_parts_pmdl.quant16_converter import procesar_pesos, \
 from app.utils.part_header import exportar_parte_con_encabezado
 from app.utils.lang import t
 
-DEBUG=True
+DEBUG=False
 
 
 class MeshBinaryBuilder:
@@ -326,8 +326,7 @@ class MeshBinaryBuilder:
         with open(self.path.with_suffix(".tttpart"), "wb") as f:
             # guardar con id ff y header con grosor max
             replace_id_ff(part=parte_ttt, reemp=False)
-            part_header = exportar_parte_con_encabezado(parte_ttt, self.grosor[0], self.grosor[1], self.grosor[2], 1,  65535, 0)
+            part_header = exportar_parte_con_encabezado(parte_ttt, self.grosor[0], self.grosor[1], self.grosor[2], 1,  0xFF, 0)
             f.write(part_header)
             if DEBUG:
                 print(f"parte ttt generada: {self.path.name}")
-
