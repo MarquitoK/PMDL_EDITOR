@@ -7,6 +7,7 @@ from tkinter import filedialog
 from threading import Thread, Event
 from queue import Queue
 from app.binary_builder.mesh_binary_builder import MeshBinaryBuilder
+from app.utils.icon import set_app_icon
 from app.utils.ui_error_window import error_window_ui
 from app.utils.window import center_to_window
 from app.utils.lang import t
@@ -79,6 +80,7 @@ class AppPortador:
         self.root.transient(self.parent)  # encima de la principal
         self.root.grab_set()  # modal (bloquea la principal)
         center_to_window(self.root, self.parent)
+        set_app_icon(self.root)
 
         self.label_archivo = ctk.CTkLabel(
             self.root,
