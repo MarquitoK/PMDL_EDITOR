@@ -20,7 +20,6 @@
     "abrir_parche_sec": "Open Secondary Patch",
     "visualizar": "Visualize"
   },
-
   "layout": {
     "ruta_pmdl": "Path .pMdl",
     "ruta_pmdl_tooltip": "Path to the loaded .pMdl file",
@@ -30,7 +29,6 @@
     "normalizar_tooltip": "On: Adjusts the scale of the main model and imported parts so the thickness of the parts stays consistent. (Recommended)\n\nOff: Parts imported from other models may end up with unexpected size or thickness, making them look flat or overly stretched. (Use only if you know what you're doing)",
     "status_default": "Created by Los ijue30s"
   },
-
   "tables": {
     "col_capa": "Layer",
     "col_nombre": "Name",
@@ -50,7 +48,6 @@
     "confirm_cerrar_sec_titulo": "Close Secondary pMdl ",
     "confirm_cerrar_sec_msg": "Are you sure you want to close the secondary pMdl?"
   },
-
   "status": {
     "default": "Created by Los ijue30s",
     "archivo_cargado": "File uploaded: {name}",
@@ -72,7 +69,6 @@
     "parte_opacidad": "Parte {index}: Opacity = {val}%",
     "parte_funcion": "Parte {index}: Function = '{label}' (0x{val})"
   },
-
   "dialogs": {
     "info": "Info",
     "error": "Error",
@@ -106,7 +102,6 @@
     "error_cargar_parche_sec": "Failed to load the secondary patch",
     "error_actualizar_pmdl": "Failed to update the pMdl in the patch"
   },
-
   "lang_window": {
     "titulo": "Select Language",
     "descripcion": "Choose the application language:",
@@ -163,7 +158,12 @@
     "msg_guardado_memoria": "Changes saved in memory",
     "msg_mover_una": "You can only move one subpart at a time",
     "msg_ids_reemplazadas": "IDs were replaced in Part: {pid}",
-    "msg_mas_de_una": "You have more than one subpart selected"
+    "msg_mas_de_una": "You have more than one subpart selected",
+    "file_subpart": "SubPart Files",
+    "subpart_vacia": "The imported sub-part is empty",
+    "insert_mas": "Cannot insert if more than one sub-part is selected.",
+    "archivo_vacio": "The file \"{path_name}\" is empty",
+    "agregar_subpart": "Cannot add if more than one sub-part is selected in pmdl 1."
   },
   "ui_remap_id": {
     "btn_1": "Search ID 1 and replace with ID 2",
@@ -199,7 +199,35 @@
     "col_peso_1": "Weight 1",
     "col_peso_2": "Weight 2",
     "col_peso_3": "Weight 3",
-    "col_peso_4": "Weight 4"
+    "col_peso_4": "Weight 4",
+    "error_na": "There is a row with all weights as N/A; at least one weight must be different from N/A",
+    "erro_subpart_normalizada": "The file does not contain a normalized sub-part",
+    "btn_edit_pesos": "Normalize / Propagate Weights",
+    "btn_apli_pesos": "Apply to all",
+    "btn_apli_pesos_col": "Apply to column",
+    "btn_left": "<-- Left",
+    "btn_rigth": "Right -->"
+  },
+  "port_ttt": {
+    "erro_part": "The file {name} is not a part type or does not contain a 3D model",
+    "error_bones": "No vertex groups found in file {name}",
+    "error_faces": "The file {name} does not contain faces",
+    "error_peso": "Weight {w} generated an error: {er}",
+    "error_uv": "UV {uv} exceeds the allowed range (0-255) or (0-1): {er}",
+    "error_pos": "Position {p} generated an error: {er}",
+    "titulo": "Part Converter",
+    "btn_cancelar": "Cancel",
+    "process": "Processing: {mesg}",
+    "port_part": "Part ported successfully",
+    "process_succ": "Process finished",
+    "statust_ok": "JSON files converted to TTTPART format successfully",
+    "proces_cancelado": "Process canceled",
+    "status_cancel": "JSON to TTTPART process was canceled",
+    "error_process": "Error during process",
+    "status_error": "Error during JSON to TTTPART conversion",
+    "titulo_choose": "Select CUSTOM JSON files",
+    "file_json": "JSON files",
+    "all_files": "All files"
   },
   "character_editor": {
     "titulo": "DBZ TTT Character Editor",
