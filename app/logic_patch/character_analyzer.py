@@ -295,8 +295,9 @@ class CharacterAnalyzer:
 
             else:
                 from app.utils.atex_reader import png_to_atex
+                from app.utils.text_colors import reducir_paleta_de_colores
                 original_header = bytes(self.file_data[old_start:old_start + 0x80])
-                new_texture_data = png_to_atex(input_path, original_header)
+                new_texture_data = png_to_atex(reducir_paleta_de_colores(input_path, 128), original_header)
 
                 new_size = len(new_texture_data)
                 if new_size != old_size:
