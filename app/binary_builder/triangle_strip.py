@@ -38,165 +38,86 @@
 """
 
 
+from collections import defaultdict
+
+def build_edge_map(triangles):
+    edge_map = defaultdict(list)
+
+    for i, (a, b, c) in enumerate(triangles):
+        edges = [
+            tuple(sorted((a, b))),
+            tuple(sorted((b, c))),
+            tuple(sorted((c, a)))
+        ]
+        for e in edges:
+            edge_map[e].append(i)
+
+    return edge_map
+
+
 def find_strip(triangles):
-    """ Finds a triangle strip representation for a given set of triangle
-        faces.
+    triangles = [tuple(t) for t in triangles]
+    edge_map = build_edge_map(triangles)
 
-    Args:
-        triangles (list of triangles): A list of triangles. A triangle is
-            represented by a list or tuple of 3 elements. The order of those
-            elements does not matter. The elements should be comparable and
-            should be able to be an element of a set.
+    used = [False] * len(triangles)
+    result = []
 
-    Returns:
-        List of elements: A list consisting of the triangle elements that form
-        a triangle strip covering all triangles at least once.
-    """
+    for start_idx in range(len(triangles)):
+        if used[start_idx]:
+            continue
 
-    def find_strip_internal(current_strip, used_triangles, max_triangle_usage):
+        tri = triangles[start_idx]
 
-        # check if we covered all triangles by now
-        unused_triangles_existing = False
-        for i in range(len(triangles)):
-            if used_triangles[i] == 0:
-                unused_triangles_existing = True
+        # iniciar strip
+        strip = [tri[0], tri[1], tri[2]]
+        used[start_idx] = True
+
+        flip = False  # controla winding
+
+        while True:
+            if flip:
+                edge = (strip[-1], strip[-2])
+            else:
+                edge = (strip[-2], strip[-1])
+
+            edge_key = tuple(sorted(edge))
+            candidates = edge_map[edge_key]
+
+            found = False
+
+            for idx in candidates:
+                if used[idx]:
+                    continue
+
+                t = triangles[idx]
+                s = set(t)
+
+                if not s.issuperset(edge):
+                    continue
+
+                new_v = next(iter(s - set(edge)))
+
+                # validar que realmente forma triángulo
+                a, b = edge
+                if len({a, b, new_v}) < 3:
+                    continue  # degenerate real, evitar
+
+                strip.append(new_v)
+                used[idx] = True
+                flip = not flip
+                found = True
                 break
 
-        # if we covered all triangles, we found a solution and return it
-        if not unused_triangles_existing:
-            return current_strip
+            if not found:
+                break
 
-        if len(current_strip) == 0:
-            # initial state, iterate over all triangles and use each one as
-            # the starting point for the recursive algorithm.
-            for i, triangle in enumerate(triangles):
-                # mark the triangle as used triangle (used once)
-                used_triangles[i] = 1
-
-                # Each permutation of the first triangles vertices have to
-                # be tested, since their order matters.
-
-                # add the triangles elements (vertices) to the current triangle
-                # strip and recursively find adjacent triangles
-                current_strip += [triangle[0], triangle[1], triangle[2]]
-                result = find_strip_internal(
-                    current_strip, used_triangles, max_triangle_usage)
-
-                # if the result of that search is not none, we found a solution
-                # hence return the solution
-                if result is not None:
-                    return result
-                # otherwise undo our changes to the current triangle strip
-                current_strip = current_strip[:-3]
-
-                # and repeat the same for all other permutations
-                current_strip += [triangle[0], triangle[2], triangle[1]]
-                result = find_strip_internal(
-                    current_strip, used_triangles, max_triangle_usage)
-                if result is not None:
-                    return result
-                current_strip = current_strip[:-3]
-
-                current_strip += [triangle[1], triangle[0], triangle[2]]
-                result = find_strip_internal(
-                    current_strip, used_triangles, max_triangle_usage)
-                if result is not None:
-                    return result
-                current_strip = current_strip[:-3]
-
-                current_strip += [triangle[1], triangle[2], triangle[0]]
-                result = find_strip_internal(
-                    current_strip, used_triangles, max_triangle_usage)
-                if result is not None:
-                    return result
-                current_strip = current_strip[:-3]
-
-                current_strip += [triangle[2], triangle[0], triangle[1]]
-                result = find_strip_internal(
-                    current_strip, used_triangles, max_triangle_usage)
-                if result is not None:
-                    return result
-                current_strip = current_strip[:-3]
-
-                current_strip += [triangle[2], triangle[1], triangle[0]]
-                result = find_strip_internal(
-                    current_strip, used_triangles, max_triangle_usage)
-                if result is not None:
-                    return result
-                current_strip = current_strip[:-3]
-
-                # if we checked all permutations of the current triangle and
-                # none was successfull, reset the usage of the triangle and
-                # try the next one
-                used_triangles[i] = 0
+        # conectar strips con degenerates
+        if not result:
+            result.extend(strip)
         else:
-            # non initial state
-            # checking each triangle if it can be used to extend the current
-            # triangle strip. Therefore the triangles strip last two vertices
-            # have to be part of the triangle
-            for i, triangle in enumerate(triangles):
+            # degenerates: repetir último y primero
+            result.append(result[-1])
+            result.append(strip[0])
+            result.extend(strip)
 
-                # check if the triangle is already covered the maximum allowed
-                # amount, if this is true, we cannot use it again for the
-                # solution
-                if used_triangles[i] >= max_triangle_usage:
-                    continue
-
-                # check if the last two vertices of the current strip are part
-                # of the current triangle
-                triangle_as_set = set(triangle)
-                part_of_triangle = {current_strip[-1], current_strip[-2]}
-                if not triangle_as_set.issuperset(part_of_triangle):
-                    # triangle does not share two of the same vertices, hence
-                    # we cannot use it
-                    continue
-
-                # get the vertex that was not part of the triangle strip
-                triangle_vertex = list(
-                    triangle_as_set.difference(part_of_triangle))[0]
-
-                # increase the usage of the current triangle and append its
-                # vertex to the current strip
-                used_triangles[i] += 1
-                current_strip.append(triangle_vertex)
-
-                # now check recursively for a solution
-                result = find_strip_internal(
-                    current_strip, used_triangles, max_triangle_usage)
-                # if a solution was found, we return it
-                if result is not None:
-                    return result
-
-                # otherwise remove the current triangle from the strip and
-                # reduce its usage counter and continue with the next one.
-                current_strip.pop()
-                used_triangles[i] -= 1
-
-        # if we reached here, we did not find a solution an thus return None
-        return None
-
-    # since it is possible that some triangles have to be covered twice by the
-    # triangle strip in order to allow for a solution to exist, we increase the
-    # allowed triangle usage / coverage until we find a solution
-    usage = 1
-    result = None
-
-    # we repeat the search until we found a solution
-    while result is None:
-        # initialize the used / covered triangle count and set it to zero for
-        # every triangle
-        tmp_used_triangles = dict()
-        for i in range(len(triangles)):
-            tmp_used_triangles[i] = 0
-
-        # we start out with an empty triangle strip
-        tmp_triangle_strip = []
-        # call our function to find a triangle strip for the given constraints
-        result = find_strip_internal(
-            tmp_triangle_strip, tmp_used_triangles, usage)
-
-        # increase the allowed usage for the next check
-        usage += 1
-
-    # return the found solution
     return result

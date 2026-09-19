@@ -5,9 +5,10 @@ from collections import defaultdict, deque
 from pathlib import Path
 from app.binary_builder.triangle_strip import find_strip
 from app.logic_sub_parts_pmdl.operations import align_16, replace_id_ff
-from app.logic_sub_parts_pmdl.quant16_converter import game16_to_float, float_to_game16, procesar_pesos, \
-    procesar_vertices, ESCALA
+from app.logic_sub_parts_pmdl.quant16_converter import procesar_pesos, \
+    procesar_vertices, ESCALA, UNK_VALUES
 from app.utils.part_header import exportar_parte_con_encabezado
+from app.utils.lang import t
 
 DEBUG=False
 
@@ -26,7 +27,11 @@ class MeshBinaryBuilder:
         with open(input_path, "r", encoding="utf-8") as f:
             data = json.load(f)
             if not data.get("type", "").strip().lower() == "part":
-                raise ValueError(f"El archivo {self.path.name} no es tipo part o no contiene un modelo 3D")
+                raise ValueError(t("port_ttt.erro_part", name=self.path.name))
+            elif not data.get("id_bones"):
+                raise ValueError(t("port_ttt.error_bones", name=self.path.name))
+            elif not data.get("faces"):
+                raise ValueError(t("port_ttt.error_faces", name=self.path.name))
 
         vertices = data["vertices"]
         faces = data["faces"]
@@ -175,16 +180,58 @@ class MeshBinaryBuilder:
             print("Parte dividida.")
 
     def build_subpartes(self, file_path: Path | str, max_tris: int):
+        def normalize_weights(data_v, max_weights=4):
+            counts = [0] * max_weights
+
+            # guardar tamaño original
+            original_sizes = []
+
+            for row in data_v:
+                w = row.get("weights", [])
+                original_sizes.append(len(w))
+                row["weights"] = (w + ["N/A"] * max_weights)[:max_weights]
+
+            # contar
+            for row in data_v:
+                for i, val in enumerate(row["weights"]):
+                    if val != "N/A":
+                        counts[i] += 1
+
+            # procesar duplicados
+            for row in data_v:
+                w = row["weights"]
+
+                seen = {}
+                for i, val in enumerate(w):
+                    if val == "N/A":
+                        continue
+                    seen.setdefault(val, []).append(i)
+
+                for val, indices in seen.items():
+                    if len(indices) > 1:
+                        best_idx = min(indices, key=lambda idx: counts[idx])
+
+                        for idx in indices:
+                            if idx != best_idx:
+                                w[idx] = "N/A"
+                                counts[idx] -= 1
+
+            # restaurar tamaño original
+            for row, size in zip(data_v, original_sizes):
+                row["weights"] = row["weights"][:size]
+
+            return data_v
+
         self.separar_modelo_json(
             input_path=file_path,
             max_tris=max_tris  # afecta la cantidad de subpartes
         )
 
         self.subpartes_v_ordenado = []
-        if DEBUG: print("buscando strip")
         # self.strips_dict = self.calcular_strips_paralelo()
 
         for i, subpart in enumerate(self.subparts_dict):
+            if DEBUG: print(f"buscando strip de subparte: {i + 1}")
             strip = find_strip(subpart["faces"])
             # strip = self.strips_dict[i]
 
@@ -194,13 +241,14 @@ class MeshBinaryBuilder:
                 "type": "subpart",
                 "grosor": [512.0, 512.0, 512.0],
                 "id_bones": copy.deepcopy(subpart["id_bones"]),
-                "unk": 302007041
+                "unk": UNK_VALUES[len(subpart["id_bones"])-1]
             }
 
             # ordena los vertices
             for st in strip:
                 pos_vertex.append(copy.deepcopy(subpart["vertices"][st]))
 
+            pos_vertex = normalize_weights(pos_vertex)
             data["vertices"] = pos_vertex
             procesar_vertices(self.grosor, self.escala, data["vertices"], False)
             procesar_pesos(data["vertices"], False)
@@ -242,21 +290,21 @@ class MeshBinaryBuilder:
                     try:
                         out += struct.pack(">H", w)
                     except Exception as e:
-                        raise ValueError(f"El peso {w} genero el error: {e}")
+                        raise ValueError(t("port_ttt.error_peso", w=w, er=e))
 
                 # ---- uv (<B)
                 for uv in v["uv"]:
                     try:
                         out += struct.pack("<B", uv)
                     except Exception as e:
-                        raise ValueError(f"La UV {uv} supera el rango permitido (0-255) o (0-1): {e}")
+                        raise ValueError(t("port_ttt.error_uv", uv=uv, er=e))
 
                 # ---- pos (<h)
                 for p in v["pos"]:
                     try:
                         out += struct.pack("<h", p)
                     except Exception as e:
-                        ValueError(f"La posicion {p} genero el error: {e}")
+                        ValueError(t("port_ttt.error_pos", p=p, er=e))
 
 
         data_part += bytearray(44)
@@ -278,8 +326,7 @@ class MeshBinaryBuilder:
         with open(self.path.with_suffix(".tttpart"), "wb") as f:
             # guardar con id ff y header con grosor max
             replace_id_ff(part=parte_ttt, reemp=False)
-            part_header = exportar_parte_con_encabezado(parte_ttt, self.grosor[0], self.grosor[1], self.grosor[2], 1,  65535, 0)
+            part_header = exportar_parte_con_encabezado(parte_ttt, self.grosor[0], self.grosor[1], self.grosor[2], 1,  0xFF, 0)
             f.write(part_header)
             if DEBUG:
                 print(f"parte ttt generada: {self.path.name}")
-

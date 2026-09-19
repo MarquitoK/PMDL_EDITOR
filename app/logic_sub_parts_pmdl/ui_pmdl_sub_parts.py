@@ -10,6 +10,7 @@ import customtkinter as ctk
 from app.core.operations import export_part, replace_part
 from app.logic_sub_parts_pmdl.header_subpart import SpartHeader, comprobar_header_spart
 from app.logic_sub_parts_pmdl.options_subparts import RemapBones
+from app.logic_sub_parts_pmdl.quant16_converter import UNK_VALUES
 from app.logic_sub_parts_pmdl.scrollable_option_menu import ScrollableOptionMenu
 from app.logic_sub_parts_pmdl.sub_parts_index import parse_subparts_index, SubPartIndexEntry
 from app.logic_sub_parts_pmdl.operations import calc_subpart_size, export_sub_part, import_sub_part, align_16, \
@@ -329,7 +330,7 @@ class MultiSelectTable(ctk.CTkFrame):
                 title=t("ui_subparts.ctx_export"),
                 defaultextension=".tttsubpart",
                 initialfile=filename,
-                filetypes=[("TTT SubPart", "*.tttsubpart"), ("Todos los archivos", "*.*")]
+                filetypes=[(t("ui_subparts.file_subpart"), "*.tttsubpart"), (t("port_ttt.all_files"), "*.*")]
             )
 
             if not out_path:
@@ -413,8 +414,8 @@ class MultiSelectTable(ctk.CTkFrame):
                 parent=self.master.master,
                 title=t("ui_subparts.ctx_import"),
                 initialdir=".",
-                filetypes=[("Archivos SubPart", "*.tttsubpart"),
-                           ("Todos los archivos", "*.*")]
+                filetypes=[(t("ui_subparts.file_subpart"), "*.tttsubpart"),
+                           (t("port_ttt.all_files"), "*.*")]
             )
 
             if not path_subpart:
@@ -432,7 +433,7 @@ class MultiSelectTable(ctk.CTkFrame):
         grosor_2, num_vertices, num_bones, id_bones, unk, chunk = comprobar_header_spart(chunk)
 
         if len(chunk) == 0:
-            raise ValueError("La subpart importada esta vacia")
+            raise ValueError(t("ui_subparts.subpart_vacia"))
 
         # blob de las partes en bytes
         blob = self._get_blob()
@@ -583,7 +584,7 @@ class MultiSelectTable(ctk.CTkFrame):
         if not row_idx:
             return
         if len(row_idx) > 1:
-            raise ValueError("No se puede insertar si tienes seleccionada mas de una subparte.")
+            raise ValueError(t("ui_subparts.insert_mas"))
 
         insert_at = row_idx[0]
 
@@ -596,8 +597,8 @@ class MultiSelectTable(ctk.CTkFrame):
                 parent=self.master.master,
                 title=t("ui_subparts.ctx_insert"),
                 filetypes=[
-                    ("Archivos SubPart", "*.tttsubpart"),
-                    ("Todos los archivos", "*.*")
+                    (t("ui_subparts.file_subpart"), "*.tttsubpart"),
+                    (t("port_ttt.all_files"), "*.*")
                 ]
             ),
             key=natural_sort_key
@@ -625,7 +626,7 @@ class MultiSelectTable(ctk.CTkFrame):
             with open(path_subpart, "rb") as f:
                 raw = f.read()
                 if not raw:
-                    raise ValueError(f"El archivo \"{path_subpart}\" esta vacio")
+                    raise ValueError(t("ui_subparts.archivo_vacio", path_name=path_subpart))
 
             raw = bytearray(raw)
             # chunk = raw[0x10:]  # ya es bytearray por el slice
@@ -732,7 +733,7 @@ class MultiSelectTable(ctk.CTkFrame):
             return
 
         if len(row_idx) > 1:
-            raise ValueError("No se puede agregar si tienes seleccionada mas de una subparte en pmdl 1.")
+            raise ValueError(t("ui_subparts.agregar_subpart"))
 
         insert_at = row_idx[0]
 
@@ -1294,12 +1295,16 @@ class UiSubparts(ctk.CTkToplevel):
         )
 
     def on_huesos_changed(self, value: str):
+        value = int(value)
         # activa los demas entry dependiendo de la cantidad de huesos
         for i in range(4):
-            if i < int(value):
+            if i < value:
                 self.entry_huesos[i].configure(state="normal")
             else:
                 self.entry_huesos[i].configure(state="disabled")
+
+        self.entry_unk.delete(0, "end")
+        self.entry_unk.insert(0, f"{UNK_VALUES[value - 1]:X}")
 
     @error_window_ui
     def on_save_part(self):

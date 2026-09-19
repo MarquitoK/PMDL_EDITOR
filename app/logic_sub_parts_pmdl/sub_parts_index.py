@@ -30,7 +30,7 @@ def parse_subparts_index(blob_subpart: bytes) -> List[SubPartIndexEntry]:
         offset += chunk_size
 
         sub_part = i
-        num_vertices, = struct.unpack_from("<B", chunk, 0)
+        num_vertices, = struct.unpack_from("<H", chunk, 0)
         num_bones, = struct.unpack_from("<B", chunk, 2)
         id_bones:list[int] = []
 

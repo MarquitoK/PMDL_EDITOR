@@ -14,6 +14,13 @@ TABLE = [
 
 ESCALA = 1/64
 
+UNK_VALUES = (
+    0x12004301,
+    0x1200C301,
+    0x12014301,
+    0x1201C301
+)
+
 def float_to_game16(value: float) -> int:
     value = max(0.0, min(1.0, value))
 
